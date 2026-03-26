@@ -13,7 +13,9 @@ export default async function handler(req, res) {
       if (blobs.blobs.length === 0) {
         return res.status(200).json(null);
       }
-      const response = await fetch(blobs.blobs[0].url);
+      const response = await fetch(blobs.blobs[0].url, {
+        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+      });
       const data = await response.json();
       return res.status(200).json(data);
     } catch (err) {
@@ -24,7 +26,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       await put(blobKey, JSON.stringify(req.body, null, 2), {
-        access: 'public',
+        access: 'private',
         addRandomSuffix: false,
         contentType: 'application/json',
       });
