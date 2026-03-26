@@ -1,3 +1,28 @@
+// Blank starting budget for new users — same structure, no personal data
+export const emptyBudget = {
+  income: { items: [] },
+  sections: [
+    { id: 'starling', name: '⭐ Starling Spaces', color: '#2E75B6', bgLight: '#DBEAFE', groups: [] },
+    { id: 'current',  name: '💳 Current Account', color: '#C55A11', bgLight: '#FEF3C7', groups: [] },
+    { id: 'monzo',    name: '💜 Monzo Spaces',    color: '#7030A0', bgLight: '#F3E8FF', groups: [] },
+  ],
+  holidays: { trips: [] },
+  settings: {
+    name: '',
+    currentAge: 30, retirementAge: 66, statePensionAge: 68, statePensionWeekly: 221.20,
+    isaBalance: 0, isaMonthlyContribution: 0,
+    pensionBalance: 0, pensionMonthlyContribution: 0,
+    propertyValue: 0, mortgageBalance: 0, mortgageRate: 0,
+    mortgageMonthlyPayment: 0, mortgageEndDate: '', mortgageRateAfterRemortgage: 0,
+    bufferBalance: 0,
+    vanCostsEndDate: '', vanCostMonthly: 0,
+    expectedPayRiseDate: '', expectedPayRiseMonthly: 0,
+    investmentGrowthRatePct: 5, propertyGrowthRatePct: 3, inflationPct: 2.5,
+    goals: []
+  },
+  netWorth: { snapshots: [] }
+}
+
 export const defaultBudget = {
   // ── Existing budget structure ─────────────────────────────────────
   income: {

@@ -5,15 +5,18 @@ export default async function handler(req, res) {
   const user = requireAuth(req, res);
   if (!user) return;
 
-  const blobKey = `budget-${user.userId}.json`;
+  // Scoped to this user only — no other user's data can match this key
+  const blobKey = `users/${user.userId}/budget.json`;
 
   if (req.method === 'GET') {
     try {
       const blobs = await list({ prefix: blobKey });
-      if (blobs.blobs.length === 0) {
+      // Exact match only — never return a blob for a different user
+      const blob = blobs.blobs.find(b => b.pathname === blobKey);
+      if (!blob) {
         return res.status(200).json(null);
       }
-      const response = await fetch(blobs.blobs[0].url, {
+      const response = await fetch(blob.url, {
         headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
       });
       const data = await response.json();
