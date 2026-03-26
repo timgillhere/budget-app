@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { defaultBudget } from '../data/defaultBudget'
+import { defaultBudget, emptyBudget } from '../data/defaultBudget'
 
 const BudgetContext = createContext(null)
 
@@ -13,12 +13,12 @@ export function BudgetProvider({ children, token, onLogout }) {
       .then(r => {
         if (r.status === 401) { onLogout(); return }
         return r.json().then(raw => {
-          const merged = raw ? mergeWithDefaults(raw) : defaultBudget
+          const merged = raw ? mergeWithDefaults(raw) : emptyBudget
           setData(merged)
           setLoading(false)
         })
       })
-      .catch(() => { setData(defaultBudget); setLoading(false) })
+      .catch(() => { setData(emptyBudget); setLoading(false) })
   }, [token])
 
   const save = useCallback(async (updated) => {
