@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const newUser = {
     id: randomUUID(),
     email,
-    passwordHash: await bcrypt.hash(password, 12),
+    passwordHash: await bcrypt.hash(password, 10),
   };
 
   users.push(newUser);
