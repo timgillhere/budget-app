@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export default function AdminPanel({ token }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState(null); // { type: 'success'|'error', message }
@@ -17,11 +18,12 @@ export default function AdminPanel({ token }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
       setStatus({ type: 'success', message: `User ${data.email} registered successfully.` });
+      setName('');
       setEmail('');
       setPassword('');
     } catch (err) {
@@ -37,6 +39,18 @@ export default function AdminPanel({ token }) {
       <p className="text-gray-400 text-sm mb-6">Create a new account. The user can log in immediately.</p>
 
       <form onSubmit={handleRegister} className="bg-gray-900 rounded-2xl p-6 space-y-4">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1.5">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="w-full bg-gray-800 text-white rounded-lg px-4 py-2.5 text-sm border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+            placeholder="Maria"
+          />
+        </div>
+
         <div>
           <label className="block text-sm text-gray-400 mb-1.5">Email</label>
           <input
