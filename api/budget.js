@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       await put(blobKey, JSON.stringify(req.body, null, 2), {
         access: 'private',
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: 'application/json',
       });
       return res.status(200).json({ ok: true });

@@ -47,6 +47,7 @@ export default async function handler(req, res) {
     await put('users.json', JSON.stringify(users, null, 2), {
       access: 'private',
       addRandomSuffix: false,
+      allowOverwrite: true,
       contentType: 'application/json',
     });
   } catch (err) {
