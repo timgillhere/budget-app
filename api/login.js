@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     (await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH))
   ) {
     const token = jwt.sign(
-      { userId: 'admin', email, isAdmin: true },
+      { userId: 'admin', name: process.env.ADMIN_NAME || 'Admin', email, isAdmin: true },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   }
 
   const token = jwt.sign(
-    { userId: user.id, email: user.email, isAdmin: false },
+    { userId: user.id, name: user.name, email: user.email, isAdmin: false },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );

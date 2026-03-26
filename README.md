@@ -15,6 +15,7 @@ In the Vercel dashboard, go to your project → **Settings** → **Environment V
 | Variable | Value |
 |----------|-------|
 | `ADMIN_EMAIL` | Your admin email address |
+| `ADMIN_NAME` | Your first name (shown in the app header) |
 | `ADMIN_PASSWORD_HASH` | bcrypt hash of your admin password (see below) |
 | `JWT_SECRET` | A random 32-character hex string (see below) |
 | `BLOB_READ_WRITE_TOKEN` | Copied from the Blob store you created above |

@@ -258,7 +258,7 @@ function BudgetTab() {
 }
 
 // ── Main app shell ───────────────────────────────────────────────────
-function AppShell({ token, isAdmin, logout }) {
+function AppShell({ token, isAdmin, logout, name }) {
   const { data, loading, saveStatus } = useBudget()
   const [tab, setTab] = useState('budget')
 
@@ -272,7 +272,7 @@ function AppShell({ token, isAdmin, logout }) {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-800">💰 Tim's Budget</h1>
+          <h1 className="text-lg font-bold text-gray-800">💰 {name ? `${name}'s Budget` : 'Budget'}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             saveStatus === 'saved'  ? 'bg-green-100 text-green-700' :
             saveStatus === 'saving' ? 'bg-yellow-100 text-yellow-700' :
@@ -305,13 +305,13 @@ function AppShell({ token, isAdmin, logout }) {
 }
 
 export default function App() {
-  const { token, isAdmin, login, logout } = useAuth()
+  const { token, user, isAdmin, login, logout } = useAuth()
 
   if (!token) return <LoginScreen onLogin={login} />
 
   return (
     <BudgetProvider token={token} onLogout={logout}>
-      <AppShell token={token} isAdmin={isAdmin} logout={logout} />
+      <AppShell token={token} isAdmin={isAdmin} logout={logout} name={user?.name} />
     </BudgetProvider>
   )
 }
