@@ -10,13 +10,13 @@ export function BudgetProvider({ children, token, onLogout }) {
 
   useEffect(() => {
     fetch('/api/budget', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => { if (r.status === 401) { onLogout(); return null } return r.json() })
-      .then(raw => {
-        if (raw === null) return
-        // Merge saved data with defaults to handle new keys
-        const merged = raw ? mergeWithDefaults(raw) : defaultBudget
-        setData(merged)
-        setLoading(false)
+      .then(r => {
+        if (r.status === 401) { onLogout(); return }
+        return r.json().then(raw => {
+          const merged = raw ? mergeWithDefaults(raw) : defaultBudget
+          setData(merged)
+          setLoading(false)
+        })
       })
       .catch(() => { setData(defaultBudget); setLoading(false) })
   }, [token])

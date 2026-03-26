@@ -9,6 +9,6 @@ if (!password) {
   process.exit(1);
 }
 
-const hash = await bcrypt.hash(password, 12);
+const hash = await bcrypt.hash(password, 10);
 console.log('\nAdd this to your Vercel environment variables:');
 console.log(`ADMIN_PASSWORD_HASH=${hash}\n`);
