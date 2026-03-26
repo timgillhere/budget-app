@@ -21,7 +21,9 @@ export default async function handler(req, res) {
   try {
     const blobs = await list({ prefix: 'users.json' });
     if (blobs.blobs.length > 0) {
-      const response = await fetch(blobs.blobs[0].url);
+      const response = await fetch(blobs.blobs[0].url, {
+        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+      });
       users = await response.json();
     }
   } catch {
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
   users.push(newUser);
 
   await put('users.json', JSON.stringify(users, null, 2), {
-    access: 'public',
+    access: 'private',
     addRandomSuffix: false,
     contentType: 'application/json',
   });
