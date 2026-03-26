@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Auth / user data (never commit these)
+users.json
+budget.json
+
+# Vite cache
+.vite/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
