@@ -28,8 +28,9 @@ export function useAuth() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    let data = {};
+    try { data = await res.json(); } catch { /* empty/non-JSON response */ }
+    if (!res.ok) throw new Error(data.error || 'Login failed — please try again');
     localStorage.setItem('auth_token', data.token);
     setToken(data.token);
   }, []);

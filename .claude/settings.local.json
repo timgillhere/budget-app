@@ -3,7 +3,17 @@
     "allow": [
       "mcp__Claude_Preview__preview_start",
       "Bash(npm install:*)",
-      "Bash(kill 24506)"
+      "Bash(kill 24506)",
+      "Bash(ls -la /Users/timgill/Documents/tim-budget/.env*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel link:*)",
+      "Bash(node scripts/update-user-password.js timgillviola@gmail.com Jersey355)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel project:*)",
+      "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/reset-password -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"timgillviola@gmail.com\"\",\"\"newPassword\"\":\"\"Jersey355\"\"}')",
+      "Bash(vercel deploy:*)",
+      "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"timgillviola@gmail.com\"\",\"\"password\"\":\"\"Jersey355\"\"}')",
+      "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"timgillviola@gmail.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Jersey355\"\"\"\"}')"
     ]
   }
 }

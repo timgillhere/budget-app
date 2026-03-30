@@ -22,3 +22,5 @@ budget.json
 # Editor
 .vscode/
 .idea/
+.vercel
+.env*.local
