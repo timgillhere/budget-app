@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { list, head } from '@vercel/blob';
+import { list } from '@vercel/blob';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,21 +12,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
-  // Check admin credentials first
-  if (
-    email === process.env.ADMIN_EMAIL &&
-    process.env.ADMIN_PASSWORD_HASH &&
-    (await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH))
-  ) {
-    const token = jwt.sign(
-      { userId: 'admin', name: process.env.ADMIN_NAME || 'Admin', email, isAdmin: true },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    return res.status(200).json({ token });
-  }
-
-  // Check registered users in Vercel Blob
+  // Load registered users from Vercel Blob
   let users = [];
   try {
     const blobs = await list({ prefix: 'users.json' });
@@ -40,15 +26,31 @@ export default async function handler(req, res) {
     // No users stored yet
   }
 
+  // Check users.json first (covers regular users and admin who has reset their password)
   const user = users.find((u) => u.email === email);
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+  if (user && (await bcrypt.compare(password, user.passwordHash))) {
+    const isAdmin = email === process.env.ADMIN_EMAIL;
+    const token = jwt.sign(
+      { userId: user.id, name: user.name, email: user.email, isAdmin },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    return res.status(200).json({ token });
   }
 
-  const token = jwt.sign(
-    { userId: user.id, name: user.name, email: user.email, isAdmin: false },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-  return res.status(200).json({ token });
+  // Fallback: admin via env vars (before any password reset has been done)
+  if (
+    email === process.env.ADMIN_EMAIL &&
+    process.env.ADMIN_PASSWORD_HASH &&
+    (await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH))
+  ) {
+    const token = jwt.sign(
+      { userId: 'admin', name: process.env.ADMIN_NAME || 'Admin', email, isAdmin: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    return res.status(200).json({ token });
+  }
+
+  return res.status(401).json({ error: 'Invalid email or password' });
 }

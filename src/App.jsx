@@ -264,7 +264,7 @@ function AppShell({ token, isAdmin, logout, name }) {
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-gray-500">
-      <div className="text-center"><div className="text-4xl mb-3">💰</div><div className="text-sm">Loading...</div></div>
+      <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3" /><div className="text-sm">Loading...</div></div>
     </div>
   )
 
@@ -272,7 +272,7 @@ function AppShell({ token, isAdmin, logout, name }) {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-800">💰 {name ? `${name}'s Budget` : 'Budget'}</h1>
+          <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{name ? `${name}'s Budget` : 'Budget'}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             saveStatus === 'saved'  ? 'bg-green-100 text-green-700' :
             saveStatus === 'saving' ? 'bg-yellow-100 text-yellow-700' :
