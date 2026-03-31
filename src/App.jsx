@@ -13,6 +13,7 @@ import Insights from './components/Insights'
 import NetWorthDashboard from './components/NetWorthDashboard'
 import SettingsPanel from './components/SettingsPanel'
 import AdminPanel from './components/AdminPanel'
+import OnboardingModal from './components/OnboardingModal'
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)) }
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -306,6 +307,10 @@ function AppShell({ token, isAdmin, logout, name }) {
       {tab === 'networth' && <NetWorthDashboard />}
       {tab === 'settings' && <SettingsPanel />}
       {tab === 'users'    && isAdmin && <AdminPanel token={token} />}
+
+      {!data?.settings?.onboardingComplete && (
+        <OnboardingModal jwtName={name} />
+      )}
     </div>
   )
 }
