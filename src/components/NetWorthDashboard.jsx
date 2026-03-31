@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts'
 
@@ -6,6 +7,7 @@ const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : fmt(n)
 
 export default function NetWorthDashboard() {
   const { data, save } = useBudget()
+  const [snapFlash, setSnapFlash] = useState(false)
   if (!data) return null
 
   const s = data.settings || {}
@@ -45,6 +47,8 @@ export default function NetWorthDashboard() {
     const newSnap = { date: today, isa, pension, propertyEquity: equity, buffer, other: 0, total }
     const existing = snapshots.filter(s => s.date.slice(0, 7) !== today.slice(0, 7))
     save({ ...data, netWorth: { snapshots: [...existing, newSnap].sort((a, b) => a.date.localeCompare(b.date)) } })
+    setSnapFlash(true)
+    setTimeout(() => setSnapFlash(false), 3000)
   }
 
   const tiles = [
@@ -63,9 +67,10 @@ export default function NetWorthDashboard() {
         <p className="text-5xl font-bold text-ash-grey-800">{fmt(total)}</p>
         <p className="text-sm text-ash-grey-400 mt-2">Age {s.currentAge || 38} · Target retirement at {s.retirementAge || 66}</p>
         <button onClick={addSnapshot}
-          className="mt-3 text-xs text-tropical-teal-600 hover:text-tropical-teal-700 border border-tropical-teal-200 px-3 py-1.5 rounded-lg hover:bg-tropical-teal-50">
-          📸 Snapshot today's values
+          className={`mt-3 text-xs border px-3 py-1.5 rounded-lg transition-all ${snapFlash ? 'bg-soft-linen-100 border-soft-linen-300 text-soft-linen-700' : 'text-tropical-teal-600 hover:text-tropical-teal-700 border-tropical-teal-200 hover:bg-tropical-teal-50'}`}>
+          {snapFlash ? '✓ Snapshot saved!' : '📸 Snapshot today\'s values'}
         </button>
+        <p className="text-xs text-ash-grey-400 mt-1.5">Saves ISA, pension, property equity & buffer from Settings — do this monthly to build the chart below</p>
       </div>
 
       {/* Tiles */}
@@ -96,10 +101,15 @@ export default function NetWorthDashboard() {
         </div>
 
         <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-ash-grey-600 mb-3">
-            Net worth over time
-            {snapshots.length < 2 && <span className="ml-2 text-xs text-ash-grey-400">(snapshot monthly to build this chart)</span>}
-          </h3>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-ash-grey-600">Net worth over time</h3>
+            <p className="text-xs text-ash-grey-400 mt-0.5">
+              Total = ISA + Pension + (Property value − Mortgage) + Buffer · Balances are manually updated in ⚙️ Settings
+            </p>
+            {snapshots.length < 2 && (
+              <p className="text-xs text-amber-600 mt-0.5">Take a snapshot monthly — the chart needs at least 2 data points to draw a line.</p>
+            )}
+          </div>
           {snapshotChartData.length >= 2 ? (
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={snapshotChartData}>

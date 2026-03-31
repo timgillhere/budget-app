@@ -21,13 +21,12 @@ function findGroup(budget, sectionId, groupId) {
   return budget.sections.find(s => s.id === sectionId)?.groups.find(g => g.id === groupId)
 }
 
+import { calcBudgetSummary } from './utils/budgetCalcs'
+
 function generateSnapshot(data) {
   const budget = data
-  const totalIncome = budget.income.items.reduce((s, i) => s + i.monthly, 0)
-  const totalExpenses = budget.sections.reduce((s, sec) =>
-    s + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-  const surplus = totalIncome - totalExpenses
-  const savingsRate = totalIncome > 0 ? ((surplus / totalIncome) * 100).toFixed(1) : '0.0'
+  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, budgetedSavings } = calcBudgetSummary(budget)
+  const savingsRateFmt = savingsRate.toFixed(1)
 
   const lines = [
     `=== BUDGET SNAPSHOT ===`,
@@ -51,7 +50,8 @@ function generateSnapshot(data) {
   })
 
   lines.push(`── SUMMARY ──`)
-  lines.push(`  Income: ${fmt(totalIncome)}/month | Expenses: ${fmt(totalExpenses)}/month | Surplus: ${fmt(surplus)}/month | Savings rate: ${savingsRate}%`)
+  lines.push(`  Take-home income: ${fmt(totalIncome)}/month | Total outgoings: ${fmt(totalExpenses)}/month | Surplus: ${fmt(surplus)}/month`)
+  lines.push(`  Savings: Pension ${fmt(pensionContribution)} (pre-tax) + ISA ${fmt(isaContribution)} + Savings groups ${fmt(budgetedSavings)} + Surplus ${fmt(surplus)} | True savings rate: ${savingsRateFmt}% of gross income`)
   lines.push(``)
   lines.push(`════════════════════════════════════`)
   lines.push(`INSTRUCTIONS FOR CLAUDE`)
@@ -98,11 +98,17 @@ function BudgetTab() {
     const u = deepClone(data); const g = findGroup(u, sectionId, groupId)
     g.items = g.items.filter(i => i.id !== itemId); save(u)
   }
-  const addGroup = (sectionId, name) => {
-    const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups.push({ id: `grp-${Date.now()}`, name, items: [] }); save(u)
+  const addGroup = (sectionId, { name, isSavings }) => {
+    const u = deepClone(data)
+    u.sections.find(s => s.id === sectionId).groups.push({ id: `grp-${Date.now()}`, name, isSavings: !!isSavings, items: [] })
+    save(u)
   }
-  const editGroup = (sectionId, groupId, name) => {
-    const u = deepClone(data); findGroup(u, sectionId, groupId).name = name; save(u)
+  const editGroup = (sectionId, groupId, { name, isSavings }) => {
+    const u = deepClone(data)
+    const g = findGroup(u, sectionId, groupId)
+    g.name = name
+    g.isSavings = !!isSavings
+    save(u)
   }
   const deleteGroup = (sectionId, groupId) => {
     const u = deepClone(data); const sec = u.sections.find(s => s.id === sectionId)
@@ -272,7 +278,7 @@ function AppShell({ token, isAdmin, logout, name }) {
     <div className="min-h-screen bg-tropical-teal-50">
       <header className="bg-ash-grey-800 border-b border-ash-grey-700 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{name ? `${name}'s Budget` : 'Budget'}</h1>
+          <h1 className="text-lg font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{(() => { const n = data?.settings?.name || name; return n ? `${n.split(' ')[0]}'s Budget` : 'Budget' })()}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             saveStatus === 'saved'  ? 'bg-soft-linen-700 text-soft-linen-100' :
             saveStatus === 'saving' ? 'bg-lemon-chiffon-700 text-lemon-chiffon-100' :

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ItemRow from './ItemRow'
 import EditModal from './EditModal'
+import { isSavingsGroup } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -27,8 +28,8 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
     const { mode, groupId, item } = modal
     if (mode === 'add-item')   onAddItem(groupId, data)
     else if (mode === 'edit-item')  onEditItem(groupId, item.id, data)
-    else if (mode === 'add-group')  onAddGroup(data.name)
-    else if (mode === 'edit-group') onEditGroup(groupId, data.name)
+    else if (mode === 'add-group')  onAddGroup({ name: data.name, isSavings: data.isSavings })
+    else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, isSavings: data.isSavings })
     setModal(null)
   }
 
@@ -70,7 +71,12 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                   className="flex items-center justify-between px-5 py-2"
                   style={{ backgroundColor: section.bgLight }}
                 >
-                  <span className="text-sm font-semibold text-ash-grey-700">{group.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-ash-grey-700">{group.name}</span>
+                    {isSavingsGroup(group) && (
+                      <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1.5 py-0.5 rounded-full leading-none">🏦 saving</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-ash-grey-600 tabular-nums">{fmt(groupTotal)}/mo</span>
                     <button
@@ -80,7 +86,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                       + Item
                     </button>
                     <button
-                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name } })}
+                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group) } })}
                       className="text-xs text-ash-grey-400 hover:text-tropical-teal-600"
                     >
                       ✏️
@@ -114,6 +120,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                         <ItemRow
                           key={item.id}
                           item={item}
+                          groupIsSavings={isSavingsGroup(group)}
                           onEdit={(item) => setModal({ mode: 'edit-item', groupId: group.id, item })}
                           onDelete={(id) => onDeleteItem(group.id, id)}
                         />

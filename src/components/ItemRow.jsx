@@ -1,12 +1,15 @@
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function ItemRow({ item, onEdit, onDelete }) {
+export default function ItemRow({ item, groupIsSavings, onEdit, onDelete }) {
   return (
     <tr className="group hover:bg-ash-grey-50 transition-colors">
       {/* Name cell — tooltip on hover, never changes column width */}
       <td className="px-4 py-2 text-sm text-ash-grey-800" style={{ width: '55%' }}>
         <div className="relative inline-flex items-center gap-1.5 max-w-full">
           <span className="truncate">{item.name}</span>
+          {item.isSavings && !groupIsSavings && (
+            <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1 py-0.5 rounded-full leading-none flex-shrink-0">🏦</span>
+          )}
           {item.notes && (
             <span className="relative flex-shrink-0 group/tip">
               <span className="text-ash-grey-300 hover:text-ash-grey-500 cursor-default text-xs select-none">ℹ</span>

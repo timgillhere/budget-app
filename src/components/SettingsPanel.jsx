@@ -1,7 +1,109 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useBudget } from '../context/BudgetContext'
 
-function Field({ label, value, onChange, type = 'number', prefix, suffix, note }) {
+// Derive age from ISO date string (YYYY-MM-DD)
+function ageFromDob(dob) {
+  if (!dob) return null
+  const birth = new Date(dob)
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const m = now.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+  return age
+}
+
+// Numeric field — allows clearing, stores as number in parent, uses text display
+function NumField({ label, value, onChange, prefix, suffix, note, pct }) {
+  const [raw, setRaw] = useState(value == null || value === 0 ? '' : String(value))
+
+  useEffect(() => {
+    // Sync external value change only if not actively editing (raw is non-empty number)
+    const parsed = parseFloat(raw)
+    if (!isNaN(parsed) && parsed !== value) {
+      setRaw(value == null ? '' : String(value))
+    }
+    if (raw === '' && value != null && value !== 0) {
+      setRaw(String(value))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    // Allow: empty, digits, single decimal point, minus at start
+    if (v === '' || /^-?\d*\.?\d*$/.test(v)) {
+      setRaw(v)
+      const parsed = parseFloat(v)
+      onChange(isNaN(parsed) ? 0 : parsed)
+    }
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-ash-grey-600 mb-1">{label}</label>
+      <div className="relative">
+        {prefix && <span className="absolute left-3 top-2 text-ash-grey-400 text-sm">{prefix}</span>}
+        <input
+          type="text"
+          inputMode={pct ? 'decimal' : 'decimal'}
+          value={raw}
+          onChange={handleChange}
+          className={`w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
+        />
+        {suffix && <span className="absolute right-3 top-2 text-ash-grey-400 text-sm">{suffix}</span>}
+      </div>
+      {note && <p className="text-xs text-ash-grey-400 mt-0.5">{note}</p>}
+    </div>
+  )
+}
+
+// Currency field — formats with commas on blur, shows raw on focus
+function CurrencyField({ label, value, onChange, note }) {
+  const [focused, setFocused] = useState(false)
+  const [raw, setRaw] = useState(value == null ? '' : String(value))
+
+  useEffect(() => {
+    if (!focused) {
+      setRaw(value == null ? '' : String(value))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  const handleChange = (e) => {
+    const v = e.target.value.replace(/,/g, '')
+    if (v === '' || /^\d*\.?\d*$/.test(v)) {
+      setRaw(v)
+      const parsed = parseFloat(v)
+      onChange(isNaN(parsed) ? 0 : parsed)
+    }
+  }
+
+  const displayValue = focused
+    ? raw
+    : (value ? Number(value).toLocaleString('en-GB') : '')
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-ash-grey-600 mb-1">{label}</label>
+      <div className="relative">
+        <span className="absolute left-3 top-2 text-ash-grey-400 text-sm">£</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { setFocused(true); setRaw(value == null ? '' : String(value)) }}
+          onBlur={() => setFocused(false)}
+          className="w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 pl-7 pr-3"
+        />
+      </div>
+      {note && <p className="text-xs text-ash-grey-400 mt-0.5">{note}</p>}
+    </div>
+  )
+}
+
+// Plain text / date field (no numeric handling needed)
+function Field({ label, value, onChange, type = 'text', prefix, suffix, note }) {
   return (
     <div>
       <label className="block text-xs font-medium text-ash-grey-600 mb-1">{label}</label>
@@ -10,7 +112,7 @@ function Field({ label, value, onChange, type = 'number', prefix, suffix, note }
         <input
           type={type}
           value={value ?? ''}
-          onChange={e => onChange(type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value)}
+          onChange={e => onChange(e.target.value)}
           className={`w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
         />
         {suffix && <span className="absolute right-3 top-2 text-ash-grey-400 text-sm">{suffix}</span>}
@@ -36,6 +138,14 @@ export default function SettingsPanel() {
   const [dirty, setDirty] = useState(false)
 
   const set = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
+  const setN = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
+
+  const handleDobChange = (dob) => {
+    const age = ageFromDob(dob)
+    setLocal(s => ({ ...s, dob, currentAge: age ?? s.currentAge }))
+    setDirty(true)
+  }
+
   const setGoal = (id, field, val) => {
     setGoals(gs => gs.map(g => g.id === id ? { ...g, [field]: field === 'target' || field === 'current' || field === 'monthly' ? parseFloat(val) || 0 : val } : g))
     setDirty(true)
@@ -51,6 +161,8 @@ export default function SettingsPanel() {
     setDirty(false)
   }
 
+  const computedAge = ageFromDob(local.dob)
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -62,41 +174,47 @@ export default function SettingsPanel() {
       </div>
 
       <Section title="👤 Personal">
-        <Field label="Your name" value={local.name} onChange={v => set('name', v)} type="text" />
-        <Field label="Current age" value={local.currentAge} onChange={v => set('currentAge', v)} />
-        <Field label="Target retirement age" value={local.retirementAge} onChange={v => set('retirementAge', v)} />
-        <Field label="State pension age" value={local.statePensionAge} onChange={v => set('statePensionAge', v)} />
-        <Field label="State pension (weekly)" value={local.statePensionWeekly} onChange={v => set('statePensionWeekly', v)} prefix="£" />
+        <Field label="Your name" value={local.name} onChange={v => set('name', v)} />
+        <div>
+          <Field label="Date of birth" value={local.dob} onChange={handleDobChange} type="date" />
+          {computedAge != null && (
+            <p className="text-xs text-ash-grey-400 mt-0.5">Age: {computedAge}</p>
+          )}
+        </div>
+        <NumField label="Target retirement age" value={local.retirementAge} onChange={v => setN('retirementAge', v)} />
+        <NumField label="State pension age" value={local.statePensionAge} onChange={v => setN('statePensionAge', v)} />
+        <CurrencyField label="State pension (weekly)" value={local.statePensionWeekly} onChange={v => setN('statePensionWeekly', v)} />
       </Section>
 
       <Section title="💰 Account Balances (update monthly)">
-        <Field label="ISA balance" value={local.isaBalance} onChange={v => set('isaBalance', v)} prefix="£" note="Update each month after login" />
-        <Field label="ISA monthly contribution" value={local.isaMonthlyContribution} onChange={v => set('isaMonthlyContribution', v)} prefix="£" />
-        <Field label="Pension balance" value={local.pensionBalance} onChange={v => set('pensionBalance', v)} prefix="£" />
-        <Field label="Pension monthly contribution" value={local.pensionMonthlyContribution} onChange={v => set('pensionMonthlyContribution', v)} prefix="£" note="Total incl. employer" />
-        <Field label="Buffer / emergency fund" value={local.bufferBalance} onChange={v => set('bufferBalance', v)} prefix="£" />
+        <CurrencyField label="ISA balance" value={local.isaBalance} onChange={v => setN('isaBalance', v)} note="Update each month after login" />
+        <CurrencyField label="ISA monthly contribution" value={local.isaMonthlyContribution} onChange={v => setN('isaMonthlyContribution', v)} />
+        <CurrencyField label="Pension balance" value={local.pensionBalance} onChange={v => setN('pensionBalance', v)} />
+        <CurrencyField label="Pension monthly contribution" value={local.pensionMonthlyContribution} onChange={v => setN('pensionMonthlyContribution', v)} note="Total incl. employer" />
+        <CurrencyField label="Buffer / emergency fund" value={local.bufferBalance} onChange={v => setN('bufferBalance', v)} />
       </Section>
 
       <Section title="🏠 Property & Mortgage">
-        <Field label="Property value" value={local.propertyValue} onChange={v => set('propertyValue', v)} prefix="£" />
-        <Field label="Mortgage balance" value={local.mortgageBalance} onChange={v => set('mortgageBalance', v)} prefix="£" />
-        <Field label="Mortgage rate" value={local.mortgageRate} onChange={v => set('mortgageRate', v)} suffix="%" />
-        <Field label="Monthly payment" value={local.mortgageMonthlyPayment} onChange={v => set('mortgageMonthlyPayment', v)} prefix="£" />
+        <CurrencyField label="Property value" value={local.propertyValue} onChange={v => setN('propertyValue', v)} />
+        <CurrencyField label="Mortgage balance" value={local.mortgageBalance} onChange={v => setN('mortgageBalance', v)} />
+        <NumField label="Mortgage rate" value={local.mortgageRate} onChange={v => setN('mortgageRate', v)} suffix="%" />
+        <CurrencyField label="Monthly payment" value={local.mortgageMonthlyPayment} onChange={v => setN('mortgageMonthlyPayment', v)} />
         <Field label="Fixed rate end date" value={local.mortgageEndDate} onChange={v => set('mortgageEndDate', v)} type="date" />
-        <Field label="Rate after remortgage (estimate)" value={local.mortgageRateAfterRemortgage} onChange={v => set('mortgageRateAfterRemortgage', v)} suffix="%" />
+        <NumField label="Rate after remortgage (estimate)" value={local.mortgageRateAfterRemortgage} onChange={v => setN('mortgageRateAfterRemortgage', v)} suffix="%" />
       </Section>
 
       <Section title="📅 Known Future Events">
         <Field label="Van costs end date" value={local.vanCostsEndDate} onChange={v => set('vanCostsEndDate', v)} type="date" />
-        <Field label="Van monthly cost (to free up)" value={local.vanCostMonthly} onChange={v => set('vanCostMonthly', v)} prefix="£" />
+        <CurrencyField label="Van monthly cost (to free up)" value={local.vanCostMonthly} onChange={v => setN('vanCostMonthly', v)} />
         <Field label="Pay rise date" value={local.expectedPayRiseDate} onChange={v => set('expectedPayRiseDate', v)} type="date" />
-        <Field label="Pay rise amount (monthly)" value={local.expectedPayRiseMonthly} onChange={v => set('expectedPayRiseMonthly', v)} prefix="£" note="Net monthly take-home increase" />
+        <CurrencyField label="Pay rise amount (monthly)" value={local.expectedPayRiseMonthly} onChange={v => setN('expectedPayRiseMonthly', v)} note="Net monthly take-home increase" />
       </Section>
 
       <Section title="📊 Forecast Assumptions">
-        <Field label="Investment growth rate (real)" value={local.investmentGrowthRatePct} onChange={v => set('investmentGrowthRatePct', v)} suffix="%" note="After inflation. Default 5% is standard." />
-        <Field label="Property growth rate (annual)" value={local.propertyGrowthRatePct} onChange={v => set('propertyGrowthRatePct', v)} suffix="%" />
-        <Field label="Inflation assumption" value={local.inflationPct} onChange={v => set('inflationPct', v)} suffix="%" />
+        <NumField label="Savings rate target" value={local.savingsRateTarget ?? 10} onChange={v => setN('savingsRateTarget', v)} suffix="%" note="Used for gauge colour thresholds" />
+        <NumField label="Investment growth rate (real)" value={local.investmentGrowthRatePct} onChange={v => setN('investmentGrowthRatePct', v)} suffix="%" note="After inflation. Default 5% is standard." />
+        <NumField label="Property growth rate (annual)" value={local.propertyGrowthRatePct} onChange={v => setN('propertyGrowthRatePct', v)} suffix="%" />
+        <NumField label="Inflation assumption" value={local.inflationPct} onChange={v => setN('inflationPct', v)} suffix="%" />
       </Section>
 
       {/* Goals */}

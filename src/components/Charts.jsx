@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   RadialBarChart, RadialBar
 } from 'recharts'
+import { calcBudgetSummary, isSavingsGroup } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 const fmtFull = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -19,11 +21,86 @@ const GROUP_COLOURS = [
   '#3b5e59','#356164','#4e5d3c','#847e15','#82b0aa',
 ]
 
+// ── Chart data sources for custom chart builder ──────────────────────
+const CHART_DATA_SOURCES = [
+  {
+    id: 'spending-groups',
+    label: '💸 Spending by Group',
+    getChartData: (budget) => {
+      const groups = []
+      budget.sections.forEach(sec => {
+        sec.groups.forEach(g => {
+          if (!isSavingsGroup(g)) {
+            const val = g.items.reduce((s, i) => s + i.monthly, 0)
+            if (val > 0) groups.push({ name: g.name.replace(/[^\w\s:]/gu, '').trim(), value: val })
+          }
+        })
+      })
+      return groups.sort((a, b) => b.value - a.value).slice(0, 10)
+    },
+  },
+  {
+    id: 'savings-breakdown',
+    label: '🏦 Savings Breakdown',
+    getChartData: (budget) => {
+      const { pensionContribution, isaContribution, budgetedSavings, surplus } = calcBudgetSummary(budget)
+      return [
+        { name: 'Pension', value: pensionContribution },
+        { name: 'ISA', value: isaContribution },
+        { name: 'Savings Groups', value: budgetedSavings },
+        surplus > 0 ? { name: 'Surplus', value: surplus } : null,
+      ].filter(Boolean).filter(d => d.value > 0)
+    },
+  },
+  {
+    id: 'holiday-progress',
+    label: '✈️ Holiday Budgets',
+    getChartData: (budget) => {
+      return (budget?.holidays?.trips || [])
+        .map(t => ({ name: t.destination.replace(/\p{Emoji}/gu, '').trim().slice(0, 22), value: t.totalBudget }))
+        .filter(d => d.value > 0)
+    },
+  },
+  {
+    id: 'goal-progress',
+    label: '🎯 Goal Progress',
+    getChartData: (budget) => {
+      return (budget?.settings?.goals || [])
+        .map(g => ({ name: g.name, value: g.current, target: g.target }))
+        .filter(d => d.value >= 0)
+    },
+  },
+  {
+    id: 'income-expenses',
+    label: '📊 Income vs Spending',
+    getChartData: (budget) => {
+      const { totalIncome, budgetedSpending, budgetedSavings } = calcBudgetSummary(budget)
+      return [
+        { name: 'Income', value: totalIncome },
+        { name: 'Spending', value: budgetedSpending },
+        { name: 'Savings', value: budgetedSavings },
+      ]
+    },
+  },
+]
+
+const CHART_TYPES = [
+  { id: 'bar-h', label: 'Horizontal Bar', compatibleSources: ['spending-groups', 'holiday-progress', 'goal-progress'] },
+  { id: 'bar-v', label: 'Vertical Bar',   compatibleSources: ['spending-groups', 'savings-breakdown', 'holiday-progress', 'goal-progress', 'income-expenses'] },
+  { id: 'donut', label: 'Donut / Pie',    compatibleSources: ['spending-groups', 'savings-breakdown', 'goal-progress'] },
+]
+
 // ── Savings rate gauge ───────────────────────────────────────────────
-function SavingsGauge({ rate }) {
-  const clamped = Math.min(Math.max(parseFloat(rate), 0), 30)
-  const fill = clamped < 5 ? '#e63119' : clamped < 10 ? '#dbd224' : '#829c63'
-  const data = [{ value: clamped, fill }, { value: 30 - clamped, fill: '#e0ebea' }]
+function SavingsGauge({ rate, target }) {
+  const t = target || 10
+  const maxScale = Math.max(40, t * 2)
+  const clamped = Math.min(Math.max(parseFloat(rate), 0), maxScale)
+  const fill = clamped < t * 0.5 ? '#e63119' : clamped < t ? '#dbd224' : clamped < t * 1.5 ? '#829c63' : '#4f7d77'
+  const data = [{ value: clamped, fill }, { value: maxScale - clamped, fill: '#e0ebea' }]
+
+  const label = clamped < t * 0.5 ? `⚠️ Below ${Math.round(t * 0.5)}%` :
+    clamped < t ? `🟡 Getting there (target ${t}%)` :
+    clamped < t * 1.5 ? `✅ Healthy` : '🌟 Excellent'
 
   return (
     <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 flex flex-col items-center">
@@ -44,12 +121,10 @@ function SavingsGauge({ rate }) {
       </ResponsiveContainer>
       <div className="text-center -mt-10">
         <div className="text-3xl font-bold" style={{ color: fill }}>{rate}%</div>
-        <div className="text-xs text-ash-grey-400 mt-1">
-          {clamped < 5 ? '⚠️ Below 5%' : clamped < 10 ? '🟡 Getting there' : clamped < 15 ? '✅ Healthy' : '🌟 Excellent'}
-        </div>
+        <div className="text-xs text-ash-grey-400 mt-1">{label}</div>
       </div>
       <div className="flex justify-between w-full text-xs text-ash-grey-400 mt-3 px-2">
-        <span>0%</span><span>Target: 10%+</span><span>30%</span>
+        <span>0%</span><span>Target: {t}%+</span><span>{maxScale}%</span>
       </div>
     </div>
   )
@@ -211,14 +286,254 @@ function GroupBreakdown({ sections }) {
   )
 }
 
+// ── Holiday budget progress ──────────────────────────────────────────
+function HolidayProgress({ budget }) {
+  const trips = budget?.holidays?.trips || []
+  if (trips.length === 0) return null
+
+  const data = trips.map(trip => {
+    const b = trip.budget || {}
+    const committed = ['flights', 'accommodation', 'onGround']
+      .reduce((s, k) => s + (b[k]?.budgeted ?? 0), 0)
+    return {
+      name: trip.destination,
+      totalBudget: trip.totalBudget,
+      committed: Math.min(committed, trip.totalBudget),
+      status: trip.status,
+    }
+  })
+
+  return (
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-4">✈️ Holiday Budget Progress</h3>
+      <div className="space-y-5">
+        {data.map((trip, i) => {
+          const pct = trip.totalBudget > 0 ? (trip.committed / trip.totalBudget) * 100 : 0
+          const color = trip.status === 'booked' ? '#58a2a7' : '#dbd224'
+          const remaining = Math.max(trip.totalBudget - trip.committed, 0)
+          return (
+            <div key={i}>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="font-medium text-ash-grey-700 truncate max-w-[60%]">{trip.name}</span>
+                <span className="text-ash-grey-500 tabular-nums">{fmt(trip.committed)} / {fmt(trip.totalBudget)}</span>
+              </div>
+              <div className="w-full bg-ash-grey-100 rounded-full h-2.5">
+                <div
+                  className="h-2.5 rounded-full"
+                  style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-ash-grey-400 mt-1">
+                <span>{trip.status === 'booked' ? '✓ Booked' : '📅 Planned'}</span>
+                <span>{fmt(remaining)} unallocated</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Savings breakdown donut ──────────────────────────────────────────
+function SavingsBreakdown({ budget }) {
+  const { pensionContribution, isaContribution, budgetedSavings, surplus } = calcBudgetSummary(budget)
+  const data = [
+    { name: 'Pension',        value: pensionContribution, fill: '#58a2a7' },
+    { name: 'ISA',            value: isaContribution,     fill: '#829c63' },
+    { name: 'Savings Groups', value: budgetedSavings,     fill: '#629d95' },
+    surplus > 0 ? { name: 'Surplus', value: surplus, fill: '#dbd224' } : null,
+  ].filter(Boolean).filter(d => d.value > 0)
+
+  const total = data.reduce((s, d) => s + d.value, 0)
+
+  if (data.length === 0) return null
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{payload[0].name}</p>
+        <p style={{ color: payload[0].payload.fill }}>{fmtFull(payload[0].value)}/month</p>
+        <p className="text-ash-grey-400">{((payload[0].value / total) * 100).toFixed(1)}%</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-2">💰 Savings Breakdown</h3>
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" strokeWidth={0}>
+            {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend formatter={(v) => <span style={{ fontSize: 12, color: '#4f7d77' }}>{v}</span>} />
+        </PieChart>
+      </ResponsiveContainer>
+      <p className="text-center text-sm font-semibold text-ash-grey-700 mt-1">{fmtFull(total)}/month total</p>
+    </div>
+  )
+}
+
+// ── Custom chart renderer ────────────────────────────────────────────
+function CustomChart({ dataSourceId, chartTypeId, budget }) {
+  const source = CHART_DATA_SOURCES.find(s => s.id === dataSourceId)
+  const chartType = CHART_TYPES.find(t => t.id === chartTypeId)
+  if (!source || !chartType) return null
+
+  const data = source.getChartData(budget)
+  if (!data || data.length === 0) {
+    return <div className="flex items-center justify-center h-40 text-ash-grey-400 text-sm">No data available</div>
+  }
+
+  if (chartType.id === 'bar-h') {
+    return (
+      <ResponsiveContainer width="100%" height={Math.max(data.length * 38, 160)}>
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 60, left: 10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e0ebea" />
+          <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 11, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#3b5e59' }} axisLine={false} tickLine={false} />
+          <Tooltip formatter={(v) => [fmtFull(v), '']} cursor={{ fill: '#eff5f4' }} />
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={{ position: 'right', formatter: fmt, fontSize: 11, fill: '#629d95' }}>
+            {data.map((_, i) => <Cell key={i} fill={GROUP_COLOURS[i % GROUP_COLOURS.length]} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (chartType.id === 'bar-v') {
+    return (
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#629d95' }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={fmt} tick={{ fontSize: 11, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={55} />
+          <Tooltip formatter={(v) => [fmtFull(v), '']} cursor={{ fill: '#eff5f4' }} />
+          <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={60}>
+            {data.map((_, i) => <Cell key={i} fill={GROUP_COLOURS[i % GROUP_COLOURS.length]} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (chartType.id === 'donut') {
+    const total = data.reduce((s, d) => s + d.value, 0)
+    return (
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart>
+          <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" strokeWidth={0}>
+            {data.map((_, i) => <Cell key={i} fill={GROUP_COLOURS[i % GROUP_COLOURS.length]} />)}
+          </Pie>
+          <Tooltip formatter={(v) => [fmtFull(v), `${((v / total) * 100).toFixed(1)}%`]} />
+          <Legend formatter={(v) => <span style={{ fontSize: 12, color: '#4f7d77' }}>{v}</span>} />
+        </PieChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  return null
+}
+
+// ── Chart builder modal ──────────────────────────────────────────────
+function ChartBuilderModal({ budget, onAdd, onClose }) {
+  const [step, setStep] = useState(1)
+  const [dataSourceId, setDataSourceId] = useState(null)
+  const [chartTypeId, setChartTypeId] = useState(null)
+
+  const availableTypes = dataSourceId
+    ? CHART_TYPES.filter(t => t.compatibleSources.includes(dataSourceId))
+    : []
+
+  const handleSelectSource = (id) => {
+    setDataSourceId(id)
+    setChartTypeId(null)
+    setStep(2)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ash-grey-950/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-ash-grey-800">
+            {step === 1 ? '① Pick a data source' : '② Pick a chart type'}
+          </h2>
+          <button onClick={onClose} className="text-ash-grey-400 hover:text-ash-grey-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-2">
+            {CHART_DATA_SOURCES.map(source => (
+              <button
+                key={source.id}
+                onClick={() => handleSelectSource(source.id)}
+                className="w-full text-left px-4 py-3 rounded-lg border border-ash-grey-200 hover:border-tropical-teal-500 hover:bg-tropical-teal-50 transition-colors"
+              >
+                <span className="text-sm font-medium text-ash-grey-700">{source.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-2">
+            <button onClick={() => setStep(1)} className="text-xs text-ash-grey-400 hover:text-ash-grey-600 flex items-center gap-1 mb-3">
+              ← Back
+            </button>
+            {availableTypes.map(type => (
+              <button
+                key={type.id}
+                onClick={() => setChartTypeId(type.id)}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                  chartTypeId === type.id
+                    ? 'border-tropical-teal-500 bg-tropical-teal-50'
+                    : 'border-ash-grey-200 hover:border-tropical-teal-400 hover:bg-ash-grey-50'
+                }`}
+              >
+                <span className="text-sm font-medium text-ash-grey-700">{type.label}</span>
+              </button>
+            ))}
+            <div className="flex gap-3 mt-5">
+              <button onClick={onClose} className="flex-1 border border-ash-grey-300 text-ash-grey-700 px-4 py-2 rounded-lg text-sm font-medium">
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (dataSourceId && chartTypeId) {
+                    onAdd({ id: `chart-${Date.now()}`, dataSourceId, chartTypeId })
+                    onClose()
+                  }
+                }}
+                disabled={!chartTypeId}
+                className="flex-1 bg-tropical-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-tropical-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add Chart
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main export ──────────────────────────────────────────────────────
 export default function Charts({ budget }) {
-  const totalIncome = budget.income.items.reduce((s, i) => s + i.monthly, 0)
-  const totalExpenses = budget.sections.reduce((s, sec) =>
-    s + sec.groups.reduce((gs, g) =>
-      gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-  const surplus = totalIncome - totalExpenses
-  const savingsRate = totalIncome > 0 ? ((surplus / totalIncome) * 100).toFixed(1) : '0.0'
+  const { totalIncome, totalExpenses, surplus, savingsRate } = calcBudgetSummary(budget)
+  const savingsRateFmt = savingsRate.toFixed(1)
+  const savingsRateTarget = budget?.settings?.savingsRateTarget || 10
+
+  const [customCharts, setCustomCharts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('customCharts') || '[]') } catch { return [] }
+  })
+  const [showBuilder, setShowBuilder] = useState(false)
+
+  useEffect(() => {
+    localStorage.setItem('customCharts', JSON.stringify(customCharts))
+  }, [customCharts])
 
   const hasData = totalIncome > 0 || totalExpenses > 0
 
@@ -238,7 +553,7 @@ export default function Charts({ budget }) {
         <div className="md:col-span-2">
           <IncomeExpenseBar totalIncome={totalIncome} totalExpenses={totalExpenses} surplus={surplus} />
         </div>
-        <SavingsGauge rate={savingsRate} />
+        <SavingsGauge rate={savingsRateFmt} target={savingsRateTarget} />
       </div>
 
       {/* Row 2: Section donut + Group breakdown */}
@@ -246,6 +561,54 @@ export default function Charts({ budget }) {
         <SectionDonut sections={budget.sections} />
         <GroupBreakdown sections={budget.sections} />
       </div>
+
+      {/* Row 3: Holiday Progress + Savings Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HolidayProgress budget={budget} />
+        <SavingsBreakdown budget={budget} />
+      </div>
+
+      {/* Custom charts */}
+      {customCharts.map(chart => {
+        const source = CHART_DATA_SOURCES.find(s => s.id === chart.dataSourceId)
+        const chartType = CHART_TYPES.find(t => t.id === chart.chartTypeId)
+        return (
+          <div key={chart.id} className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-ash-grey-600">{source?.label}</h3>
+                <span className="text-xs text-ash-grey-400">{chartType?.label}</span>
+              </div>
+              <button
+                onClick={() => setCustomCharts(prev => prev.filter(c => c.id !== chart.id))}
+                className="text-ash-grey-300 hover:text-vibrant-coral-500 text-xl leading-none"
+                title="Remove chart"
+              >
+                ×
+              </button>
+            </div>
+            <CustomChart dataSourceId={chart.dataSourceId} chartTypeId={chart.chartTypeId} budget={budget} />
+          </div>
+        )
+      })}
+
+      {/* Add chart button */}
+      <div className="flex justify-center pt-2 pb-4">
+        <button
+          onClick={() => setShowBuilder(true)}
+          className="px-5 py-2.5 rounded-lg border-2 border-dashed border-ash-grey-300 text-ash-grey-400 hover:border-tropical-teal-400 hover:text-tropical-teal-600 text-sm transition-colors"
+        >
+          + Add Chart
+        </button>
+      </div>
+
+      {showBuilder && (
+        <ChartBuilderModal
+          budget={budget}
+          onAdd={(chart) => setCustomCharts(prev => [...prev, chart])}
+          onClose={() => setShowBuilder(false)}
+        />
+      )}
     </div>
   )
 }

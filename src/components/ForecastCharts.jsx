@@ -10,6 +10,7 @@ const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : `£${Math.round(n)
 
 const HORIZONS = [
   { label: 'End 2026',    months: () => monthsUntil(new Date('2026-12-31')) },
+  { label: '2 Years',     months: () => 24 },
   { label: '5 Years',     months: () => 60 },
   { label: '10 Years',    months: () => 120 },
   { label: 'Retirement',  months: (s) => (s.retirementAge - s.currentAge) * 12 },
@@ -170,12 +171,15 @@ function ChartTooltip({ active, payload, label }) {
   )
 }
 
-function ChartCard({ title, confidence: conf, assumptions, children }) {
+function ChartCard({ title, subtitle, confidence: conf, assumptions, children }) {
   const [showAssumptions, setShowAssumptions] = useState(false)
   return (
     <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
       <div className="flex items-start justify-between mb-3">
-        <h3 className="text-sm font-semibold text-ash-grey-700">{title}</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-ash-grey-700">{title}</h3>
+          {subtitle && <p className="text-xs text-ash-grey-400 mt-0.5">{subtitle}</p>}
+        </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-medium ${conf.color}`}>{conf.label}</span>
           {assumptions && (
@@ -209,7 +213,6 @@ export default function ForecastCharts() {
   const conf = confidence(months)
   const tick = months > 60 ? Math.floor(months / 10) : months > 24 ? 6 : 3
 
-  const surplus  = useMemo(() => buildSurplus(data, settings, months),  [data, settings, months])
   const mortgage = useMemo(() => buildMortgage(settings, months),       [settings, months])
   const isa      = useMemo(() => buildISA(settings, months),            [settings, months])
   const pension  = useMemo(() => buildPension(settings, months),        [settings, months])
@@ -241,35 +244,7 @@ export default function ForecastCharts() {
         <span className={`ml-auto text-xs font-medium ${conf.color}`}>{conf.label}</span>
       </div>
 
-      {/* 1. Surplus trend */}
-      <ChartCard
-        title="📈 Monthly Surplus Forecast"
-        confidence={conf}
-        assumptions={[
-          `Base surplus: £${Math.round(calcSurplus(data))}/month`,
-          `Van costs (£${settings.vanCostMonthly}) end ${new Date(settings.vanCostsEndDate).toLocaleDateString('en-GB', {month:'short',year:'numeric'})}`,
-          `Pay rise +£${settings.expectedPayRiseMonthly}/month from ${new Date(settings.expectedPayRiseDate).toLocaleDateString('en-GB', {month:'short',year:'numeric'})}`,
-          'Income and all other expenses assumed static'
-        ]}
-      >
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={surplus}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
-            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={50} />
-            <Tooltip content={<ChartTooltip />} />
-            <ReferenceLine y={0} stroke="#e63119" strokeDasharray="4 4" />
-            <ReferenceLine y={300} stroke="#829c63" strokeDasharray="4 4" label={{ value: 'Healthy', position: 'right', fontSize: 10, fill: '#829c63' }} />
-            <Area type="monotone" dataKey="surplus" stroke="#58a2a7" fill="#deeced" strokeWidth={2} name="Surplus" dot={false} />
-            {surplus.filter(p => p.event).map(p => (
-              <ReferenceLine key={p.date} x={p.date} stroke="#dbd224" strokeDasharray="3 3"
-                label={{ value: p.event, position: 'top', fontSize: 9, fill: '#847e15' }} />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {/* 2. Mortgage balance */}
+      {/* 1. Mortgage balance */}
       <ChartCard
         title="🏠 Mortgage Balance"
         confidence={conf}

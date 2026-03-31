@@ -1,11 +1,9 @@
+import { calcBudgetSummary } from '../utils/budgetCalcs'
+
 export default function SummaryBar({ budget }) {
-  const totalIncome = budget.income.items.reduce((s, i) => s + i.monthly, 0)
-  const totalExpenses = budget.sections.reduce((s, sec) =>
-    s + sec.groups.reduce((gs, g) =>
-      gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-  const surplus = totalIncome - totalExpenses
-  const savingsRate = totalIncome > 0 ? (surplus / totalIncome) * 100 : 0
-  const expensePct = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0
+  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, budgetedSavings } = calcBudgetSummary(budget)
+  const monthlySavings = pensionContribution + isaContribution + budgetedSavings
+  const savingsRateTarget = budget?.settings?.savingsRateTarget || 10
 
   const surplusColor = surplus >= 300 ? 'text-soft-linen-700' : surplus >= 100 ? 'text-lemon-chiffon-600' : 'text-vibrant-coral-600'
   const surplusBg = surplus >= 300 ? 'bg-soft-linen-50 border-soft-linen-200' : surplus >= 100 ? 'bg-lemon-chiffon-50 border-lemon-chiffon-200' : 'bg-vibrant-coral-50 border-vibrant-coral-200'
@@ -26,23 +24,25 @@ export default function SummaryBar({ budget }) {
         <Tile
           label="Savings Rate"
           value={`${savingsRate.toFixed(1)}%`}
-          valueClass={savingsRate >= 10 ? 'text-soft-linen-700' : 'text-vibrant-coral-600'}
+          valueClass={savingsRate >= savingsRateTarget ? 'text-soft-linen-700' : 'text-vibrant-coral-600'}
         />
         <Tile
-          label="Expenses / Income"
-          value={`${expensePct.toFixed(1)}%`}
-          valueClass={expensePct <= 90 ? 'text-soft-linen-700' : 'text-vibrant-coral-600'}
+          label="Monthly Savings"
+          value={fmt(monthlySavings)}
+          valueClass={monthlySavings >= 500 ? 'text-soft-linen-700' : monthlySavings >= 200 ? 'text-lemon-chiffon-600' : 'text-vibrant-coral-600'}
+          subtitle="incl. pension"
         />
       </div>
     </div>
   )
 }
 
-function Tile({ label, value, valueClass }) {
+function Tile({ label, value, valueClass, subtitle }) {
   return (
     <div className="text-center">
       <div className="text-xs text-ash-grey-500 uppercase tracking-wide font-medium mb-1">{label}</div>
       <div className={`text-lg font-bold ${valueClass}`}>{value}</div>
+      {subtitle && <div className="text-xs text-ash-grey-400 mt-0.5">{subtitle}</div>}
     </div>
   )
 }

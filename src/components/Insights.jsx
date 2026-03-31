@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from 'recharts'
+import { calcBudgetSummary } from '../utils/budgetCalcs'
 
 // ── UK market benchmarks (2026) ──────────────────────────────────────
 const BENCHMARKS = {
@@ -76,8 +77,8 @@ export default function Insights() {
   const { data } = useBudget()
   if (!data) return null
 
-  const { surplus, income, expenses } = calcSurplus(data)
-  const savingsRate = income > 0 ? (surplus / income) * 100 : 0
+  const { surplus, totalIncome: income, totalExpenses: expenses, savingsRate } = calcBudgetSummary(data)
+  const savingsRateTarget = data?.settings?.savingsRateTarget || 10
   const settings = data.settings || {}
   const goals = settings.goals || []
 
@@ -86,10 +87,11 @@ export default function Insights() {
     const cards = []
 
     // 1. Savings rate
-    if (savingsRate >= 15) cards.push({ icon: '🌟', title: 'Excellent savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well above the 10% benchmark. You're building wealth consistently.`, colour: 'green' })
-    else if (savingsRate >= 10) cards.push({ icon: '✅', title: 'Healthy savings rate', body: `${savingsRate.toFixed(1)}% savings rate — above the 10% benchmark. On track.`, colour: 'green' })
-    else if (savingsRate >= 5) cards.push({ icon: '🟡', title: 'Savings rate could improve', body: `${savingsRate.toFixed(1)}% savings rate. Target is 10%+. Consider which expenses could reduce.`, colour: 'amber' })
-    else cards.push({ icon: '⚠️', title: 'Low savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well below the 10% benchmark. Review your biggest expense categories.`, colour: 'red' })
+    const t = savingsRateTarget
+    if (savingsRate >= t * 1.5) cards.push({ icon: '🌟', title: 'Excellent savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well above your ${t}% target. You're building wealth consistently.`, colour: 'green' })
+    else if (savingsRate >= t) cards.push({ icon: '✅', title: 'Healthy savings rate', body: `${savingsRate.toFixed(1)}% savings rate — above your ${t}% target. On track.`, colour: 'green' })
+    else if (savingsRate >= t * 0.5) cards.push({ icon: '🟡', title: 'Savings rate could improve', body: `${savingsRate.toFixed(1)}% savings rate. Your target is ${t}%+. Consider which expenses could reduce.`, colour: 'amber' })
+    else cards.push({ icon: '⚠️', title: 'Low savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well below your ${t}% target. Review your biggest expense categories.`, colour: 'red' })
 
     // 2. Surplus warning
     if (surplus < 100 && surplus >= 0) cards.push({ icon: '⚠️', title: 'Tight monthly surplus', body: `Only £${Math.round(surplus)} surplus this month. One unexpected expense could push you into deficit. Consider pausing a non-essential goal contribution temporarily.`, colour: 'amber' })

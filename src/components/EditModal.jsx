@@ -7,6 +7,7 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
   const [name, setName] = useState(initial?.name || '')
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
   const [notes, setNotes] = useState(initial?.notes || '')
+  const [isSavings, setIsSavings] = useState(initial?.isSavings || false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -20,9 +21,9 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
     if (!isGroup) {
       const val = parseFloat(monthly)
       if (isNaN(val) || val < 0) { setError('Enter a valid amount (£)'); return }
-      onSave({ name: name.trim(), monthly: val, notes: notes.trim() })
+      onSave({ name: name.trim(), monthly: val, notes: notes.trim(), isSavings })
     } else {
-      onSave({ name: name.trim() })
+      onSave({ name: name.trim(), isSavings })
     }
   }
 
@@ -56,6 +57,23 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
               placeholder={isGroup ? 'e.g. Space 13: New Category' : 'e.g. Gym Membership'}
             />
           </div>
+
+          {(isGroup || !isGroup) && (
+            <div
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${isSavings ? 'bg-soft-linen-50 border-soft-linen-300' : 'bg-ash-grey-50 border-ash-grey-200'}`}
+              onClick={() => setIsSavings(v => !v)}
+            >
+              <div>
+                <div className="text-sm font-medium text-ash-grey-700">Count as savings</div>
+                <div className="text-xs text-ash-grey-500">
+                  {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
+                </div>
+              </div>
+              <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-soft-linen-500' : 'bg-ash-grey-300'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+            </div>
+          )}
 
           {!isGroup && (
             <>

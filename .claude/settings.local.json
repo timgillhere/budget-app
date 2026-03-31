@@ -13,7 +13,8 @@
       "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/reset-password -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"timgillviola@gmail.com\"\",\"\"newPassword\"\":\"\"Jersey355\"\"}')",
       "Bash(vercel deploy:*)",
       "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"timgillviola@gmail.com\"\",\"\"password\"\":\"\"Jersey355\"\"}')",
-      "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"timgillviola@gmail.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Jersey355\"\"\"\"}')"
+      "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"timgillviola@gmail.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Jersey355\"\"\"\"}')",
+      "Bash(find /Users/timgill/Documents/tim-budget/src -type f \\\\\\(-name *.json -o -name *.ts -o -name *.d.ts \\\\\\))"
     ]
   }
 }

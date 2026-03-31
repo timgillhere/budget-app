@@ -12,6 +12,7 @@ export const emptyBudget = {
     currentAge: 30, retirementAge: 66, statePensionAge: 68, statePensionWeekly: 221.20,
     isaBalance: 0, isaMonthlyContribution: 0,
     pensionBalance: 0, pensionMonthlyContribution: 0,
+    savingsRateTarget: 10,
     propertyValue: 0, mortgageBalance: 0, mortgageRate: 0,
     mortgageMonthlyPayment: 0, mortgageEndDate: '', mortgageRateAfterRemortgage: 0,
     bufferBalance: 0,
@@ -96,23 +97,23 @@ export const defaultBudget = {
     {
       id: 'monzo', name: '💜 Monzo Spaces', color: '#7030A0', bgLight: '#F3E8FF',
       groups: [
-        { id: 'monzo-van', name: '🚐 Van Expenses', items: [
+        { id: 'monzo-van', name: '🚐 Van Expenses', isSavings: true, items: [
           { id: 'm-v1', name: 'Van Insurance', monthly: 40.58, notes: '' },
           { id: 'm-v2', name: 'Van Residents Insurance', monthly: 10.42, notes: '' },
           { id: 'm-v3', name: 'Van Service & Tyres', monthly: 25, notes: '' },
           { id: 'm-v4', name: 'Van Road Tax', monthly: 29, notes: '' },
           { id: 'm-v5', name: 'Van MOT', monthly: 5, notes: '£60/year' }
         ]},
-        { id: 'monzo-prop', name: '🏠 Property Expenses', items: [
+        { id: 'monzo-prop', name: '🏠 Property Expenses', isSavings: true, items: [
           { id: 'm-p1', name: 'Service Charge', monthly: 100, notes: 'Meudon Court' },
           { id: 'm-p2', name: 'Building Insurance', monthly: 73, notes: '' },
           { id: 'm-p3', name: 'Contents Insurance', monthly: 11, notes: '' },
           { id: 'm-p4', name: 'General Flat Costs', monthly: 40, notes: '' }
         ]},
-        { id: 'monzo-inst', name: '🎻 Instrument Insurance', items: [
+        { id: 'monzo-inst', name: '🎻 Instrument Insurance', isSavings: true, items: [
           { id: 'm-i1', name: 'Viola Insurance', monthly: 10, notes: '' }
         ]},
-        { id: 'monzo-goals', name: '🎯 Savings & Goals', items: [
+        { id: 'monzo-goals', name: '🎯 Savings & Goals', isSavings: true, items: [
           { id: 'm-g1', name: 'Holidays', monthly: 100, notes: 'Auto-linked to Holiday Planner' },
           { id: 'm-g2', name: 'Emergency Fund Top-Up', monthly: 40, notes: 'Buffer at £6,615' },
           { id: 'm-g3', name: 'Clothing', monthly: 40, notes: '' },
@@ -172,7 +173,7 @@ export const defaultBudget = {
     statePensionWeekly: 230.25,
     // Balances (update monthly)
     isaBalance: 86193,
-    isaMonthlyContribution: 0,
+    isaMonthlyContribution: 100,
     pensionBalance: 10460,
     pensionMonthlyContribution: 537,
     propertyValue: 455000,
@@ -188,6 +189,7 @@ export const defaultBudget = {
     expectedPayRiseDate: '2026-08-01',
     expectedPayRiseMonthly: 300,
     // Assumptions
+    savingsRateTarget: 10,
     investmentGrowthRatePct: 5,
     propertyGrowthRatePct: 3,
     inflationPct: 2.5,
