@@ -104,11 +104,16 @@ function BudgetTab() {
     u.sections.find(s => s.id === sectionId).groups.push({ id: `grp-${Date.now()}`, name, isSavings: !!isSavings, items: [] })
     save(u)
   }
-  const editGroup = (sectionId, groupId, { name, isSavings }) => {
+  const editGroup = (sectionId, groupId, { name, isSavings, currentBalance }) => {
     const u = deepClone(data)
     const g = findGroup(u, sectionId, groupId)
     g.name = name
     g.isSavings = !!isSavings
+    if (currentBalance != null) {
+      g.currentBalance = currentBalance
+    } else {
+      delete g.currentBalance
+    }
     save(u)
   }
   const deleteGroup = (sectionId, groupId) => {

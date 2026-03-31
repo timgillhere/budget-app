@@ -29,7 +29,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
     if (mode === 'add-item')   onAddItem(groupId, data)
     else if (mode === 'edit-item')  onEditItem(groupId, item.id, data)
     else if (mode === 'add-group')  onAddGroup({ name: data.name, isSavings: data.isSavings })
-    else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, isSavings: data.isSavings })
+    else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, isSavings: data.isSavings, currentBalance: data.currentBalance })
     setModal(null)
   }
 
@@ -71,10 +71,15 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                   className="flex items-center justify-between px-5 py-2"
                   style={{ backgroundColor: section.bgLight }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-ash-grey-700">{group.name}</span>
                     {isSavingsGroup(group) && (
                       <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1.5 py-0.5 rounded-full leading-none">🏦 saving</span>
+                    )}
+                    {group.currentBalance != null && (
+                      <span className="text-xs bg-tropical-teal-50 text-tropical-teal-700 border border-tropical-teal-200 px-1.5 py-0.5 rounded-full leading-none tabular-nums">
+                        {fmt(group.currentBalance)} in pot
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
@@ -86,7 +91,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                       + Item
                     </button>
                     <button
-                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group) } })}
+                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group), currentBalance: group.currentBalance } })}
                       className="text-xs text-ash-grey-400 hover:text-tropical-teal-600"
                     >
                       ✏️
