@@ -19,7 +19,8 @@ export const emptyBudget = {
     vanCostsEndDate: '', vanCostMonthly: 0,
     expectedPayRiseDate: '', expectedPayRiseMonthly: 0,
     investmentGrowthRatePct: 5, propertyGrowthRatePct: 3, inflationPct: 2.5,
-    goals: []
+    goals: [],
+    onboardingComplete: false
   },
   netWorth: { snapshots: [] }
 }

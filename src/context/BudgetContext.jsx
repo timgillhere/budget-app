@@ -42,7 +42,7 @@ export function BudgetProvider({ children, token, onLogout }) {
     return {
       ...defaultBudget,
       ...saved,
-      settings: { ...defaultBudget.settings, ...(saved.settings || {}) },
+      settings: { ...emptyBudget.settings, ...(saved.settings || {}) },
       holidays: saved.holidays || defaultBudget.holidays,
       netWorth: { ...defaultBudget.netWorth, ...(saved.netWorth || {}) }
     }
