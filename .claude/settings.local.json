@@ -16,7 +16,10 @@
       "Bash(curl -s -X POST https://budgeting-app-tawny.vercel.app/api/login -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"timgillviola@gmail.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Jersey355\"\"\"\"}')",
       "Bash(find /Users/timgill/Documents/tim-budget/src -type f \\\\\\(-name *.json -o -name *.ts -o -name *.d.ts \\\\\\))",
       "Bash(gh run:*)",
-      "Bash(vercel inspect:*)"
+      "Bash(vercel inspect:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
