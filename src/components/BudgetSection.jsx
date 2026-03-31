@@ -33,7 +33,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-ash-grey-200 overflow-hidden">
 
       {/* Section header */}
       <div
@@ -58,7 +58,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
       </div>
 
       {!collapsed && (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-ash-grey-100">
 
           {section.groups.map(group => {
             const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
@@ -70,18 +70,18 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                   className="flex items-center justify-between px-5 py-2"
                   style={{ backgroundColor: section.bgLight }}
                 >
-                  <span className="text-sm font-semibold text-gray-700">{group.name}</span>
+                  <span className="text-sm font-semibold text-ash-grey-700">{group.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-600 tabular-nums">{fmt(groupTotal)}/mo</span>
+                    <span className="text-sm font-semibold text-ash-grey-600 tabular-nums">{fmt(groupTotal)}/mo</span>
                     <button
                       onClick={() => setModal({ mode: 'add-item', groupId: group.id })}
-                      className="text-xs text-gray-500 hover:text-gray-800 border border-gray-300 hover:border-gray-500 px-2 py-0.5 rounded"
+                      className="text-xs text-ash-grey-500 hover:text-ash-grey-800 border border-ash-grey-300 hover:border-ash-grey-500 px-2 py-0.5 rounded"
                     >
                       + Item
                     </button>
                     <button
                       onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name } })}
-                      className="text-xs text-gray-400 hover:text-blue-600"
+                      className="text-xs text-ash-grey-400 hover:text-tropical-teal-600"
                     >
                       ✏️
                     </button>
@@ -90,7 +90,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                         if (group.items.length > 0 && !window.confirm(`Delete "${group.name}" and all ${group.items.length} item(s)?`)) return
                         onDeleteGroup(group.id)
                       }}
-                      className="text-xs text-gray-400 hover:text-red-600"
+                      className="text-xs text-ash-grey-400 hover:text-vibrant-coral-600"
                     >
                       🗑️
                     </button>
@@ -102,7 +102,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                   <table className="w-full table-fixed">
                     <Cols />
                     <thead>
-                      <tr className="text-xs text-gray-400 border-b border-gray-100">
+                      <tr className="text-xs text-ash-grey-400 border-b border-ash-grey-100">
                         <th className="px-4 py-1.5 text-left font-medium">Item</th>
                         <th className="px-4 py-1.5 text-right font-medium">Monthly</th>
                         <th className="px-4 py-1.5 text-right font-medium">Annual</th>
@@ -120,18 +120,18 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t border-gray-100 bg-gray-50">
-                        <td className="px-4 py-1.5 text-xs font-semibold text-gray-500">Subtotal</td>
-                        <td className="px-4 py-1.5 text-xs font-bold text-gray-700 text-right tabular-nums">{fmt(groupTotal)}</td>
-                        <td className="px-4 py-1.5 text-xs font-semibold text-gray-500 text-right tabular-nums">{fmt(groupTotal * 12)}</td>
+                      <tr className="border-t border-ash-grey-100 bg-ash-grey-50">
+                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500">Subtotal</td>
+                        <td className="px-4 py-1.5 text-xs font-bold text-ash-grey-700 text-right tabular-nums">{fmt(groupTotal)}</td>
+                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500 text-right tabular-nums">{fmt(groupTotal * 12)}</td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
                 ) : (
-                  <div className="px-5 py-3 text-sm text-gray-400 italic">
+                  <div className="px-5 py-3 text-sm text-ash-grey-400 italic">
                     No items yet —{' '}
-                    <button onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-blue-500 hover:underline">
+                    <button onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-tropical-teal-500 hover:underline">
                       add one
                     </button>
                   </div>
@@ -141,13 +141,13 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
           })}
 
           {/* Section total footer — columns match table above */}
-          <table className="w-full table-fixed bg-gray-50 border-t border-gray-200">
+          <table className="w-full table-fixed bg-ash-grey-50 border-t border-ash-grey-200">
             <Cols />
             <tbody>
               <tr>
-                <td className="px-4 py-2 text-sm font-bold text-gray-700">Section Total</td>
-                <td className="px-4 py-2 text-sm font-bold text-gray-700 text-right tabular-nums">{fmt(sectionTotal)}</td>
-                <td className="px-4 py-2 text-sm text-gray-500 text-right tabular-nums">{fmt(sectionTotal * 12)}</td>
+                <td className="px-4 py-2 text-sm font-bold text-ash-grey-700">Section Total</td>
+                <td className="px-4 py-2 text-sm font-bold text-ash-grey-700 text-right tabular-nums">{fmt(sectionTotal)}</td>
+                <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums">{fmt(sectionTotal * 12)}</td>
                 <td></td>
               </tr>
             </tbody>

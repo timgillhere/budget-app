@@ -34,16 +34,16 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
   }[mode]
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-ash-grey-950/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-800">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          <h2 className="text-lg font-bold text-ash-grey-800">{title}</h2>
+          <button onClick={onClose} className="text-ash-grey-400 hover:text-ash-grey-600 text-2xl leading-none">&times;</button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-ash-grey-700 mb-1">
               {isGroup ? 'Group name' : 'Item name'}
             </label>
             <input
@@ -52,7 +52,7 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && isGroup) handleSave() }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-ash-grey-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
               placeholder={isGroup ? 'e.g. Space 13: New Category' : 'e.g. Gym Membership'}
             />
           </div>
@@ -60,9 +60,9 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
           {!isGroup && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly amount (£)</label>
+                <label className="block text-sm font-medium text-ash-grey-700 mb-1">Monthly amount (£)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500 text-sm">£</span>
+                  <span className="absolute left-3 top-2 text-ash-grey-500 text-sm">£</span>
                   <input
                     type="number"
                     min="0"
@@ -70,44 +70,44 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
                     value={monthly}
                     onChange={e => setMonthly(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-ash-grey-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
                     placeholder="0.00"
                   />
                 </div>
                 {monthly && !isNaN(parseFloat(monthly)) && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-ash-grey-500 mt-1">
                     Annual: £{(parseFloat(monthly) * 12).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-ash-grey-700 mb-1">Notes (optional)</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-ash-grey-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
                   placeholder="e.g. Increases to £66 in April"
                 />
               </div>
             </>
           )}
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-vibrant-coral-600 text-sm">{error}</p>}
         </div>
 
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+            className="flex-1 border border-ash-grey-300 text-ash-grey-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-ash-grey-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+            className="flex-1 bg-tropical-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-tropical-teal-700"
           >
             {mode.startsWith('add') ? 'Add' : 'Save'}
           </button>

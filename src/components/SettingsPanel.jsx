@@ -4,26 +4,26 @@ import { useBudget } from '../context/BudgetContext'
 function Field({ label, value, onChange, type = 'number', prefix, suffix, note }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-ash-grey-600 mb-1">{label}</label>
       <div className="relative">
-        {prefix && <span className="absolute left-3 top-2 text-gray-400 text-sm">{prefix}</span>}
+        {prefix && <span className="absolute left-3 top-2 text-ash-grey-400 text-sm">{prefix}</span>}
         <input
           type={type}
           value={value ?? ''}
           onChange={e => onChange(type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value)}
-          className={`w-full border border-gray-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
+          className={`w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
         />
-        {suffix && <span className="absolute right-3 top-2 text-gray-400 text-sm">{suffix}</span>}
+        {suffix && <span className="absolute right-3 top-2 text-ash-grey-400 text-sm">{suffix}</span>}
       </div>
-      {note && <p className="text-xs text-gray-400 mt-0.5">{note}</p>}
+      {note && <p className="text-xs text-ash-grey-400 mt-0.5">{note}</p>}
     </div>
   )
 }
 
 function Section({ title, children }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">{title}</h3>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-700 mb-4">{title}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
     </div>
   )
@@ -54,9 +54,9 @@ export default function SettingsPanel() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800">⚙️ Settings & Financial Assumptions</h2>
+        <h2 className="text-lg font-bold text-ash-grey-800">⚙️ Settings & Financial Assumptions</h2>
         <button onClick={handleSave} disabled={!dirty}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-default'}`}>
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700' : 'bg-ash-grey-100 text-ash-grey-400 cursor-default'}`}>
           {saveStatus === 'saving' ? 'Saving…' : dirty ? 'Save Changes' : 'Saved ✓'}
         </button>
       </div>
@@ -100,33 +100,33 @@ export default function SettingsPanel() {
       </Section>
 
       {/* Goals */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-700">🎯 Savings Goals (for progress rings)</h3>
-          <button onClick={addGoal} className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 px-2 py-1 rounded-lg">+ Add goal</button>
+          <h3 className="text-sm font-semibold text-ash-grey-700">🎯 Savings Goals (for progress rings)</h3>
+          <button onClick={addGoal} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 border border-tropical-teal-200 px-2 py-1 rounded-lg">+ Add goal</button>
         </div>
         <div className="space-y-3">
           {goals.map(g => (
             <div key={g.id} className="grid grid-cols-6 gap-2 items-end">
               <input value={g.icon} onChange={e => setGoal(g.id, 'icon', e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400 col-span-1" />
+                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-tropical-teal-400 col-span-1" />
               <input value={g.name} onChange={e => setGoal(g.id, 'name', e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 col-span-2" placeholder="Goal name" />
+                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tropical-teal-400 col-span-2" placeholder="Goal name" />
               <input type="number" value={g.target} onChange={e => setGoal(g.id, 'target', e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder="Target £" />
+                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Target £" />
               <input type="number" value={g.current} onChange={e => setGoal(g.id, 'current', e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder="Current £" />
-              <button onClick={() => deleteGoal(g.id)} className="text-red-400 hover:text-red-600 text-xs py-1.5">✕</button>
+                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Current £" />
+              <button onClick={() => deleteGoal(g.id)} className="text-vibrant-coral-400 hover:text-vibrant-coral-600 text-xs py-1.5">✕</button>
             </div>
           ))}
-          {goals.length === 0 && <p className="text-xs text-gray-400">No goals yet — add some above</p>}
+          {goals.length === 0 && <p className="text-xs text-ash-grey-400">No goals yet — add some above</p>}
         </div>
-        <p className="text-xs text-gray-400 mt-3">Icon · Name · Target · Current balance · (monthly auto-pulled from budget)</p>
+        <p className="text-xs text-ash-grey-400 mt-3">Icon · Name · Target · Current balance · (monthly auto-pulled from budget)</p>
       </div>
 
       <div className="flex justify-end">
         <button onClick={handleSave} disabled={!dirty}
-          className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-default'}`}>
+          className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700' : 'bg-ash-grey-100 text-ash-grey-400 cursor-default'}`}>
           {dirty ? 'Save All Settings' : 'All saved ✓'}
         </button>
       </div>

@@ -146,22 +146,22 @@ function BudgetTab() {
   return (
     <>
       {/* Budget action bar */}
-      <div className="bg-white border-b border-gray-100 px-6 py-2 flex justify-end gap-2">
-        <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700">
+      <div className="bg-ash-grey-50 border-b border-ash-grey-200 px-6 py-2 flex justify-end gap-2">
+        <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium bg-vibrant-coral-500 text-white hover:bg-vibrant-coral-600">
           📥 Import from Claude
           <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
         </label>
-        <button onClick={exportJSON} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-600 text-white hover:bg-gray-700">📤 Export JSON</button>
+        <button onClick={exportJSON} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-ash-grey-600 text-white hover:bg-ash-grey-700">📤 Export JSON</button>
         <button onClick={copyToClipboard}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-soft-linen-500 text-white' : 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700'}`}>
           {copyFlash ? '✓ Copied!' : '📋 Copy for Claude'}
         </button>
       </div>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-5">
         {/* Income */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-green-600">
+        <div className="bg-white rounded-xl shadow-sm border border-ash-grey-200 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 bg-soft-linen-600">
             <div className="flex items-center gap-3">
               <span className="text-white font-bold">💵 Income</span>
               <span className="text-white/80 text-sm">{fmt(totalIncome)}/month</span>
@@ -175,7 +175,7 @@ function BudgetTab() {
               <col style={{ width: '17%' }} />
               <col style={{ width: '11%' }} />
             </colgroup>
-            <thead><tr className="text-xs text-gray-400 border-b border-gray-100">
+            <thead><tr className="text-xs text-ash-grey-400 border-b border-ash-grey-100">
               <th className="px-4 py-2 text-left font-medium">Source</th>
               <th className="px-4 py-2 text-right font-medium">Monthly</th>
               <th className="px-4 py-2 text-right font-medium">Annual</th>
@@ -183,13 +183,13 @@ function BudgetTab() {
             </tr></thead>
             <tbody>
               {data.income.items.map(item => (
-                <tr key={item.id} className="group hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-800">
+                <tr key={item.id} className="group hover:bg-ash-grey-50">
+                  <td className="px-4 py-2 text-sm text-ash-grey-800">
                     <div className="relative inline-flex items-center gap-1.5">
                       <span className="truncate">{item.name}</span>
                       {item.notes && (
                         <span className="relative flex-shrink-0 group/tip">
-                          <span className="text-gray-300 hover:text-gray-500 cursor-default text-xs">ℹ</span>
+                          <span className="text-ash-grey-300 hover:text-ash-grey-500 cursor-default text-xs">ℹ</span>
                           <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-56 leading-relaxed z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity shadow-lg whitespace-normal">
                             {item.notes}
                           </span>
@@ -197,12 +197,12 @@ function BudgetTab() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-sm font-bold text-green-700 text-right tabular-nums">{fmt(item.monthly)}</td>
-                  <td className="px-4 py-2 text-sm text-gray-500 text-right tabular-nums">{fmt(item.monthly * 12)}</td>
+                  <td className="px-4 py-2 text-sm font-bold text-soft-linen-700 text-right tabular-nums">{fmt(item.monthly)}</td>
+                  <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums">{fmt(item.monthly * 12)}</td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100">
-                      <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Edit</button>
-                      <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">Delete</button>
+                      <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 px-2 py-1 rounded hover:bg-tropical-teal-50">Edit</button>
+                      <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-vibrant-coral-500 hover:text-vibrant-coral-700 px-2 py-1 rounded hover:bg-vibrant-coral-50">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -227,7 +227,7 @@ function BudgetTab() {
       {incomeModal && <EditModal mode={incomeModal.mode} initial={incomeModal.item} onSave={handleIncomeModalSave} onClose={() => setIncomeModal(null)} />}
 
       {importError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50 max-w-md">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-vibrant-coral-600 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50 max-w-md">
           <span>⚠️ {importError}</span>
           <button onClick={() => setImportError(null)} className="font-bold text-xl">&times;</button>
         </div>
@@ -237,18 +237,18 @@ function BudgetTab() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h2 className="text-lg font-bold mb-1">📥 Import Budget from Claude</h2>
-            <p className="text-sm text-gray-500 mb-4">This will <strong>replace your current budget</strong> with the imported data.</p>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-5 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-600">Monthly income</span><span className="font-bold text-green-700">{fmt(importPreview.totalIncome)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Monthly expenses</span><span className="font-bold text-gray-700">{fmt(importPreview.totalExpenses)}</span></div>
-              <div className="flex justify-between border-t border-gray-200 pt-2">
-                <span className="text-gray-600 font-medium">Monthly surplus</span>
-                <span className={`font-bold ${importPreview.surplus >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmt(importPreview.surplus)}</span>
+            <p className="text-sm text-ash-grey-500 mb-4">This will <strong>replace your current budget</strong> with the imported data.</p>
+            <div className="bg-ash-grey-50 border border-ash-grey-200 rounded-lg p-4 mb-5 space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-ash-grey-600">Monthly income</span><span className="font-bold text-soft-linen-700">{fmt(importPreview.totalIncome)}</span></div>
+              <div className="flex justify-between"><span className="text-ash-grey-600">Monthly expenses</span><span className="font-bold text-ash-grey-700">{fmt(importPreview.totalExpenses)}</span></div>
+              <div className="flex justify-between border-t border-ash-grey-200 pt-2">
+                <span className="text-ash-grey-600 font-medium">Monthly surplus</span>
+                <span className={`font-bold ${importPreview.surplus >= 0 ? 'text-soft-linen-700' : 'text-vibrant-coral-600'}`}>{fmt(importPreview.surplus)}</span>
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setImportPreview(null)} className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Cancel</button>
-              <button onClick={() => { save(importPreview.data); setImportPreview(null) }} className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">✓ Import & Replace</button>
+              <button onClick={() => setImportPreview(null)} className="flex-1 border border-ash-grey-300 text-ash-grey-700 px-4 py-2 rounded-lg text-sm">Cancel</button>
+              <button onClick={() => { save(importPreview.data); setImportPreview(null) }} className="flex-1 bg-vibrant-coral-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-vibrant-coral-600">✓ Import & Replace</button>
             </div>
           </div>
         </div>
@@ -263,25 +263,25 @@ function AppShell({ token, isAdmin, logout, name }) {
   const [tab, setTab] = useState('budget')
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen text-gray-500">
+    <div className="flex items-center justify-center h-screen text-ash-grey-500">
       <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3" /><div className="text-sm">Loading...</div></div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen bg-tropical-teal-50">
+      <header className="bg-ash-grey-800 border-b border-ash-grey-700 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{name ? `${name}'s Budget` : 'Budget'}</h1>
+          <h1 className="text-lg font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{name ? `${name}'s Budget` : 'Budget'}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-            saveStatus === 'saved'  ? 'bg-green-100 text-green-700' :
-            saveStatus === 'saving' ? 'bg-yellow-100 text-yellow-700' :
-                                      'bg-red-100 text-red-600'
+            saveStatus === 'saved'  ? 'bg-soft-linen-700 text-soft-linen-100' :
+            saveStatus === 'saving' ? 'bg-lemon-chiffon-700 text-lemon-chiffon-100' :
+                                      'bg-vibrant-coral-700 text-vibrant-coral-100'
           }`}>
             {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? '⏳ Saving…' : '⚠ Error'}
           </span>
         </div>
-        <button onClick={logout} className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+        <button onClick={logout} className="text-xs text-ash-grey-300 hover:text-white border border-ash-grey-600 px-3 py-1.5 rounded-lg hover:bg-ash-grey-700 transition-colors">
           Sign out
         </button>
       </header>
