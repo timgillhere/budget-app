@@ -74,6 +74,31 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
           <span>Total budget</span>
           <span className="text-tropical-teal-600">{fmt(total)}</span>
         </div>
+
+        {/* Savings progress bar (planned/booked) */}
+        {trip.status !== 'completed' && total > 0 && (
+          <>
+            {(() => {
+              const saved = trip.savedAmount || 0
+              const pct = Math.min((saved / total) * 100, 100)
+              const remaining = Math.max(total - saved, 0)
+              const monthsLeft = monthlyContrib > 0 && remaining > 0 ? Math.ceil(remaining / monthlyContrib) : null
+              return (
+                <>
+                  <div className="w-full bg-ash-grey-100 rounded-full h-2 mb-1">
+                    <div className="bg-tropical-teal-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-ash-grey-500">
+                    <span>💰 Saved {fmt(saved)}</span>
+                    <span>{fmt(remaining)} to go{monthsLeft ? ` · ~${monthsLeft}mo` : ''}</span>
+                  </div>
+                </>
+              )
+            })()}
+          </>
+        )}
+
+        {/* Spending progress (completed) */}
         {trip.status === 'completed' && (
           <>
             <div className="w-full bg-ash-grey-100 rounded-full h-2 mb-1">
@@ -88,9 +113,8 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
 
         {/* Savings context */}
         {trip.status !== 'completed' && monthlyContrib > 0 && (
-          <div className="mt-3 pt-3 border-t border-ash-grey-100 text-xs text-ash-grey-500 flex justify-between">
-            <span>💰 Saving {fmt(monthlyContrib)}/month</span>
-            {monthsToSave && <span>{monthsToSave} months to fund this trip</span>}
+          <div className="mt-2 pt-2 border-t border-ash-grey-100 text-xs text-ash-grey-500">
+            <span>Saving {fmt(monthlyContrib)}/month from budget</span>
           </div>
         )}
 

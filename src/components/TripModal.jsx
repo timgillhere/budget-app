@@ -11,6 +11,7 @@ const EMPTY_TRIP = {
     accommodation: { budgeted: 0, actual: null },
     onGround:      { budgeted: 0, actual: null }
   },
+  savedAmount: 0,
   totalBudget: 0, notes: '', itineraryUrl: '', destinationOptions: []
 }
 
@@ -109,6 +110,18 @@ export default function TripModal({ initial, onSave, onClose }) {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Amount already saved */}
+          <div>
+            <label className="block text-xs font-medium text-ash-grey-600 mb-1">Amount already saved (£)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-ash-grey-400 text-sm">£</span>
+              <input type="number" min="0" value={trip.savedAmount ?? 0}
+                onChange={e => set('savedAmount', parseFloat(e.target.value) || 0)}
+                className="w-full border border-ash-grey-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500" />
+            </div>
+            <p className="text-xs text-ash-grey-400 mt-0.5">Money you've already set aside for this trip</p>
           </div>
 
           {/* Notes + URL */}
