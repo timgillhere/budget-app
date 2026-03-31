@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea,
+  BarChart, Bar, Cell
 } from 'recharts'
 import { useBudget } from '../context/BudgetContext'
 
@@ -143,6 +144,37 @@ function buildNetWorth(settings, months) {
   return points
 }
 
+function buildRetirement(settings, months) {
+  const points = []
+  let isaBase = settings.isaBalance || 0
+  let penBase = settings.pensionBalance || 0
+  let isaRise = isaBase
+  let penRise = penBase
+  const r = (settings.investmentGrowthRatePct || 5) / 100 / 12
+  const isaContrib = settings.isaMonthlyContribution || 0
+  const penContrib = settings.pensionMonthlyContribution || 0
+  const now = new Date()
+  const payRiseDate = settings.expectedPayRiseDate ? new Date(settings.expectedPayRiseDate) : null
+  const payRiseExtra = (settings.expectedPayRiseMonthly || 0) * 0.5
+
+  for (let i = 0; i < months; i++) {
+    const d = addMonths(now, i)
+    isaBase = isaBase * (1 + r) + isaContrib
+    penBase = penBase * (1 + r) + penContrib
+    const extraPen = payRiseDate && d >= payRiseDate ? payRiseExtra : 0
+    isaRise = isaRise * (1 + r) + isaContrib
+    penRise = penRise * (1 + r) + penContrib + extraPen
+    points.push({
+      date: d.toISOString().slice(0, 7),
+      base: Math.round(isaBase + penBase),
+      withRise: Math.round(isaRise + penRise),
+      isaBase: Math.round(isaBase),
+      penBase: Math.round(penBase),
+    })
+  }
+  return points
+}
+
 function getEvent(date, settings) {
   const m = date.toISOString().slice(0, 7)
   if (m === new Date(settings.vanCostsEndDate).toISOString().slice(0, 7)) return '🚐 Van ends'
@@ -218,9 +250,30 @@ export default function ForecastCharts() {
   const pension  = useMemo(() => buildPension(settings, months),        [settings, months])
   const networth = useMemo(() => buildNetWorth(settings, months),       [settings, months])
 
+  const retMonths = Math.max(1, ((settings.retirementAge || 66) - (settings.currentAge || 38)) * 12)
+  const retirement = useMemo(() => buildRetirement(settings, retMonths), [settings, retMonths])
+
   if (!data) return null
 
   const retirementMonth = addMonths(new Date(), (settings.retirementAge - settings.currentAge) * 12).toISOString().slice(0, 7)
+
+  // Retirement income at end of projection
+  const retEnd = retirement[retirement.length - 1] || {}
+  const statePensionAnnual = (settings.statePensionWeekly || 221.20) * 52
+  const isaDrawdownAnnual  = Math.round((retEnd.isaBase || 0) * 0.04)
+  const penDrawdownAnnual  = Math.round((retEnd.penBase || 0) * 0.04)
+  const retWithRiseEnd = retirement[retirement.length - 1]
+  const isaDrawdownRise = Math.round(((retWithRiseEnd?.base || 0) - (retEnd.penBase || 0)) * 0.02 + (retEnd.isaBase || 0) * 0.04)
+  const totalRetirementIncome = Math.round(statePensionAnnual + isaDrawdownAnnual + penDrawdownAnnual)
+  const retirementTarget = 60000
+  const retirementGap = Math.max(0, retirementTarget - totalRetirementIncome)
+
+  const retirementIncomeData = [{
+    name: 'Income at retirement',
+    statePension: Math.round(statePensionAnnual),
+    isaDraw: isaDrawdownAnnual,
+    pensionDraw: penDrawdownAnnual,
+  }]
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
@@ -317,6 +370,72 @@ export default function ForecastCharts() {
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
+      </div>
+
+      {/* Retirement section */}
+      <div className="pt-2">
+        <h2 className="text-sm font-semibold text-ash-grey-500 uppercase tracking-wide mb-3">🎯 Retirement Projection</h2>
+
+        {/* ISA + Pension combined to retirement age */}
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 mb-5">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-ash-grey-700">📈 ISA + Pension Pot to Age {settings.retirementAge || 66}</h3>
+              <p className="text-xs text-ash-grey-400 mt-0.5">Base case vs. boosting pension after August pay rise</p>
+            </div>
+            <span className="text-xs font-medium text-tropical-teal-600">Illustrative 📊</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={retirement}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+              <XAxis dataKey="date" tickFormatter={fmtMonth} interval={Math.floor(retMonths / 8)} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={60} />
+              <Tooltip content={<ChartTooltip />} />
+              <ReferenceLine x={retirementMonth} stroke="#629d95" strokeDasharray="3 3"
+                label={{ value: `Retire ${settings.retirementAge}`, position: 'insideTopLeft', fontSize: 9, fill: '#629d95' }} />
+              <Line type="monotone" dataKey="base" stroke="#58a2a7" strokeWidth={2} dot={false} name="Base case" />
+              <Line type="monotone" dataKey="withRise" stroke="#829c63" strokeWidth={2} strokeDasharray="6 3" dot={false} name="With pay rise boost" />
+              <Legend formatter={v => <span style={{ fontSize: 11, color: '#4f7d77' }}>{v}</span>} />
+            </LineChart>
+          </ResponsiveContainer>
+          {retEnd.base > 0 && (
+            <p className="text-xs text-ash-grey-500 mt-2 text-center">
+              At retirement: base pot ~{fmtK(retEnd.base)} → 4% drawdown ≈ {fmtK(retEnd.base * 0.04)}/yr ·
+              With rise: ~{fmtK(retEnd.withRise)} → {fmtK(retEnd.withRise * 0.04)}/yr
+            </p>
+          )}
+        </div>
+
+        {/* Retirement income sources bar */}
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 mb-5">
+          <h3 className="text-sm font-semibold text-ash-grey-700 mb-1">💰 Projected Retirement Income Sources</h3>
+          <p className="text-xs text-ash-grey-400 mb-3">Annual income at age {settings.retirementAge || 66} using 4% drawdown rule</p>
+          <ResponsiveContainer width="100%" height={90}>
+            <BarChart data={retirementIncomeData} layout="vertical" margin={{ top: 0, right: 100, left: 10, bottom: 0 }}>
+              <XAxis type="number" tickFormatter={n => `£${(n/1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" hide />
+              <Tooltip formatter={(v, n) => [`£${Math.round(v).toLocaleString('en-GB')}/yr`, n]} wrapperStyle={{ fontSize: 12 }} />
+              <ReferenceLine x={retirementTarget} stroke="#e63119" strokeDasharray="4 2"
+                label={{ value: '£60k target', position: 'right', fontSize: 10, fill: '#e63119' }} />
+              <Bar dataKey="statePension" stackId="inc" fill="#dbd224" name="State Pension" maxBarSize={32} />
+              <Bar dataKey="isaDraw" stackId="inc" fill="#829c63" name="ISA (4%)" maxBarSize={32} />
+              <Bar dataKey="pensionDraw" stackId="inc" fill="#58a2a7" name="Pension (4%)" radius={[0,6,6,0]} maxBarSize={32} />
+              <Legend formatter={v => <span style={{ fontSize: 11, color: '#4f7d77' }}>{v}</span>} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-ash-grey-700">Total: £{totalRetirementIncome.toLocaleString('en-GB')}/yr</span>
+            {retirementGap > 0 ? (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-vibrant-coral-50 text-vibrant-coral-700 border border-vibrant-coral-200">
+                ⚠️ £{retirementGap.toLocaleString('en-GB')} gap to £60k target
+              </span>
+            ) : (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-soft-linen-50 text-soft-linen-700 border border-soft-linen-200">
+                ✅ On track for £60k target
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 5. Net worth trajectory */}

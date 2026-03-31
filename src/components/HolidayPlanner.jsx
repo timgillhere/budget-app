@@ -24,6 +24,20 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
   const daysLeft = trip.departureDate ? Math.ceil((new Date(trip.departureDate) - new Date()) / 86400000) : null
   const monthsToSave = monthlyContrib > 0 && total > 0 ? Math.ceil(total / monthlyContrib) : null
 
+  // Funded %
+  const saved = trip.savedAmount || 0
+  const fundedPct = total > 0 ? Math.round((saved / total) * 100) : 0
+
+  // Book-by countdown (trip.bookByDate or departure - 90 days)
+  const bookByDate = trip.bookByDate
+    ? new Date(trip.bookByDate)
+    : trip.departureDate
+      ? new Date(new Date(trip.departureDate).getTime() - 90 * 86400000)
+      : null
+  const daysToBookBy = bookByDate ? Math.ceil((bookByDate - new Date()) / 86400000) : null
+  const showBookBy = daysToBookBy !== null && daysToBookBy > 0 && trip.status !== 'booked' && trip.status !== 'completed'
+  const bookByColor = daysToBookBy < 14 ? 'text-vibrant-coral-600 bg-vibrant-coral-50 border-vibrant-coral-200' : daysToBookBy < 30 ? 'text-lemon-chiffon-700 bg-lemon-chiffon-50 border-lemon-chiffon-200' : 'text-tropical-teal-600 bg-tropical-teal-50 border-tropical-teal-200'
+
   return (
     <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm overflow-hidden">
       {/* Header */}
@@ -32,6 +46,11 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
           <h3 className="font-bold text-ash-grey-800 text-base">{trip.destination}</h3>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>
+            {trip.status !== 'completed' && total > 0 && (
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${fundedPct >= 100 ? 'bg-soft-linen-100 text-soft-linen-700' : fundedPct >= 50 ? 'bg-tropical-teal-50 text-tropical-teal-700' : 'bg-ash-grey-100 text-ash-grey-600'}`}>
+                {fundedPct}% funded
+              </span>
+            )}
             {trip.departureDate && (
               <span className="text-xs text-ash-grey-500">
                 {new Date(trip.departureDate).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
@@ -42,6 +61,11 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
               <span className="text-xs font-medium text-tropical-teal-600">{daysLeft}d to go</span>
             )}
           </div>
+          {showBookBy && (
+            <div className={`mt-2 text-xs font-medium border rounded-lg px-2 py-1 inline-block ${bookByColor}`}>
+              🗓 Book by {bookByDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' })} — {daysToBookBy} days
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button onClick={onEdit} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 px-2 py-1 rounded hover:bg-tropical-teal-50">Edit</button>

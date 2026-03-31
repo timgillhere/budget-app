@@ -12,10 +12,17 @@ const BENCHMARKS = {
 
 const SUBSCRIPTION_KEYWORDS = ['spotify','netflix','disney','prime','icloud','apple','google','youtube','hulu','now tv','sky','bt','gym','ring','dropbox','adobe','notion','slack','github','cursor','chatgpt','claude']
 
-function calcSurplus(data) {
-  const inc = data.income.items.reduce((s, i) => s + i.monthly, 0)
-  const exp = data.sections.reduce((s, sec) => s + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-  return { surplus: inc - exp, income: inc, expenses: exp }
+function addMonths(date, n) {
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + n)
+  return d
+}
+
+// Closed-form compound growth: balance after n months at monthly rate r with monthly contrib c
+function projectBalance(initial, monthlyContrib, annualGrowthPct, months) {
+  const r = annualGrowthPct / 100 / 12
+  if (r === 0) return initial + monthlyContrib * months
+  return initial * Math.pow(1 + r, months) + monthlyContrib * (Math.pow(1 + r, months) - 1) / r
 }
 
 function findItem(data, keyword) {
@@ -50,7 +57,7 @@ function GoalRing({ goal }) {
   )
 }
 
-function InsightCard({ icon, title, body, colour = 'blue', action }) {
+function InsightCard({ icon, title, body, colour = 'blue', action, progress }) {
   const colours = {
     blue:   'bg-tropical-teal-50   border-tropical-teal-200  text-tropical-teal-700',
     green:  'bg-soft-linen-50  border-soft-linen-200 text-soft-linen-700',
@@ -66,11 +73,40 @@ function InsightCard({ icon, title, body, colour = 'blue', action }) {
         <div className="flex-1">
           <p className="font-semibold text-sm">{title}</p>
           <p className="text-xs mt-0.5 opacity-80 leading-relaxed">{body}</p>
+          {progress != null && (
+            <div className="mt-2 w-full bg-white/60 rounded-full h-1.5">
+              <div className="h-1.5 rounded-full bg-current transition-all" style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }} />
+            </div>
+          )}
           {action && <p className="text-xs mt-2 font-medium underline cursor-pointer">{action}</p>}
         </div>
       </div>
     </div>
   )
+}
+
+// ── Upcoming changes timeline ─────────────────────────────────────────
+function buildTimeline(settings) {
+  const now = new Date()
+  const events = [
+    { date: new Date('2026-04-01'), label: 'Water bill rises + council tax resumes', icon: '💧', fixed: true },
+  ]
+  if (settings.vanCostsEndDate) {
+    events.push({ date: new Date(settings.vanCostsEndDate), label: `Van conversion ends — £${settings.vanCostMonthly || 0}/mo freed`, icon: '🚐' })
+  }
+  if (settings.expectedPayRiseDate) {
+    events.push({ date: new Date(settings.expectedPayRiseDate), label: `Pay rise: +£${settings.expectedPayRiseMonthly || 0}/mo`, icon: '💰' })
+  }
+  if (settings.mortgageEndDate) {
+    events.push({ date: new Date(settings.mortgageEndDate), label: 'Mortgage fixed rate expires — start comparing 6 months out', icon: '🏠' })
+  }
+  if (settings.statePensionAge && settings.currentAge) {
+    const yearsToSP = settings.statePensionAge - settings.currentAge
+    const spDate = addMonths(now, yearsToSP * 12)
+    const spMonthly = Math.round((settings.statePensionWeekly || 221.20) * 52 / 12)
+    events.push({ date: spDate, label: `State pension starts (age ${settings.statePensionAge}) — ~£${spMonthly.toLocaleString('en-GB')}/mo`, icon: '🏛️' })
+  }
+  return events.sort((a, b) => a.date - b.date)
 }
 
 export default function Insights() {
@@ -81,35 +117,56 @@ export default function Insights() {
   const savingsRateTarget = data?.settings?.savingsRateTarget || 10
   const settings = data.settings || {}
   const goals = settings.goals || []
+  const now = new Date()
+
+  // ── "Next goal to complete" ──────────────────────────────────────
+  const nextGoal = goals
+    .filter(g => g.monthly > 0 && g.target > g.current)
+    .map(g => ({ ...g, monthsLeft: Math.ceil((g.target - g.current) / g.monthly) }))
+    .sort((a, b) => a.monthsLeft - b.monthsLeft)[0] || null
 
   // ── Generate insights ────────────────────────────────────────────
   const insights = useMemo(() => {
     const cards = []
 
-    // 1. Savings rate
+    // 1. Savings rate vs personal target
     const t = savingsRateTarget
     if (savingsRate >= t * 1.5) cards.push({ icon: '🌟', title: 'Excellent savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well above your ${t}% target. You're building wealth consistently.`, colour: 'green' })
     else if (savingsRate >= t) cards.push({ icon: '✅', title: 'Healthy savings rate', body: `${savingsRate.toFixed(1)}% savings rate — above your ${t}% target. On track.`, colour: 'green' })
     else if (savingsRate >= t * 0.5) cards.push({ icon: '🟡', title: 'Savings rate could improve', body: `${savingsRate.toFixed(1)}% savings rate. Your target is ${t}%+. Consider which expenses could reduce.`, colour: 'amber' })
     else cards.push({ icon: '⚠️', title: 'Low savings rate', body: `${savingsRate.toFixed(1)}% savings rate — well below your ${t}% target. Review your biggest expense categories.`, colour: 'red' })
 
-    // 2. Surplus warning
+    // 2. Savings rate vs 15-20% UK benchmark
+    const sr20pct = Math.min(savingsRate / 20 * 100, 100)
+    cards.push({
+      icon: '📈',
+      title: `Savings rate vs benchmark: ${savingsRate.toFixed(1)}% of gross income`,
+      body: savingsRate >= 20
+        ? `${savingsRate.toFixed(1)}% — above the recommended 15–20%. Excellent wealth-building pace.`
+        : savingsRate >= 15
+          ? `${savingsRate.toFixed(1)}% — within the recommended 15–20% range. On track.`
+          : `${savingsRate.toFixed(1)}% — below the recommended 15–20% range. ${sr20pct.toFixed(0)}% of the way to 20%.`,
+      colour: savingsRate >= 20 ? 'green' : savingsRate >= 15 ? 'blue' : 'amber',
+      progress: sr20pct,
+    })
+
+    // 3. Surplus warning
     if (surplus < 100 && surplus >= 0) cards.push({ icon: '⚠️', title: 'Tight monthly surplus', body: `Only £${Math.round(surplus)} surplus this month. One unexpected expense could push you into deficit. Consider pausing a non-essential goal contribution temporarily.`, colour: 'amber' })
     else if (surplus < 0) cards.push({ icon: '🚨', title: 'Monthly deficit', body: `Expenses exceed income by £${Math.round(Math.abs(surplus))}/month. This needs addressing before it erodes your buffer.`, colour: 'red' })
 
-    // 3. Broadband benchmark
+    // 4. Broadband benchmark
     const broadband = findItem(data, 'broadband')[0]
     if (broadband && broadband.monthly > BENCHMARKS.broadband.avg * 1.3) {
       cards.push({ icon: '📡', title: 'Broadband above market rate', body: `You're paying £${broadband.monthly}/month. UK average is ~£${BENCHMARKS.broadband.avg}. Deals from £20/month available — check comparison sites.`, colour: 'amber', action: '→ Check deals on BroadbandChoices' })
     }
 
-    // 4. Energy benchmark
+    // 5. Energy benchmark
     const energy = findItem(data, 'energy')[0]
     if (energy && energy.monthly > BENCHMARKS.energy.avg * 1.5) {
       cards.push({ icon: '⚡', title: 'Energy spend above average', body: `£${energy.monthly}/month on energy. UK average is ~£${BENCHMARKS.energy.avg}. Ensure you're on the best Octopus tariff.`, colour: 'amber' })
     }
 
-    // 5. Subscriptions audit
+    // 6. Subscriptions audit
     const subs = []
     data.sections.forEach(sec => sec.groups.forEach(grp => grp.items.forEach(item => {
       if (SUBSCRIPTION_KEYWORDS.some(k => item.name.toLowerCase().includes(k))) subs.push(item)
@@ -119,35 +176,130 @@ export default function Insights() {
       cards.push({ icon: '📱', title: `${subs.length} subscriptions detected — £${subTotal.toFixed(2)}/month`, body: subs.map(s => `${s.name} £${s.monthly}`).join(' · '), colour: 'blue' })
     }
 
-    // 6. Van costs ending
+    // 7. Van costs ending (now shows up to 12 months out)
     const vanEnd = settings.vanCostsEndDate ? new Date(settings.vanCostsEndDate) : null
-    const now = new Date()
     if (vanEnd) {
       const monthsToVanEnd = Math.round((vanEnd - now) / (1000 * 60 * 60 * 24 * 30))
-      if (monthsToVanEnd >= 0 && monthsToVanEnd <= 4) {
-        cards.push({ icon: '🚐', title: `Van costs ending in ~${monthsToVanEnd} month${monthsToVanEnd !== 1 ? 's' : ''}`, body: `£${settings.vanCostMonthly}/month will free up from ${vanEnd.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. Have a plan ready for where this goes — pension or ISA boost recommended.`, colour: 'green' })
+      if (monthsToVanEnd >= 0 && monthsToVanEnd <= 12) {
+        cards.push({
+          icon: '🚐',
+          title: `Van costs ending in ~${monthsToVanEnd} month${monthsToVanEnd !== 1 ? 's' : ''}`,
+          body: `£${settings.vanCostMonthly}/month freed from ${vanEnd.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. Plan ahead: pension or ISA boost recommended.`,
+          colour: monthsToVanEnd <= 2 ? 'green' : 'blue',
+        })
       }
     }
 
-    // 7. Remortgage alert
+    // 8. Remortgage alert — always visible while in future, colour by proximity
     const mortEnd = settings.mortgageEndDate ? new Date(settings.mortgageEndDate) : null
-    if (mortEnd) {
+    if (mortEnd && mortEnd > now) {
       const monthsToRemort = Math.round((mortEnd - now) / (1000 * 60 * 60 * 24 * 30))
-      if (monthsToRemort <= 9 && monthsToRemort > 0) {
-        cards.push({ icon: '🏠', title: `Remortgage in ${monthsToRemort} months`, body: `Your fixed rate ends ${mortEnd.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. Start comparing deals 6 months out — Halifax, Nationwide, and brokers like L&C all worth checking.`, colour: 'amber' })
-      }
+      const startComparingIn = Math.max(0, monthsToRemort - 6)
+      cards.push({
+        icon: '🏠',
+        title: `Mortgage fixed rate ends in ${monthsToRemort} months`,
+        body: `${mortEnd.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. ${startComparingIn > 0 ? `Start comparing deals in ~${startComparingIn} months.` : 'Start comparing now — 6 months out is optimal.'} Halifax, Nationwide, L&C broker all worth checking.`,
+        colour: monthsToRemort <= 6 ? 'red' : monthsToRemort <= 9 ? 'amber' : 'blue',
+      })
     }
 
-    // 8. Goal close to complete
+    // 9. Goal close to complete
     goals.forEach(g => {
       const pct = g.target > 0 ? (g.current / g.target) * 100 : 0
       if (pct >= 90 && pct < 100) {
-        cards.push({ icon: '🎯', title: `${g.icon} ${g.name} almost funded`, body: `${Math.round(pct)}% there — only £${(g.target - g.current).toLocaleString('en-GB')} to go. At £${g.monthly}/month that's ${Math.ceil((g.target - g.current) / g.monthly)} more months.`, colour: 'green' })
+        const amountLeft = (g.target - g.current).toLocaleString('en-GB')
+        cards.push({
+          icon: '🎯',
+          title: `${g.icon} ${g.name} — only £${amountLeft} away!`,
+          body: `${Math.round(pct)}% funded. At £${g.monthly}/month that's ${Math.ceil((g.target - g.current) / g.monthly)} more month${Math.ceil((g.target - g.current) / g.monthly) !== 1 ? 's' : ''}.`,
+          colour: 'green',
+          progress: pct,
+        })
       }
     })
 
+    // 10. ISA zero/low contributions
+    const isaContrib = settings.isaMonthlyContribution || 0
+    if (isaContrib < 50) {
+      const retYears = (settings.retirementAge || 66) - (settings.currentAge || 38)
+      const projAt100 = Math.round(projectBalance(settings.isaBalance || 0, 100, settings.investmentGrowthRatePct || 5, retYears * 12))
+      cards.push({
+        icon: '📊',
+        title: `ISA allowance mostly unused (£${isaContrib}/mo)`,
+        body: `Annual allowance is £20,000 — barely anything is going in. Even £100/mo compounds to ~£${(projAt100/1000).toFixed(0)}k over ${retYears} years. Consider directing some of the August inflection surplus here.`,
+        colour: 'amber',
+      })
+    }
+
+    // 11. Buffer progress to £10k
+    const bufferBalance = settings.bufferBalance || 0
+    const bufferTarget = 10000
+    const bufferTopUp = 40
+    const bufferPct = Math.min(bufferBalance / bufferTarget * 100, 100)
+    const monthsToBuffer = bufferBalance < bufferTarget
+      ? Math.ceil((bufferTarget - bufferBalance) / bufferTopUp)
+      : 0
+    const bufferDateStr = monthsToBuffer > 0
+      ? addMonths(now, monthsToBuffer).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+      : null
+    cards.push({
+      icon: '🛡️',
+      title: `Emergency buffer: £${bufferBalance.toLocaleString('en-GB')} of £10,000 target`,
+      body: bufferDateStr
+        ? `${bufferPct.toFixed(0)}% of 3-month fund. At £${bufferTopUp}/month top-up, you reach £10k by ${bufferDateStr}.`
+        : `Target reached! A full 3-month emergency fund is in place.`,
+      colour: bufferPct >= 100 ? 'green' : bufferPct >= 60 ? 'blue' : 'amber',
+      progress: bufferPct,
+    })
+
+    // 12. August inflection point
+    const payRiseDate = settings.expectedPayRiseDate ? new Date(settings.expectedPayRiseDate) : null
+    if (vanEnd && payRiseDate) {
+      const monthsToVan = Math.round((vanEnd - now) / (1000 * 60 * 60 * 24 * 30))
+      const monthsToRise = Math.round((payRiseDate - now) / (1000 * 60 * 60 * 24 * 30))
+      if (monthsToVan >= -6 || monthsToRise >= -6) {
+        const freed = (settings.vanCostMonthly || 0) + (settings.expectedPayRiseMonthly || 0)
+        const newISA = isaContrib + Math.round(freed * 0.5)
+        const mortgageOverpay = Math.round(freed * 0.3)
+        cards.push({
+          icon: '🚀',
+          title: `August inflection: ~£${freed}/month newly available`,
+          body: `Van ends (£${settings.vanCostMonthly || 0}/mo) + pay rise (£${settings.expectedPayRiseMonthly || 0}/mo) = £${freed}/mo freed up. Options: (1) Boost ISA to £${newISA}/mo, (2) Overpay mortgage £${mortgageOverpay}/mo, (3) Split ISA + pension top-up. Worth deciding now before lifestyle creep sets in.`,
+          colour: 'green',
+        })
+      }
+    }
+
+    // 13. Retirement gap
+    const retYears = ((settings.retirementAge || 66) - (settings.currentAge || 38))
+    const retMonths = retYears * 12
+    const growthRate = settings.investmentGrowthRatePct || 5
+    const projISA = projectBalance(settings.isaBalance || 0, isaContrib, growthRate, retMonths)
+    const projPension = projectBalance(settings.pensionBalance || 0, settings.pensionMonthlyContribution || 0, growthRate, retMonths)
+    const statePensionAnnual = (settings.statePensionWeekly || 221.20) * 52
+    const isaDrawAnnual = projISA * 0.04
+    const penDrawAnnual = projPension * 0.04
+    const totalRetIncome = Math.round(statePensionAnnual + isaDrawAnnual + penDrawAnnual)
+    const retTarget = 60000
+    const retGap = Math.max(0, retTarget - totalRetIncome)
+    if (retGap > 5000) {
+      cards.push({
+        icon: '⚠️',
+        title: `Retirement income gap: ~£${Math.round(retGap / 1000)}k/yr shortfall`,
+        body: `Projected at ${settings.retirementAge || 66}: state pension £${Math.round(statePensionAnnual / 1000)}k + ISA drawdown £${Math.round(isaDrawAnnual / 1000)}k + pension £${Math.round(penDrawAnnual / 1000)}k = ~£${Math.round(totalRetIncome / 1000)}k/yr vs £${retTarget / 1000}k target. An extra £${Math.round(retGap / 12 / retYears)}/mo to pension now closes the gap.`,
+        colour: 'amber',
+      })
+    } else if (retGap === 0) {
+      cards.push({
+        icon: '🎉',
+        title: `Retirement income: on track for £${retTarget / 1000}k+ target`,
+        body: `Projected ~£${Math.round(totalRetIncome / 1000)}k/yr at ${settings.retirementAge || 66} from state pension, ISA, and pension drawdown combined.`,
+        colour: 'green',
+      })
+    }
+
     return cards
-  }, [data, surplus, savingsRate, settings, goals])
+  }, [data, surplus, savingsRate, settings, goals, now])
 
   // ── Phase 2 placeholder cards ────────────────────────────────────
   const phase2 = [
@@ -155,6 +307,8 @@ export default function Insights() {
     { icon: '📊', title: 'Cash-flow danger days', body: 'Link your account to see which days of the month your balance is lowest.' },
     { icon: '🛒', title: 'Merchant intelligence', body: 'Tesco, Deliveroo, Amazon averages and trends — needs transaction feed.' },
   ]
+
+  const timeline = buildTimeline(settings)
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -169,6 +323,20 @@ export default function Insights() {
         </div>
       )}
 
+      {/* Next goal to complete */}
+      {nextGoal && (
+        <div>
+          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">⚡ Next Goal to Complete</h2>
+          <InsightCard
+            icon={nextGoal.icon}
+            title={`${nextGoal.name} — ${nextGoal.monthsLeft} month${nextGoal.monthsLeft !== 1 ? 's' : ''} away`}
+            body={`£${nextGoal.current.toLocaleString('en-GB')} of £${nextGoal.target.toLocaleString('en-GB')} saved. Saving £${nextGoal.monthly}/month. ${Math.round(nextGoal.current / nextGoal.target * 100)}% there.`}
+            colour="green"
+            progress={Math.round(nextGoal.current / nextGoal.target * 100)}
+          />
+        </div>
+      )}
+
       {/* Live insights */}
       <div>
         <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">💡 Smart Insights</h2>
@@ -176,6 +344,38 @@ export default function Insights() {
           {insights.map((ins, i) => <InsightCard key={i} {...ins} />)}
         </div>
       </div>
+
+      {/* Upcoming changes timeline */}
+      {timeline.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">📅 Upcoming Changes</h2>
+          <div className="relative pl-5">
+            <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-ash-grey-200" />
+            <div className="space-y-3">
+              {timeline.map((ev, i) => {
+                const isPast = ev.date < now
+                const monthsAway = Math.round((ev.date - now) / (1000 * 60 * 60 * 24 * 30))
+                return (
+                  <div key={i} className={`flex items-start gap-3 ${isPast ? 'opacity-50' : ''}`}>
+                    <div className="relative z-10 w-3 h-3 rounded-full mt-1 flex-shrink-0 border-2 border-tropical-teal-400 bg-white" />
+                    <div className="flex-1 bg-white rounded-lg border border-ash-grey-200 p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-medium text-ash-grey-700">{ev.icon} {ev.label}</span>
+                        <span className="text-xs text-ash-grey-400 flex-shrink-0">
+                          {isPast ? 'Past' : monthsAway === 0 ? 'This month' : `${monthsAway}mo`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-ash-grey-400 mt-0.5">
+                        {ev.date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Phase 2 */}
       <div>
