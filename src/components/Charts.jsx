@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  RadialBarChart, RadialBar
+  RadialBarChart, RadialBar,
+  ComposedChart
 } from 'recharts'
 import { calcBudgetSummary, isSavingsGroup } from '../utils/budgetCalcs'
 
@@ -377,6 +378,176 @@ function SavingsBreakdown({ budget }) {
   )
 }
 
+// ── Spend as % of income donut ───────────────────────────────────────
+function SectionIncomeDonut({ sections, totalIncome }) {
+  const data = sections
+    .map(sec => ({
+      name: sec.name.replace(/[⭐💳💜]/g, '').trim(),
+      value: sec.groups.reduce((s, g) => s + g.items.reduce((gs, i) => gs + i.monthly, 0), 0),
+      id: sec.id,
+    }))
+    .filter(d => d.value > 0)
+
+  if (!totalIncome || data.length === 0) return null
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const pct = ((payload[0].value / totalIncome) * 100).toFixed(1)
+    return (
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{payload[0].name}</p>
+        <p style={{ color: SECTION_COLOURS[payload[0].payload.id] || '#888' }}>{fmtFull(payload[0].value)}/month</p>
+        <p className="text-ash-grey-400">{pct}% of income</p>
+      </div>
+    )
+  }
+
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (percent < 0.06) return null
+    const RADIAN = Math.PI / 180
+    const r = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + r * Math.cos(-midAngle * RADIAN)
+    const y = cy + r * Math.sin(-midAngle * RADIAN)
+    return (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="600">
+        {`${((percent) * 100).toFixed(0)}%`}
+      </text>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">🍩 Spend as % of Income</h3>
+      <p className="text-xs text-ash-grey-400 mb-2">How much of your take-home goes to each account</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={82} dataKey="value"
+            labelLine={false} label={renderLabel} strokeWidth={0}>
+            {data.map((entry) => <Cell key={entry.id} fill={SECTION_COLOURS[entry.id] || '#888'} />)}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend formatter={v => <span style={{ fontSize: 12, color: '#4f7d77' }}>{v}</span>} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── Stacked bank bar (all groups, coloured by section) ───────────────
+function StackedBankBar({ sections }) {
+  const fills = {}
+  const row = {}
+  sections.forEach(sec => {
+    sec.groups.forEach(g => {
+      if (!isSavingsGroup(g)) {
+        const total = g.items.reduce((s, i) => s + i.monthly, 0)
+        if (total > 0) {
+          const key = g.name.replace(/[^\w\s]/g, '').trim().slice(0, 22)
+          row[key] = total
+          fills[key] = SECTION_COLOURS[sec.id] || '#888'
+        }
+      }
+    })
+  })
+
+  const groupKeys = Object.keys(row).sort((a, b) => row[b] - row[a])
+  if (groupKeys.length === 0) return null
+  const data = [row]
+
+  const legendItems = Object.entries(SECTION_COLOURS).map(([id, color]) => ({
+    id,
+    color,
+    name: sections.find(s => s.id === id)?.name.replace(/[⭐💳💜]/g, '').trim() || id,
+  }))
+
+  return (
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">📊 All Spending Groups by Bank</h3>
+      <p className="text-xs text-ash-grey-400 mb-3">Each segment = one group; colour = which account it lives in</p>
+      <div className="flex gap-3 mb-3 flex-wrap">
+        {legendItems.map(l => (
+          <div key={l.id} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: l.color }} />
+            <span className="text-xs text-ash-grey-500">{l.name}</span>
+          </div>
+        ))}
+      </div>
+      <ResponsiveContainer width="100%" height={70}>
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+          <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+          <YAxis type="category" hide />
+          <Tooltip
+            formatter={(value, name) => [fmtFull(value), name]}
+            cursor={{ fill: '#eff5f4' }}
+            wrapperStyle={{ fontSize: 12 }}
+          />
+          {groupKeys.map(k => (
+            <Bar key={k} dataKey={k} stackId="groups" fill={fills[k]} maxBarSize={36}>
+            </Bar>
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── "Where does the money go" waterfall ──────────────────────────────
+function WaterfallChart({ sections, totalIncome }) {
+  let running = totalIncome
+  const rows = [{ name: 'Income', base: 0, value: totalIncome, type: 'income' }]
+
+  sections.forEach(sec => {
+    const secTotal = sec.groups.reduce((s, g) => s + g.items.reduce((gs, i) => gs + i.monthly, 0), 0)
+    if (secTotal > 0) {
+      running -= secTotal
+      rows.push({ name: sec.name.replace(/[⭐💳💜]/g, '').trim(), base: running, value: secTotal, type: 'section', sectionId: sec.id })
+    }
+  })
+
+  const surplusVal = running
+  rows.push({ name: 'Surplus', base: 0, value: Math.max(surplusVal, 0), type: surplusVal >= 0 ? 'surplus' : 'deficit' })
+  if (surplusVal < 0) rows.push({ name: 'Deficit', base: 0, value: Math.abs(surplusVal), type: 'deficit' })
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const entry = payload.find(p => p.dataKey === 'value')
+    if (!entry) return null
+    return (
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{entry.payload.name}</p>
+        <p style={{ color: entry.fill }}>{fmtFull(entry.value)}/month</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">🌊 Where Does the Money Go?</h3>
+      <p className="text-xs text-ash-grey-400 mb-3">Salary flows down through each account to surplus</p>
+      <ResponsiveContainer width="100%" height={Math.max(rows.length * 44, 200)}>
+        <ComposedChart data={rows} layout="vertical" margin={{ top: 0, right: 80, left: 10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e0ebea" />
+          <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} domain={[0, totalIncome]} />
+          <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fill: '#3b5e59' }} axisLine={false} tickLine={false} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#eff5f4' }} />
+          <Bar dataKey="base" stackId="wf" fill="transparent" strokeWidth={0} />
+          <Bar dataKey="value" stackId="wf" radius={[0, 6, 6, 0]} maxBarSize={28}
+            label={{ position: 'right', formatter: fmt, fontSize: 11, fill: '#629d95' }}>
+            {rows.map((entry, i) => (
+              <Cell key={i} fill={
+                entry.type === 'income'  ? '#829c63' :
+                entry.type === 'surplus' ? '#58a2a7' :
+                entry.type === 'deficit' ? '#e63119' :
+                SECTION_COLOURS[entry.sectionId] || '#888'
+              } />
+            ))}
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // ── Custom chart renderer ────────────────────────────────────────────
 function CustomChart({ dataSourceId, chartTypeId, budget }) {
   const source = CHART_DATA_SOURCES.find(s => s.id === dataSourceId)
@@ -567,6 +738,18 @@ export default function Charts({ budget }) {
         <HolidayProgress budget={budget} />
         <SavingsBreakdown budget={budget} />
       </div>
+
+      {/* Row 4: Spending Breakdown section */}
+      <div className="pt-2">
+        <h2 className="text-sm font-semibold text-ash-grey-500 uppercase tracking-wide mb-3">💸 Spending Breakdown</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SectionIncomeDonut sections={budget.sections} totalIncome={totalIncome} />
+          <StackedBankBar sections={budget.sections} />
+        </div>
+      </div>
+
+      {/* Row 5: Waterfall */}
+      <WaterfallChart sections={budget.sections} totalIncome={totalIncome} />
 
       {/* Custom charts */}
       {customCharts.map(chart => {

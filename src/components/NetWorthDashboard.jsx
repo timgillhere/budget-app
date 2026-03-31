@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBudget } from '../context/BudgetContext'
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, ReferenceLine } from 'recharts'
+import { calcBudgetSummary } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${Math.round(n || 0).toLocaleString('en-GB')}`
 const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : fmt(n)
@@ -44,7 +45,8 @@ export default function NetWorthDashboard() {
   // Add snapshot
   const addSnapshot = () => {
     const today = new Date().toISOString().slice(0, 10)
-    const newSnap = { date: today, isa, pension, propertyEquity: equity, buffer, other: 0, total }
+    const { surplus } = calcBudgetSummary(data)
+    const newSnap = { date: today, isa, pension, propertyEquity: equity, buffer, other: 0, total, surplus: Math.round(surplus) }
     const existing = snapshots.filter(s => s.date.slice(0, 7) !== today.slice(0, 7))
     save({ ...data, netWorth: { snapshots: [...existing, newSnap].sort((a, b) => a.date.localeCompare(b.date)) } })
     setSnapFlash(true)
@@ -129,6 +131,42 @@ export default function NetWorthDashboard() {
           )}
         </div>
       </div>
+
+      {/* Buffer over time */}
+      {snapshotChartData.length >= 2 && (
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">🛡️ Buffer balance over time</h3>
+          <p className="text-xs text-ash-grey-400 mb-3">Emergency fund growth from monthly snapshots</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={snapshotChartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine y={10000} stroke="#dbd224" strokeDasharray="4 3" label={{ value: '£10k target', position: 'right', fontSize: 9, fill: '#a09818' }} />
+              <Area type="monotone" dataKey="buffer" stroke="#629d95" fill="#deeced" strokeWidth={2} name="Buffer" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Monthly surplus over time */}
+      {snapshotChartData.filter(s => s.surplus != null).length >= 2 && (
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">📈 Monthly surplus over time</h3>
+          <p className="text-xs text-ash-grey-400 mb-3">Budgeted surplus captured at each monthly snapshot</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={snapshotChartData.filter(s => s.surplus != null)}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine y={0} stroke="#e63119" strokeDasharray="3 3" />
+              <Line type="monotone" dataKey="surplus" stroke="#58a2a7" strokeWidth={2} dot={{ r: 3 }} name="Surplus" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <p className="text-xs text-ash-grey-400 text-center">Balances are manually maintained. Update them in ⚙️ Settings.</p>
     </div>
