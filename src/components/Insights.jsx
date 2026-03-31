@@ -31,7 +31,7 @@ function GoalRing({ goal }) {
   const monthsLeft = goal.monthly > 0 ? Math.ceil((goal.target - goal.current) / goal.monthly) : null
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-4 text-center">
       <ResponsiveContainer width="100%" height={90}>
         <RadialBarChart cx="50%" cy="100%" innerRadius="70%" outerRadius="100%" barSize={10}
           data={[{ value: pct, fill: colour }, { value: 100 - pct, fill: '#F3F4F6' }]}
@@ -40,10 +40,10 @@ function GoalRing({ goal }) {
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="text-xl font-bold -mt-4" style={{ color: colour }}>{Math.round(pct)}%</div>
-      <div className="text-xs font-semibold text-gray-700 mt-1">{goal.icon} {goal.name}</div>
-      <div className="text-xs text-gray-500">£{goal.current.toLocaleString()} / £{goal.target.toLocaleString()}</div>
+      <div className="text-xs font-semibold text-ash-grey-700 mt-1">{goal.icon} {goal.name}</div>
+      <div className="text-xs text-ash-grey-500">£{goal.current.toLocaleString()} / £{goal.target.toLocaleString()}</div>
       {monthsLeft !== null && pct < 100 && (
-        <div className="text-xs text-gray-400 mt-0.5">~{monthsLeft}m to go</div>
+        <div className="text-xs text-ash-grey-400 mt-0.5">~{monthsLeft}m to go</div>
       )}
     </div>
   )
@@ -51,12 +51,12 @@ function GoalRing({ goal }) {
 
 function InsightCard({ icon, title, body, colour = 'blue', action }) {
   const colours = {
-    blue:   'bg-blue-50   border-blue-200  text-blue-800',
-    green:  'bg-green-50  border-green-200 text-green-800',
-    amber:  'bg-amber-50  border-amber-200 text-amber-800',
-    red:    'bg-red-50    border-red-200   text-red-800',
-    purple: 'bg-purple-50 border-purple-200 text-purple-800',
-    gray:   'bg-gray-50   border-gray-200  text-gray-500',
+    blue:   'bg-tropical-teal-50   border-tropical-teal-200  text-tropical-teal-700',
+    green:  'bg-soft-linen-50  border-soft-linen-200 text-soft-linen-700',
+    amber:  'bg-lemon-chiffon-100  border-lemon-chiffon-200 text-lemon-chiffon-700',
+    red:    'bg-vibrant-coral-50    border-vibrant-coral-200   text-vibrant-coral-700',
+    purple: 'bg-tropical-teal-50 border-tropical-teal-200 text-tropical-teal-700',
+    gray:   'bg-ash-grey-50   border-ash-grey-200  text-ash-grey-500',
   }
   return (
     <div className={`rounded-xl border p-4 ${colours[colour]}`}>
@@ -160,7 +160,7 @@ export default function Insights() {
       {/* Goal progress rings */}
       {goals.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-600 mb-3">🎯 Goal Progress</h2>
+          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">🎯 Goal Progress</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {goals.map(g => <GoalRing key={g.id} goal={g} />)}
           </div>
@@ -169,7 +169,7 @@ export default function Insights() {
 
       {/* Live insights */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-600 mb-3">💡 Smart Insights</h2>
+        <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">💡 Smart Insights</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {insights.map((ins, i) => <InsightCard key={i} {...ins} />)}
         </div>
@@ -177,7 +177,7 @@ export default function Insights() {
 
       {/* Phase 2 */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 mb-3">🔒 Coming soon — requires bank connection</h2>
+        <h2 className="text-sm font-semibold text-ash-grey-400 mb-3">🔒 Coming soon — requires bank connection</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {phase2.map((p, i) => <InsightCard key={i} {...p} colour="gray" />)}
         </div>

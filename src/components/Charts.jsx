@@ -9,25 +9,25 @@ const fmtFull = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2
 
 // Colour palette — distinct, works on white background
 const SECTION_COLOURS = {
-  starling: '#2E75B6',
-  current:  '#C55A11',
-  monzo:    '#7030A0',
+  starling: '#58a2a7',
+  current:  '#e63119',
+  monzo:    '#629d95',
 }
 const GROUP_COLOURS = [
-  '#2E75B6','#7030A0','#C55A11','#70AD47','#ED7D31',
-  '#4472C4','#9C27B0','#F4B942','#00897B','#E53935',
-  '#5E35B1','#1E88E5','#43A047','#FB8C00','#8D6E63',
+  '#58a2a7','#629d95','#e63119','#829c63','#dbd224',
+  '#468186','#4f7d77','#afa81d','#687c50','#b82714',
+  '#3b5e59','#356164','#4e5d3c','#847e15','#82b0aa',
 ]
 
 // ── Savings rate gauge ───────────────────────────────────────────────
 function SavingsGauge({ rate }) {
   const clamped = Math.min(Math.max(parseFloat(rate), 0), 30)
-  const fill = clamped < 5 ? '#EF5350' : clamped < 10 ? '#FFA726' : '#66BB6A'
-  const data = [{ value: clamped, fill }, { value: 30 - clamped, fill: '#F0F0F0' }]
+  const fill = clamped < 5 ? '#e63119' : clamped < 10 ? '#dbd224' : '#829c63'
+  const data = [{ value: clamped, fill }, { value: 30 - clamped, fill: '#e0ebea' }]
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col items-center">
-      <h3 className="text-sm font-semibold text-gray-600 mb-1">💚 Savings Rate</h3>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 flex flex-col items-center">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-1">💚 Savings Rate</h3>
       <ResponsiveContainer width="100%" height={160}>
         <PieChart>
           <Pie
@@ -44,11 +44,11 @@ function SavingsGauge({ rate }) {
       </ResponsiveContainer>
       <div className="text-center -mt-10">
         <div className="text-3xl font-bold" style={{ color: fill }}>{rate}%</div>
-        <div className="text-xs text-gray-400 mt-1">
+        <div className="text-xs text-ash-grey-400 mt-1">
           {clamped < 5 ? '⚠️ Below 5%' : clamped < 10 ? '🟡 Getting there' : clamped < 15 ? '✅ Healthy' : '🌟 Excellent'}
         </div>
       </div>
-      <div className="flex justify-between w-full text-xs text-gray-400 mt-3 px-2">
+      <div className="flex justify-between w-full text-xs text-ash-grey-400 mt-3 px-2">
         <span>0%</span><span>Target: 10%+</span><span>30%</span>
       </div>
     </div>
@@ -58,30 +58,30 @@ function SavingsGauge({ rate }) {
 // ── Income vs Expenses vs Surplus ───────────────────────────────────
 function IncomeExpenseBar({ totalIncome, totalExpenses, surplus }) {
   const data = [
-    { name: 'Income',   value: totalIncome,   fill: '#70AD47' },
-    { name: 'Expenses', value: totalExpenses,  fill: '#ED7D31' },
-    { name: 'Surplus',  value: Math.max(surplus, 0), fill: surplus >= 0 ? '#2E75B6' : '#EF5350' },
+    { name: 'Income',   value: totalIncome,   fill: '#829c63' },
+    { name: 'Expenses', value: totalExpenses,  fill: '#dbd224' },
+    { name: 'Surplus',  value: Math.max(surplus, 0), fill: surplus >= 0 ? '#58a2a7' : '#e63119' },
   ]
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow text-sm">
-        <p className="font-semibold text-gray-700">{payload[0].payload.name}</p>
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{payload[0].payload.name}</p>
         <p style={{ color: payload[0].payload.fill }}>{fmtFull(payload[0].value)}/month</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-600 mb-4">📊 Income vs Expenses vs Surplus</h3>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-4">📊 Income vs Expenses vs Surplus</h3>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-          <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={fmt} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#629d95' }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={fmt} tick={{ fontSize: 11, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={55} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#eff5f4' }} />
           <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={70}>
             {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
           </Bar>
@@ -105,8 +105,8 @@ function SectionDonut({ sections }) {
     .filter(d => d.value > 0)
 
   if (data.length === 0) return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center h-full min-h-[260px]">
-      <p className="text-sm text-gray-400">No expense data yet</p>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 flex items-center justify-center h-full min-h-[260px]">
+      <p className="text-sm text-ash-grey-400">No expense data yet</p>
     </div>
   )
 
@@ -114,12 +114,12 @@ function SectionDonut({ sections }) {
     if (!active || !payload?.length) return null
     const total = data.reduce((s, d) => s + d.value, 0)
     return (
-      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow text-sm">
-        <p className="font-semibold text-gray-700">{payload[0].name}</p>
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{payload[0].name}</p>
         <p style={{ color: SECTION_COLOURS[payload[0].payload.id] || '#888' }}>
           {fmtFull(payload[0].value)}/month
         </p>
-        <p className="text-gray-400">{((payload[0].value / total) * 100).toFixed(1)}%</p>
+        <p className="text-ash-grey-400">{((payload[0].value / total) * 100).toFixed(1)}%</p>
       </div>
     )
   }
@@ -138,8 +138,8 @@ function SectionDonut({ sections }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-600 mb-2">🍩 Spend by Account</h3>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-2">🍩 Spend by Account</h3>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
@@ -156,7 +156,7 @@ function SectionDonut({ sections }) {
           </Pie>
           <Tooltip content={<CustomTooltip />} />
           <Legend
-            formatter={(value) => <span style={{ fontSize: 12, color: '#4B5563' }}>{value}</span>}
+            formatter={(value) => <span style={{ fontSize: 12, color: '#4f7d77' }}>{value}</span>}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -177,32 +177,32 @@ function GroupBreakdown({ sections }) {
   const top = groups.slice(0, 12)
 
   if (top.length === 0) return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center min-h-[260px]">
-      <p className="text-sm text-gray-400">No expense data yet</p>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5 flex items-center justify-center min-h-[260px]">
+      <p className="text-sm text-ash-grey-400">No expense data yet</p>
     </div>
   )
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow text-sm">
-        <p className="font-semibold text-gray-700">{payload[0].payload.name}</p>
-        <p className="text-blue-600">{fmtFull(payload[0].value)}/month</p>
-        <p className="text-gray-400">{fmtFull(payload[0].value * 12)}/year</p>
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-sm">
+        <p className="font-semibold text-ash-grey-700">{payload[0].payload.name}</p>
+        <p className="text-tropical-teal-600">{fmtFull(payload[0].value)}/month</p>
+        <p className="text-ash-grey-400">{fmtFull(payload[0].value * 12)}/year</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-600 mb-4">📋 Spend by Group (top {top.length})</h3>
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-ash-grey-600 mb-4">📋 Spend by Group (top {top.length})</h3>
       <ResponsiveContainer width="100%" height={Math.max(top.length * 36, 180)}>
         <BarChart data={top} layout="vertical" margin={{ top: 0, right: 60, left: 10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F0F0F0" />
-          <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12, fill: '#374151' }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
-          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={{ position: 'right', formatter: fmt, fontSize: 11, fill: '#6B7280' }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e0ebea" />
+          <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 11, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12, fill: '#3b5e59' }} axisLine={false} tickLine={false} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#eff5f4' }} />
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={{ position: 'right', formatter: fmt, fontSize: 11, fill: '#629d95' }}>
             {top.map((_, i) => <Cell key={i} fill={GROUP_COLOURS[i % GROUP_COLOURS.length]} />)}
           </Bar>
         </BarChart>
@@ -224,7 +224,7 @@ export default function Charts({ budget }) {
 
   if (!hasData) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-10 text-center text-gray-400">
+      <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-10 text-center text-ash-grey-400">
         <div className="text-3xl mb-2">📊</div>
         <p className="text-sm">Add some income and expenses to see your charts</p>
       </div>

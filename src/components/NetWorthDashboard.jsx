@@ -32,8 +32,8 @@ export default function NetWorthDashboard() {
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow text-xs">
-        <p className="font-semibold text-gray-700 mb-1">{label}</p>
+      <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-xs">
+        <p className="font-semibold text-ash-grey-700 mb-1">{label}</p>
         {payload.map((p, i) => <p key={i} style={{ color: p.fill || p.color }}>{p.name}: {fmt(p.value)}</p>)}
       </div>
     )
@@ -48,22 +48,22 @@ export default function NetWorthDashboard() {
   }
 
   const tiles = [
-    { label: '🏠 Property Equity',  value: equity,  sub: `£${propVal.toLocaleString('en-GB')} value − £${mortgage.toLocaleString('en-GB')} mortgage`, colour: 'text-amber-600' },
-    { label: '📈 Vanguard ISA',     value: isa,     sub: `Update in Settings`, colour: 'text-green-700' },
-    { label: '🏦 Pension',          value: pension, sub: `£${s.pensionMonthlyContribution || 537}/month contributions`, colour: 'text-blue-700' },
-    { label: '🛡️ Buffer',           value: buffer,  sub: `~${Math.round(buffer / ((data.sections.reduce((t, sec) => t + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)) / 12 * 12))} months expenses`, colour: 'text-purple-700' },
+    { label: '🏠 Property Equity',  value: equity,  sub: `£${propVal.toLocaleString('en-GB')} value − £${mortgage.toLocaleString('en-GB')} mortgage`, colour: 'text-lemon-chiffon-600' },
+    { label: '📈 Vanguard ISA',     value: isa,     sub: `Update in Settings`, colour: 'text-soft-linen-700' },
+    { label: '🏦 Pension',          value: pension, sub: `£${s.pensionMonthlyContribution || 537}/month contributions`, colour: 'text-tropical-teal-600' },
+    { label: '🛡️ Buffer',           value: buffer,  sub: `~${Math.round(buffer / ((data.sections.reduce((t, sec) => t + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)) / 12 * 12))} months expenses`, colour: 'text-tropical-teal-600' },
   ]
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 
       {/* Total */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
-        <p className="text-sm text-gray-500 font-medium mb-1">Total Net Worth</p>
-        <p className="text-5xl font-bold text-gray-800">{fmt(total)}</p>
-        <p className="text-sm text-gray-400 mt-2">Age {s.currentAge || 38} · Target retirement at {s.retirementAge || 66}</p>
+      <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-6 text-center">
+        <p className="text-sm text-ash-grey-500 font-medium mb-1">Total Net Worth</p>
+        <p className="text-5xl font-bold text-ash-grey-800">{fmt(total)}</p>
+        <p className="text-sm text-ash-grey-400 mt-2">Age {s.currentAge || 38} · Target retirement at {s.retirementAge || 66}</p>
         <button onClick={addSnapshot}
-          className="mt-3 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50">
+          className="mt-3 text-xs text-tropical-teal-600 hover:text-tropical-teal-700 border border-tropical-teal-200 px-3 py-1.5 rounded-lg hover:bg-tropical-teal-50">
           📸 Snapshot today's values
         </button>
       </div>
@@ -71,18 +71,18 @@ export default function NetWorthDashboard() {
       {/* Tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {tiles.map(t => (
-          <div key={t.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <p className="text-xs text-gray-500 font-medium">{t.label}</p>
+          <div key={t.label} className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-4">
+            <p className="text-xs text-ash-grey-500 font-medium">{t.label}</p>
             <p className={`text-2xl font-bold mt-1 ${t.colour}`}>{fmtK(t.value)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{t.sub}</p>
+            <p className="text-xs text-ash-grey-400 mt-0.5">{t.sub}</p>
           </div>
         ))}
       </div>
 
       {/* Donut + snapshot chart */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">Allocation breakdown</h3>
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-ash-grey-600 mb-3">Allocation breakdown</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={breakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={90}
@@ -95,10 +95,10 @@ export default function NetWorthDashboard() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">
+        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-ash-grey-600 mb-3">
             Net worth over time
-            {snapshots.length < 2 && <span className="ml-2 text-xs text-gray-400">(snapshot monthly to build this chart)</span>}
+            {snapshots.length < 2 && <span className="ml-2 text-xs text-ash-grey-400">(snapshot monthly to build this chart)</span>}
           </h3>
           {snapshotChartData.length >= 2 ? (
             <ResponsiveContainer width="100%" height={180}>
@@ -111,7 +111,7 @@ export default function NetWorthDashboard() {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-44 flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
+            <div className="h-44 flex flex-col items-center justify-center text-ash-grey-400 text-sm gap-2">
               <span className="text-2xl">📸</span>
               <p>Click "Snapshot today's values" monthly</p>
               <p className="text-xs">to build your net worth timeline</p>
@@ -120,7 +120,7 @@ export default function NetWorthDashboard() {
         </div>
       </div>
 
-      <p className="text-xs text-gray-400 text-center">Balances are manually maintained. Update them in ⚙️ Settings.</p>
+      <p className="text-xs text-ash-grey-400 text-center">Balances are manually maintained. Update them in ⚙️ Settings.</p>
     </div>
   )
 }

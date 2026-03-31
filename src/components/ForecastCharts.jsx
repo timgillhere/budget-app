@@ -32,9 +32,9 @@ function fmtMonth(dateStr) {
 }
 
 function confidence(months) {
-  if (months <= 6)  return { label: 'High ✅',        color: 'text-green-600', band: false }
-  if (months <= 24) return { label: 'Moderate 🟡',    color: 'text-amber-600', band: true }
-  return              { label: 'Illustrative 📊',      color: 'text-purple-600', band: true }
+  if (months <= 6)  return { label: 'High ✅',        color: 'text-soft-linen-600', band: false }
+  if (months <= 24) return { label: 'Moderate 🟡',    color: 'text-lemon-chiffon-600', band: true }
+  return              { label: 'Illustrative 📊',      color: 'text-tropical-teal-600', band: true }
 }
 
 // ── Projections ──────────────────────────────────────────────────────
@@ -161,8 +161,8 @@ function calcSurplus(data) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow text-xs">
-      <p className="font-semibold text-gray-700 mb-1">{fmtMonth(label)}</p>
+    <div className="bg-white border border-ash-grey-200 rounded-lg px-3 py-2 shadow text-xs">
+      <p className="font-semibold text-ash-grey-700 mb-1">{fmtMonth(label)}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {fmt(p.value)}</p>
       ))}
@@ -173,20 +173,20 @@ function ChartTooltip({ active, payload, label }) {
 function ChartCard({ title, confidence: conf, assumptions, children }) {
   const [showAssumptions, setShowAssumptions] = useState(false)
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
       <div className="flex items-start justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+        <h3 className="text-sm font-semibold text-ash-grey-700">{title}</h3>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-medium ${conf.color}`}>{conf.label}</span>
           {assumptions && (
-            <button onClick={() => setShowAssumptions(s => !s)} className="text-xs text-gray-400 hover:text-gray-600">
+            <button onClick={() => setShowAssumptions(s => !s)} className="text-xs text-ash-grey-400 hover:text-ash-grey-600">
               {showAssumptions ? '▲' : '▼'} assumptions
             </button>
           )}
         </div>
       </div>
       {showAssumptions && assumptions && (
-        <div className="mb-3 bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-0.5">
+        <div className="mb-3 bg-ash-grey-50 rounded-lg p-3 text-xs text-ash-grey-600 space-y-0.5">
           {assumptions.map((a, i) => <p key={i}>• {a}</p>)}
         </div>
       )}
@@ -224,14 +224,14 @@ export default function ForecastCharts() {
 
       {/* Horizon picker */}
       <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-gray-600">Forecast horizon:</span>
+        <span className="text-sm font-medium text-ash-grey-600">Forecast horizon:</span>
         <div className="flex gap-2">
           {HORIZONS.map((h, i) => (
             <button
               key={h.label}
               onClick={() => setHorizonIdx(i)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                horizonIdx === i ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                horizonIdx === i ? 'bg-tropical-teal-600 text-white' : 'bg-ash-grey-100 text-ash-grey-600 hover:bg-ash-grey-200'
               }`}
             >
               {h.label}
@@ -254,16 +254,16 @@ export default function ForecastCharts() {
       >
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={surplus}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={50} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={50} />
             <Tooltip content={<ChartTooltip />} />
-            <ReferenceLine y={0} stroke="#EF4444" strokeDasharray="4 4" />
-            <ReferenceLine y={300} stroke="#70AD47" strokeDasharray="4 4" label={{ value: 'Healthy', position: 'right', fontSize: 10, fill: '#70AD47' }} />
-            <Area type="monotone" dataKey="surplus" stroke="#2E75B6" fill="#DBEAFE" strokeWidth={2} name="Surplus" dot={false} />
+            <ReferenceLine y={0} stroke="#e63119" strokeDasharray="4 4" />
+            <ReferenceLine y={300} stroke="#829c63" strokeDasharray="4 4" label={{ value: 'Healthy', position: 'right', fontSize: 10, fill: '#829c63' }} />
+            <Area type="monotone" dataKey="surplus" stroke="#58a2a7" fill="#deeced" strokeWidth={2} name="Surplus" dot={false} />
             {surplus.filter(p => p.event).map(p => (
-              <ReferenceLine key={p.date} x={p.date} stroke="#F59E0B" strokeDasharray="3 3"
-                label={{ value: p.event, position: 'top', fontSize: 9, fill: '#92400E' }} />
+              <ReferenceLine key={p.date} x={p.date} stroke="#dbd224" strokeDasharray="3 3"
+                label={{ value: p.event, position: 'top', fontSize: 9, fill: '#847e15' }} />
             ))}
           </AreaChart>
         </ResponsiveContainer>
@@ -282,13 +282,13 @@ export default function ForecastCharts() {
       >
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={mortgage}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={55} />
             <Tooltip content={<ChartTooltip />} />
-            <ReferenceLine x={settings.mortgageEndDate?.slice(0, 7)} stroke="#F59E0B" strokeDasharray="3 3"
-              label={{ value: 'Remortgage', position: 'top', fontSize: 9, fill: '#92400E' }} />
-            <Area type="monotone" dataKey="balance" stroke="#C55A11" fill="#FEF3C7" strokeWidth={2} name="Balance" dot={false} />
+            <ReferenceLine x={settings.mortgageEndDate?.slice(0, 7)} stroke="#dbd224" strokeDasharray="3 3"
+              label={{ value: 'Remortgage', position: 'top', fontSize: 9, fill: '#847e15' }} />
+            <Area type="monotone" dataKey="balance" stroke="#e63119" fill="#fbfbe9" strokeWidth={2} name="Balance" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -307,13 +307,13 @@ export default function ForecastCharts() {
         >
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={isa}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-              <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+              <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={55} />
               <Tooltip content={<ChartTooltip />} />
-              {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#7030A0" strokeDasharray="3 3" label={{ value: 'Retire', position: 'top', fontSize: 9, fill: '#7030A0' }} />}
-              {conf.band && <Area type="monotone" dataKey="optimistic" stroke="none" fill="#C6E0B4" fillOpacity={0.4} name="Optimistic" dot={false} />}
-              <Area type="monotone" dataKey="base" stroke="#70AD47" fill="#E2EFDA" strokeWidth={2} name="Base case" dot={false} />
+              {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#629d95" strokeDasharray="3 3" label={{ value: 'Retire', position: 'top', fontSize: 9, fill: '#629d95' }} />}
+              {conf.band && <Area type="monotone" dataKey="optimistic" stroke="none" fill="#cdd7c1" fillOpacity={0.4} name="Optimistic" dot={false} />}
+              <Area type="monotone" dataKey="base" stroke="#829c63" fill="#e6ebe0" strokeWidth={2} name="Base case" dot={false} />
               {conf.band && <Area type="monotone" dataKey="pessimistic" stroke="none" fill="#FFFFFF" fillOpacity={1} name="Pessimistic" dot={false} />}
             </AreaChart>
           </ResponsiveContainer>
@@ -331,13 +331,13 @@ export default function ForecastCharts() {
         >
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={pension}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-              <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={55} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+              <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={55} />
               <Tooltip content={<ChartTooltip />} />
-              {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#7030A0" strokeDasharray="3 3" label={{ value: 'Retire', position: 'top', fontSize: 9, fill: '#7030A0' }} />}
-              {conf.band && <Area type="monotone" dataKey="optimistic" stroke="none" fill="#BDD7EE" fillOpacity={0.4} name="Optimistic" dot={false} />}
-              <Area type="monotone" dataKey="base" stroke="#2E75B6" fill="#DBEAFE" strokeWidth={2} name="Base case" dot={false} />
+              {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#629d95" strokeDasharray="3 3" label={{ value: 'Retire', position: 'top', fontSize: 9, fill: '#629d95' }} />}
+              {conf.band && <Area type="monotone" dataKey="optimistic" stroke="none" fill="#bcdadc" fillOpacity={0.4} name="Optimistic" dot={false} />}
+              <Area type="monotone" dataKey="base" stroke="#58a2a7" fill="#deeced" strokeWidth={2} name="Base case" dot={false} />
               {conf.band && <Area type="monotone" dataKey="pessimistic" stroke="none" fill="#FFFFFF" fillOpacity={1} name="Pessimistic" dot={false} />}
             </AreaChart>
           </ResponsiveContainer>
@@ -358,15 +358,15 @@ export default function ForecastCharts() {
       >
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart data={networth}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={60} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0ebea" />
+            <XAxis dataKey="date" tickFormatter={fmtMonth} interval={tick - 1} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#82b0aa' }} axisLine={false} tickLine={false} width={60} />
             <Tooltip content={<ChartTooltip />} />
-            {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#7030A0" strokeDasharray="3 3" label={{ value: 'Retirement', position: 'top', fontSize: 9, fill: '#7030A0' }} />}
-            <Area type="monotone" dataKey="equity"  stackId="1" stroke="none" fill="#FEF3C7" name="Property Equity" dot={false} />
-            <Area type="monotone" dataKey="pension" stackId="1" stroke="none" fill="#DBEAFE" name="Pension" dot={false} />
-            <Area type="monotone" dataKey="isa"     stackId="1" stroke="#2E75B6" fill="#C6E0B4" strokeWidth={2} name="ISA" dot={false} />
-            <Legend formatter={v => <span style={{ fontSize: 11, color: '#4B5563' }}>{v}</span>} />
+            {months >= settings.retirementAge * 12 && <ReferenceLine x={retirementMonth} stroke="#629d95" strokeDasharray="3 3" label={{ value: 'Retirement', position: 'top', fontSize: 9, fill: '#629d95' }} />}
+            <Area type="monotone" dataKey="equity"  stackId="1" stroke="none" fill="#fbfbe9" name="Property Equity" dot={false} />
+            <Area type="monotone" dataKey="pension" stackId="1" stroke="none" fill="#deeced" name="Pension" dot={false} />
+            <Area type="monotone" dataKey="isa"     stackId="1" stroke="#58a2a7" fill="#cdd7c1" strokeWidth={2} name="ISA" dot={false} />
+            <Legend formatter={v => <span style={{ fontSize: 11, color: '#4f7d77' }}>{v}</span>} />
           </AreaChart>
         </ResponsiveContainer>
       </ChartCard>
