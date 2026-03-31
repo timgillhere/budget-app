@@ -8,6 +8,7 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
   const [notes, setNotes] = useState(initial?.notes || '')
   const [isSavings, setIsSavings] = useState(initial?.isSavings || false)
+  const [currentBalance, setCurrentBalance] = useState(initial?.currentBalance?.toString() || '')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -23,7 +24,12 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
       if (isNaN(val) || val < 0) { setError('Enter a valid amount (£)'); return }
       onSave({ name: name.trim(), monthly: val, notes: notes.trim(), isSavings })
     } else {
-      onSave({ name: name.trim(), isSavings })
+      let balanceVal = null
+      if (currentBalance.trim() !== '') {
+        balanceVal = parseFloat(currentBalance)
+        if (isNaN(balanceVal) || balanceVal < 0) { setError('Enter a valid balance (£) or leave blank'); return }
+      }
+      onSave({ name: name.trim(), isSavings, currentBalance: balanceVal })
     }
   }
 
@@ -31,7 +37,7 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
     'add-item': 'Add Line Item',
     'edit-item': 'Edit Line Item',
     'add-group': 'Add Group',
-    'edit-group': 'Edit Group Name',
+    'edit-group': 'Edit Group',
   }[mode]
 
   return (
@@ -72,6 +78,32 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-soft-linen-500' : 'bg-ash-grey-300'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
+            </div>
+          )}
+
+          {/* Current pot balance — only shown when editing an existing group */}
+          {mode === 'edit-group' && (
+            <div>
+              <label className="block text-sm font-medium text-ash-grey-700 mb-1">
+                Current balance in pot (£)
+                <span className="ml-1.5 text-xs font-normal text-ash-grey-400">optional</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-ash-grey-500 text-sm">£</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={currentBalance}
+                  onChange={e => setCurrentBalance(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+                  className="w-full border border-ash-grey-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
+                  placeholder="e.g. 450.00"
+                />
+              </div>
+              <p className="text-xs text-ash-grey-400 mt-1">
+                Money already sitting in this pot. Leave blank to hide.
+              </p>
             </div>
           )}
 
