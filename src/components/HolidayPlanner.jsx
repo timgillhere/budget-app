@@ -5,9 +5,9 @@ import TripModal from './TripModal'
 const fmt = (n) => `£${(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 0 })}`
 
 const STATUS_STYLE = {
-  planned:   { bg: 'bg-lemon-chiffon-100',  text: 'text-lemon-chiffon-700',  label: '🗓 Planned' },
-  booked:    { bg: 'bg-soft-linen-100',  text: 'text-soft-linen-600',  label: '✅ Booked' },
-  completed: { bg: 'bg-ash-grey-100',   text: 'text-ash-grey-600',   label: '✓ Done' }
+  planned:   { bg: 'bg-amber-900/30',   text: 'text-amber-400',   label: 'Planned' },
+  booked:    { bg: 'bg-emerald-900/30', text: 'text-emerald-400', label: 'Booked' },
+  completed: { bg: 'bg-nb-600',         text: 'text-slate-400',   label: 'Done' }
 }
 
 function days(dep, ret) {
@@ -36,40 +36,44 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
       : null
   const daysToBookBy = bookByDate ? Math.ceil((bookByDate - new Date()) / 86400000) : null
   const showBookBy = daysToBookBy !== null && daysToBookBy > 0 && trip.status !== 'booked' && trip.status !== 'completed'
-  const bookByColor = daysToBookBy < 14 ? 'text-vibrant-coral-600 bg-vibrant-coral-50 border-vibrant-coral-200' : daysToBookBy < 30 ? 'text-lemon-chiffon-700 bg-lemon-chiffon-50 border-lemon-chiffon-200' : 'text-tropical-teal-600 bg-tropical-teal-50 border-tropical-teal-200'
+  const bookByColor = daysToBookBy < 14
+    ? 'text-red-400 bg-red-900/30 border-red-800/60'
+    : daysToBookBy < 30
+      ? 'text-amber-400 bg-amber-900/30 border-amber-800/60'
+      : 'text-neuro-400 bg-neuro-900/30 border-neuro-800/60'
 
   return (
-    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm overflow-hidden">
+    <div className="bg-nb-750 rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-ash-grey-100 flex items-start justify-between">
+      <div className="px-5 py-4 border-b border-nb-600 flex items-start justify-between">
         <div>
-          <h3 className="font-bold text-ash-grey-800 text-base">{trip.destination}</h3>
+          <h3 className="font-bold text-slate-300 text-base">{trip.destination}</h3>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>
             {trip.status !== 'completed' && total > 0 && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${fundedPct >= 100 ? 'bg-soft-linen-100 text-soft-linen-700' : fundedPct >= 50 ? 'bg-tropical-teal-50 text-tropical-teal-700' : 'bg-ash-grey-100 text-ash-grey-600'}`}>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${fundedPct >= 100 ? 'bg-emerald-900/30 text-emerald-400' : fundedPct >= 50 ? 'bg-neuro-900/30 text-neuro-400' : 'bg-nb-700 text-slate-400'}`}>
                 {fundedPct}% funded
               </span>
             )}
             {trip.departureDate && (
-              <span className="text-xs text-ash-grey-500">
+              <span className="text-xs text-slate-400">
                 {new Date(trip.departureDate).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
                 {d && ` · ${d} days`}
               </span>
             )}
             {daysLeft !== null && daysLeft > 0 && (
-              <span className="text-xs font-medium text-tropical-teal-600">{daysLeft}d to go</span>
+              <span className="text-xs font-medium text-neuro-400">{daysLeft}d to go</span>
             )}
           </div>
           {showBookBy && (
             <div className={`mt-2 text-xs font-medium border rounded-lg px-2 py-1 inline-block ${bookByColor}`}>
-              🗓 Book by {bookByDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' })} — {daysToBookBy} days
+              Book by {bookByDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' })} — {daysToBookBy} days
             </div>
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={onEdit} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 px-2 py-1 rounded hover:bg-tropical-teal-50">Edit</button>
-          <button onClick={onDelete} className="text-xs text-vibrant-coral-500 hover:text-vibrant-coral-700 px-2 py-1 rounded hover:bg-vibrant-coral-50">Delete</button>
+          <button onClick={onEdit} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700">Edit</button>
+          <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-700">Delete</button>
         </div>
       </div>
 
@@ -77,15 +81,15 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
       <div className="px-5 py-3">
         <div className="grid grid-cols-3 gap-3 mb-3 text-center">
           {[
-            ['✈️ Flights',       trip.budget.flights],
-            ['🏨 accommodation',  trip.budget.accommodation],
-            ['🍜 On-ground',     trip.budget.onGround],
+            ['Flights',        trip.budget.flights],
+            ['Accommodation',  trip.budget.accommodation],
+            ['On-ground',      trip.budget.onGround],
           ].map(([label, b]) => (
-            <div key={label} className="bg-ash-grey-50 rounded-lg p-2">
-              <div className="text-xs text-ash-grey-500 mb-0.5">{label}</div>
-              <div className="text-sm font-semibold text-ash-grey-800">{fmt(b.budgeted)}</div>
+            <div key={label} className="bg-nb-800 rounded-lg p-2">
+              <div className="text-xs text-slate-500 mb-0.5">{label}</div>
+              <div className="text-sm font-semibold text-slate-300">{fmt(b.budgeted)}</div>
               {b.actual !== null && (
-                <div className={`text-xs font-medium ${b.actual > b.budgeted ? 'text-vibrant-coral-500' : 'text-soft-linen-600'}`}>
+                <div className={`text-xs font-medium ${b.actual > b.budgeted ? 'text-red-400' : 'text-emerald-400'}`}>
                   actual {fmt(b.actual)}
                 </div>
               )}
@@ -94,9 +98,9 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
         </div>
 
         {/* Total + progress */}
-        <div className="flex justify-between text-sm font-semibold text-ash-grey-700 mb-1.5">
+        <div className="flex justify-between text-sm font-semibold text-slate-300 mb-1.5">
           <span>Total budget</span>
-          <span className="text-tropical-teal-600">{fmt(total)}</span>
+          <span className="text-neuro-400">{fmt(total)}</span>
         </div>
 
         {/* Savings progress bar (planned/booked) */}
@@ -109,11 +113,11 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
               const monthsLeft = monthlyContrib > 0 && remaining > 0 ? Math.ceil(remaining / monthlyContrib) : null
               return (
                 <>
-                  <div className="w-full bg-ash-grey-100 rounded-full h-2 mb-1">
-                    <div className="bg-tropical-teal-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  <div className="w-full bg-nb-700 rounded-full h-2 mb-1">
+                    <div className="bg-neuro-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="flex justify-between text-xs text-ash-grey-500">
-                    <span>💰 Saved {fmt(saved)}</span>
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>Saved {fmt(saved)}</span>
                     <span>{fmt(remaining)} to go{monthsLeft ? ` · ~${monthsLeft}mo` : ''}</span>
                   </div>
                 </>
@@ -125,10 +129,10 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
         {/* Spending progress (completed) */}
         {trip.status === 'completed' && (
           <>
-            <div className="w-full bg-ash-grey-100 rounded-full h-2 mb-1">
-              <div className="bg-tropical-teal-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="w-full bg-nb-700 rounded-full h-2 mb-1">
+              <div className="bg-neuro-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
             </div>
-            <div className="flex justify-between text-xs text-ash-grey-500">
+            <div className="flex justify-between text-xs text-slate-500">
               <span>Spent {fmt(actual)}</span>
               <span>{fmt(total - actual)} {total >= actual ? 'under' : 'over'} budget</span>
             </div>
@@ -137,18 +141,18 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
 
         {/* Savings context */}
         {trip.status !== 'completed' && monthlyContrib > 0 && (
-          <div className="mt-2 pt-2 border-t border-ash-grey-100 text-xs text-ash-grey-500">
+          <div className="mt-2 pt-2 border-t border-nb-600 text-xs text-slate-500">
             <span>Saving {fmt(monthlyContrib)}/month from budget</span>
           </div>
         )}
 
         {/* Notes */}
         {trip.notes && (
-          <p className="mt-3 pt-3 border-t border-ash-grey-100 text-xs text-ash-grey-500 leading-relaxed">{trip.notes}</p>
+          <p className="mt-3 pt-3 border-t border-nb-600 text-xs text-slate-500 leading-relaxed">{trip.notes}</p>
         )}
         {trip.itineraryUrl && (
           <a href={trip.itineraryUrl} target="_blank" rel="noopener noreferrer"
-            className="mt-1 text-xs text-tropical-teal-500 hover:underline block">🔗 Itinerary / booking</a>
+            className="mt-1 text-xs text-neuro-400 hover:text-neuro-300 hover:underline block">Itinerary / booking</a>
         )}
       </div>
     </div>
@@ -245,23 +249,23 @@ ${JSON.stringify(data.holidays, null, 2)}
       {/* Header bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-bold text-ash-grey-800">✈️ Holiday Planner</h2>
-          <p className="text-sm text-ash-grey-500 mt-0.5">
-            Saving <span className="font-semibold text-tropical-teal-600">£{monthlyContrib}/month</span> from budget ·
-            <span className="font-semibold text-ash-grey-700"> £{totalBudgeted.toLocaleString('en-GB')} total budgeted across {trips.length} trip{trips.length !== 1 ? 's' : ''}</span>
+          <h2 className="text-lg font-bold text-slate-300">Holiday Planner</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Saving <span className="font-semibold text-neuro-400">£{monthlyContrib}/month</span> from budget ·
+            <span className="font-semibold text-slate-300"> £{totalBudgeted.toLocaleString('en-GB')} total budgeted across {trips.length} trip{trips.length !== 1 ? 's' : ''}</span>
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <label className="cursor-pointer px-3 py-2 rounded-lg text-xs font-medium bg-tropical-teal-700 text-white hover:bg-tropical-teal-800">
-            📥 Import
+          <label className="cursor-pointer px-3 py-2 rounded-lg text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500">
+            Import
             <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
           </label>
           <button onClick={copyForClaude}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-soft-linen-600 text-white' : 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700'}`}>
-            {copyFlash ? '✓ Copied!' : '📋 Copy for Claude'}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-nb-700 text-slate-300 border border-nb-500' : 'bg-nb-700 text-slate-300 hover:bg-nb-600 border border-nb-500'}`}>
+            {copyFlash ? 'Copied!' : 'Copy for Claude'}
           </button>
           <button onClick={() => setModal('add')}
-            className="px-3 py-2 rounded-lg text-xs font-medium bg-soft-linen-600 text-white hover:bg-soft-linen-700">
+            className="px-3 py-2 rounded-lg text-xs font-medium bg-nb-700 text-slate-300 hover:bg-nb-600 border border-nb-500">
             + Add Trip
           </button>
         </div>
@@ -269,10 +273,9 @@ ${JSON.stringify(data.holidays, null, 2)}
 
       {/* Trip cards */}
       {trips.length === 0 ? (
-        <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-12 text-center text-ash-grey-400">
-          <div className="text-4xl mb-3">✈️</div>
+        <div className="bg-nb-750 rounded-xl p-12 text-center text-slate-500">
           <p className="text-sm">No trips yet — add one to get started</p>
-          <button onClick={() => setModal('add')} className="mt-4 text-tropical-teal-600 text-sm hover:underline">+ Add your first trip</button>
+          <button onClick={() => setModal('add')} className="mt-4 text-neuro-400 text-sm hover:underline">+ Add your first trip</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -295,20 +298,20 @@ ${JSON.stringify(data.holidays, null, 2)}
       )}
 
       {importError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-vibrant-coral-600 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50">
-          <span>⚠️ {importError}</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-900 border border-red-700 text-red-200 text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50">
+          <span>{importError}</span>
           <button onClick={() => setImportError(null)} className="font-bold text-lg">&times;</button>
         </div>
       )}
 
       {importPreview && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold mb-2">📥 Import Holiday Data</h2>
-            <p className="text-sm text-ash-grey-600 mb-4">This will replace your current trip list with <strong>{importPreview.trips?.length} trip(s)</strong>.</p>
+          <div className="bg-nb-750 rounded-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-slate-300 mb-2">Import Holiday Data</h2>
+            <p className="text-sm text-slate-400 mb-4">This will replace your current trip list with <strong className="text-slate-300">{importPreview.trips?.length} trip(s)</strong>.</p>
             <div className="flex gap-3">
-              <button onClick={() => setImportPreview(null)} className="flex-1 border border-ash-grey-300 text-ash-grey-700 px-4 py-2 rounded-lg text-sm">Cancel</button>
-              <button onClick={confirmImport} className="flex-1 bg-tropical-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-tropical-teal-800">Import</button>
+              <button onClick={() => setImportPreview(null)} className="flex-1 border border-nb-600 text-slate-400 px-4 py-2 rounded-lg text-sm hover:bg-nb-700">Cancel</button>
+              <button onClick={confirmImport} className="flex-1 bg-neuro-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-neuro-500">Import</button>
             </div>
           </div>
         </div>
