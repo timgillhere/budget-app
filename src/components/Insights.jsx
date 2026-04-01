@@ -35,23 +35,23 @@ function findItem(data, keyword) {
 
 function GoalRing({ goal }) {
   const pct = Math.min(100, goal.target > 0 ? (goal.current / goal.target) * 100 : 0)
-  const colour = pct >= 100 ? '#70AD47' : pct >= 60 ? '#FFC000' : '#2E75B6'
+  const colour = pct >= 100 ? '#34d399' : pct >= 60 ? '#fbbf24' : '#4f7ef7'
   const monthsLeft = goal.monthly > 0 ? Math.ceil((goal.target - goal.current) / goal.monthly) : null
 
   return (
-    <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-4 text-center">
+    <div className="bg-nb-750 rounded-xl p-4 text-center">
       <ResponsiveContainer width="100%" height={90}>
         <RadialBarChart cx="50%" cy="100%" innerRadius="70%" outerRadius="100%" barSize={10}
-          data={[{ value: pct, fill: colour }, { value: 100 - pct, fill: '#F3F4F6' }]}
+          data={[{ value: pct, fill: colour }, { value: 100 - pct, fill: '#1c2844' }]}
           startAngle={180} endAngle={0}>
           <RadialBar dataKey="value" cornerRadius={5} />
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="text-xl font-bold -mt-4" style={{ color: colour }}>{Math.round(pct)}%</div>
-      <div className="text-xs font-semibold text-ash-grey-700 mt-1">{goal.icon} {goal.name}</div>
-      <div className="text-xs text-ash-grey-500">£{goal.current.toLocaleString()} / £{goal.target.toLocaleString()}</div>
+      <div className="text-xs font-semibold text-slate-300 mt-1">{goal.icon} {goal.name}</div>
+      <div className="text-xs text-slate-400">£{goal.current.toLocaleString()} / £{goal.target.toLocaleString()}</div>
       {monthsLeft !== null && pct < 100 && (
-        <div className="text-xs text-ash-grey-400 mt-0.5">~{monthsLeft}m to go</div>
+        <div className="text-xs text-slate-500 mt-0.5">~{monthsLeft}m to go</div>
       )}
     </div>
   )
@@ -59,12 +59,12 @@ function GoalRing({ goal }) {
 
 function InsightCard({ icon, title, body, colour = 'blue', action, progress }) {
   const colours = {
-    blue:   'bg-tropical-teal-50   border-tropical-teal-200  text-tropical-teal-700',
-    green:  'bg-soft-linen-50  border-soft-linen-200 text-soft-linen-700',
-    amber:  'bg-lemon-chiffon-100  border-lemon-chiffon-200 text-lemon-chiffon-700',
-    red:    'bg-vibrant-coral-50    border-vibrant-coral-200   text-vibrant-coral-700',
-    purple: 'bg-tropical-teal-50 border-tropical-teal-200 text-tropical-teal-700',
-    gray:   'bg-ash-grey-50   border-ash-grey-200  text-ash-grey-500',
+    blue:   'bg-neuro-900/30   border-neuro-700/50   text-neuro-300',
+    green:  'bg-emerald-900/30 border-emerald-700/50 text-emerald-300',
+    amber:  'bg-amber-900/30   border-amber-700/50   text-amber-300',
+    red:    'bg-red-900/30     border-red-700/50     text-red-300',
+    purple: 'bg-purple-900/30  border-purple-700/50  text-purple-300',
+    gray:   'bg-nb-700         border-nb-600         text-slate-400',
   }
   return (
     <div className={`rounded-xl border p-4 ${colours[colour]}`}>
@@ -74,7 +74,7 @@ function InsightCard({ icon, title, body, colour = 'blue', action, progress }) {
           <p className="font-semibold text-sm">{title}</p>
           <p className="text-xs mt-0.5 opacity-80 leading-relaxed">{body}</p>
           {progress != null && (
-            <div className="mt-2 w-full bg-white/60 rounded-full h-1.5">
+            <div className="mt-2 w-full bg-white/10 rounded-full h-1.5">
               <div className="h-1.5 rounded-full bg-current transition-all" style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }} />
             </div>
           )}
@@ -327,7 +327,7 @@ export default function Insights() {
       {/* Goal progress rings */}
       {goals.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">🎯 Goal Progress</h2>
+          <h2 className="text-sm font-semibold text-slate-400 mb-3">Goal Progress</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {goals.map(g => <GoalRing key={g.id} goal={g} />)}
           </div>
@@ -337,7 +337,7 @@ export default function Insights() {
       {/* Next goal to complete */}
       {nextGoal && (
         <div>
-          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">⚡ Next Goal to Complete</h2>
+          <h2 className="text-sm font-semibold text-slate-400 mb-3">Next Goal</h2>
           <InsightCard
             icon={nextGoal.icon}
             title={`${nextGoal.name} — ${nextGoal.monthsLeft} month${nextGoal.monthsLeft !== 1 ? 's' : ''} away`}
@@ -350,7 +350,7 @@ export default function Insights() {
 
       {/* Live insights */}
       <div>
-        <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">💡 Smart Insights</h2>
+        <h2 className="text-sm font-semibold text-slate-400 mb-3">Smart Insights</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {insights.map((ins, i) => <InsightCard key={i} {...ins} />)}
         </div>
@@ -359,30 +359,39 @@ export default function Insights() {
       {/* Upcoming changes timeline */}
       {timeline.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-ash-grey-600 mb-3">📅 Upcoming Changes</h2>
-          <div className="relative pl-5">
-            <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-ash-grey-200" />
-            <div className="space-y-3">
-              {timeline.map((ev, i) => {
-                const isPast = ev.date < now
-                const monthsAway = Math.round((ev.date - now) / (1000 * 60 * 60 * 24 * 30))
-                return (
-                  <div key={i} className={`flex items-start gap-3 ${isPast ? 'opacity-50' : ''}`}>
-                    <div className="relative z-10 w-3 h-3 rounded-full mt-1 flex-shrink-0 border-2 border-tropical-teal-400 bg-white" />
-                    <div className="flex-1 bg-white rounded-lg border border-ash-grey-200 p-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-ash-grey-700">{ev.icon} {ev.label}</span>
-                        <span className="text-xs text-ash-grey-400 flex-shrink-0">
-                          {isPast ? 'Past' : monthsAway === 0 ? 'This month' : `${monthsAway}mo`}
-                        </span>
+          <h2 className="text-sm font-semibold text-slate-400 mb-3">Upcoming Changes</h2>
+          <div className="bg-nb-750 rounded-xl p-5">
+            <div className="relative pl-5">
+              <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-nb-600" />
+              <div className="space-y-3">
+                {timeline.map((ev, i) => {
+                  const isPast = ev.date < now
+                  const monthsAway = Math.round((ev.date - now) / (1000 * 60 * 60 * 24 * 30))
+                  const dotColour = isPast
+                    ? 'border-nb-600 bg-nb-700'
+                    : monthsAway <= 1
+                      ? 'border-emerald-500 bg-emerald-900/50'
+                      : monthsAway <= 4
+                        ? 'border-amber-500 bg-amber-900/50'
+                        : 'border-neuro-500 bg-neuro-900/50'
+                  return (
+                    <div key={i} className={`flex gap-3 items-start ${isPast ? 'opacity-40' : ''}`}>
+                      <div className={`relative z-10 w-3 h-3 rounded-full mt-1 flex-shrink-0 border-2 ${dotColour}`} />
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm text-slate-300">{ev.icon} {ev.label}</span>
+                          <span className="text-xs text-slate-500 flex-shrink-0">
+                            {isPast ? 'Past' : monthsAway === 0 ? 'This month' : `${monthsAway}mo`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {ev.date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                        </p>
                       </div>
-                      <p className="text-xs text-ash-grey-400 mt-0.5">
-                        {ev.date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                      </p>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -390,7 +399,7 @@ export default function Insights() {
 
       {/* Phase 2 */}
       <div>
-        <h2 className="text-sm font-semibold text-ash-grey-400 mb-3">🔒 Coming soon — requires bank connection</h2>
+        <h2 className="text-sm font-semibold text-slate-400 mb-3">Coming soon — requires bank connection</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {phase2.map((p, i) => <InsightCard key={i} {...p} colour="gray" />)}
         </div>

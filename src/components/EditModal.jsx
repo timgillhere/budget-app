@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 
 export default function EditModal({ mode, initial, onSave, onClose }) {
-  // mode: 'add-item' | 'edit-item' | 'add-group' | 'edit-group'
   const isGroup = mode === 'add-group' || mode === 'edit-group'
 
   const [name, setName] = useState(initial?.name || '')
@@ -40,17 +39,19 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
     'edit-group': 'Edit Group',
   }[mode]
 
+  const inputCls = "w-full bg-nb-800 text-slate-100 rounded-lg px-3 py-2 text-sm placeholder-slate-600 neon-input"
+
   return (
-    <div className="fixed inset-0 bg-ash-grey-950/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-nb-750 rounded-xl border border-nb-600 shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-ash-grey-800">{title}</h2>
-          <button onClick={onClose} className="text-ash-grey-400 hover:text-ash-grey-600 text-2xl leading-none">&times;</button>
+          <h2 className="text-lg font-bold text-slate-100">{title}</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-200 text-2xl leading-none transition-colors">&times;</button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-ash-grey-700 mb-1">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
               {isGroup ? 'Group name' : 'Item name'}
             </label>
             <input
@@ -59,37 +60,36 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && isGroup) handleSave() }}
-              className="w-full border border-ash-grey-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
+              className={inputCls}
               placeholder={isGroup ? 'e.g. Space 13: New Category' : 'e.g. Gym Membership'}
             />
           </div>
 
-          {(isGroup || !isGroup) && (
-            <div
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${isSavings ? 'bg-soft-linen-50 border-soft-linen-300' : 'bg-ash-grey-50 border-ash-grey-200'}`}
-              onClick={() => setIsSavings(v => !v)}
-            >
-              <div>
-                <div className="text-sm font-medium text-ash-grey-700">Count as savings</div>
-                <div className="text-xs text-ash-grey-500">
-                  {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
-                </div>
-              </div>
-              <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-soft-linen-500' : 'bg-ash-grey-300'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          <div
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${
+              isSavings ? 'bg-emerald-900/20 border-emerald-800/60' : 'bg-nb-800 border-nb-500'
+            }`}
+            onClick={() => setIsSavings(v => !v)}
+          >
+            <div>
+              <div className="text-sm font-medium text-slate-300">Count as savings</div>
+              <div className="text-xs text-slate-500">
+                {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
               </div>
             </div>
-          )}
+            <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-emerald-600' : 'bg-nb-500'}`}>
+              <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+          </div>
 
-          {/* Current pot balance — only shown when editing an existing group */}
           {mode === 'edit-group' && (
             <div>
-              <label className="block text-sm font-medium text-ash-grey-700 mb-1">
+              <label className="block text-sm font-medium text-slate-400 mb-1">
                 Current balance in pot (£)
-                <span className="ml-1.5 text-xs font-normal text-ash-grey-400">optional</span>
+                <span className="ml-1.5 text-xs font-normal text-slate-600">optional</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-ash-grey-500 text-sm">£</span>
+                <span className="absolute left-3 top-2 text-slate-500 text-sm">£</span>
                 <input
                   type="number"
                   min="0"
@@ -97,22 +97,20 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
                   value={currentBalance}
                   onChange={e => setCurrentBalance(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-                  className="w-full border border-ash-grey-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
+                  className={`${inputCls} pl-7`}
                   placeholder="e.g. 450.00"
                 />
               </div>
-              <p className="text-xs text-ash-grey-400 mt-1">
-                Money already sitting in this pot. Leave blank to hide.
-              </p>
+              <p className="text-xs text-slate-600 mt-1">Money already sitting in this pot. Leave blank to hide.</p>
             </div>
           )}
 
           {!isGroup && (
             <>
               <div>
-                <label className="block text-sm font-medium text-ash-grey-700 mb-1">Monthly amount (£)</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Monthly amount (£)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-ash-grey-500 text-sm">£</span>
+                  <span className="absolute left-3 top-2 text-slate-500 text-sm">£</span>
                   <input
                     type="number"
                     min="0"
@@ -120,44 +118,44 @@ export default function EditModal({ mode, initial, onSave, onClose }) {
                     value={monthly}
                     onChange={e => setMonthly(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-                    className="w-full border border-ash-grey-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
+                    className={`${inputCls} pl-7`}
                     placeholder="0.00"
                   />
                 </div>
                 {monthly && !isNaN(parseFloat(monthly)) && (
-                  <p className="text-xs text-ash-grey-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Annual: £{(parseFloat(monthly) * 12).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-ash-grey-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Notes (optional)</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-                  className="w-full border border-ash-grey-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500"
+                  className={inputCls}
                   placeholder="e.g. Increases to £66 in April"
                 />
               </div>
             </>
           )}
 
-          {error && <p className="text-vibrant-coral-600 text-sm">{error}</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
         </div>
 
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-ash-grey-300 text-ash-grey-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-ash-grey-50"
+            className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 bg-tropical-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-tropical-teal-700"
+            className="flex-1 bg-neuro-600 hover:bg-neuro-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             {mode.startsWith('add') ? 'Add' : 'Save'}
           </button>

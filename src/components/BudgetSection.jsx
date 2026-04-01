@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import { PencilSquareIcon, TrashIcon, PlusIcon, BuildingLibraryIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import ItemRow from './ItemRow'
 import EditModal from './EditModal'
 import { isSavingsGroup } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-// Shared colgroup — identical in every table so columns lock across groups
 function Cols() {
   return (
     <colgroup>
@@ -34,9 +34,15 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-ash-grey-200 overflow-hidden">
+    <div
+      className="bg-nb-750 rounded-xl overflow-hidden"
+      style={{
+        border: `1px solid ${section.color}40`,
+        boxShadow: `0 0 30px ${section.color}18, 0 0 0 1px ${section.color}20`,
+      }}
+    >
 
-      {/* Section header */}
+      {/* Section header — uses section.color from data */}
       <div
         className="flex items-center justify-between px-5 py-3 cursor-pointer select-none"
         style={{ backgroundColor: section.color }}
@@ -50,16 +56,16 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
         <div className="flex items-center gap-3">
           <button
             onClick={e => { e.stopPropagation(); setModal({ mode: 'add-group' }) }}
-            className="text-white/80 hover:text-white text-xs border border-white/40 hover:border-white px-2 py-1 rounded"
+            className="text-white/80 hover:text-white text-xs border border-white/40 hover:border-white px-2 py-1 rounded transition-colors"
           >
             + Add Group
           </button>
-          <span className="text-white/80 text-lg">{collapsed ? '▶' : '▼'}</span>
+          {collapsed ? <ChevronRightIcon className="w-4 h-4 text-white/80" /> : <ChevronDownIcon className="w-4 h-4 text-white/80" />}
         </div>
       </div>
 
       {!collapsed && (
-        <div className="divide-y divide-ash-grey-100">
+        <div className="divide-y divide-nb-600">
 
           {section.groups.map(group => {
             const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
@@ -68,42 +74,43 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
 
                 {/* Group header */}
                 <div
-                  className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2"
-                  style={{ backgroundColor: section.bgLight }}
+                  className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2 bg-nb-700"
                 >
                   <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                    <span className="text-sm font-semibold text-ash-grey-700 truncate">{group.name}</span>
+                    <span className="text-sm font-semibold text-slate-200 truncate">{group.name}</span>
                     {isSavingsGroup(group) && (
-                      <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">🏦</span>
+                      <span className="inline-flex items-center gap-1 text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
+                        <BuildingLibraryIcon className="w-3 h-3" />
+                      </span>
                     )}
                     {group.currentBalance != null && (
-                      <span className="text-xs bg-tropical-teal-50 text-tropical-teal-700 border border-tropical-teal-200 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
+                      <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
                         {fmt(group.currentBalance)}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-sm font-semibold text-ash-grey-600 tabular-nums">{fmt(groupTotal)}/mo</span>
+                    <span className="text-sm font-semibold text-slate-400 tabular-nums neon-white">{fmt(groupTotal)}/mo</span>
                     <button
                       onClick={() => setModal({ mode: 'add-item', groupId: group.id })}
-                      className="text-xs text-ash-grey-500 hover:text-ash-grey-800 border border-ash-grey-300 hover:border-ash-grey-500 px-1.5 py-0.5 rounded"
+                      className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 p-0.5 rounded transition-colors"
                     >
-                      +
+                      <PlusIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group), currentBalance: group.currentBalance } })}
-                      className="text-xs text-ash-grey-400 hover:text-tropical-teal-600"
+                      className="text-slate-500 hover:text-neuro-400 transition-colors"
                     >
-                      ✏️
+                      <PencilSquareIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => {
                         if (group.items.length > 0 && !window.confirm(`Delete "${group.name}" and all ${group.items.length} item(s)?`)) return
                         onDeleteGroup(group.id)
                       }}
-                      className="text-xs text-ash-grey-400 hover:text-vibrant-coral-600"
+                      className="text-slate-500 hover:text-red-400 transition-colors"
                     >
-                      🗑️
+                      <TrashIcon className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -114,7 +121,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                   <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
                     <Cols />
                     <thead>
-                      <tr className="text-xs text-ash-grey-400 border-b border-ash-grey-100">
+                      <tr className="text-xs text-slate-600 border-b border-nb-600">
                         <th className="px-4 py-1.5 text-left font-medium">Item</th>
                         <th className="px-4 py-1.5 text-right font-medium">Monthly</th>
                         <th className="px-4 py-1.5 text-right font-medium hidden sm:table-cell">Annual</th>
@@ -133,19 +140,19 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t border-ash-grey-100 bg-ash-grey-50">
-                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500">Subtotal</td>
-                        <td className="px-4 py-1.5 text-xs font-bold text-ash-grey-700 text-right tabular-nums">{fmt(groupTotal)}</td>
-                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500 text-right tabular-nums hidden sm:table-cell">{fmt(groupTotal * 12)}</td>
+                      <tr className="border-t border-nb-600 bg-nb-800">
+                        <td className="px-4 py-1.5 text-xs font-semibold text-slate-500">Subtotal</td>
+                        <td className="px-4 py-1.5 text-xs font-bold text-slate-300 text-right tabular-nums">{fmt(groupTotal)}</td>
+                        <td className="px-4 py-1.5 text-xs font-semibold text-slate-500 text-right tabular-nums hidden sm:table-cell">{fmt(groupTotal * 12)}</td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
                   </div>
                 ) : (
-                  <div className="px-5 py-3 text-sm text-ash-grey-400 italic">
+                  <div className="px-5 py-3 text-sm text-slate-600 italic">
                     No items yet —{' '}
-                    <button onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-tropical-teal-500 hover:underline">
+                    <button onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-neuro-400 hover:text-neuro-300 hover:underline transition-colors">
                       add one
                     </button>
                   </div>
@@ -155,11 +162,11 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
           })}
 
           {/* Section total footer */}
-          <div className="flex items-center justify-between px-4 py-2 bg-ash-grey-50 border-t border-ash-grey-200">
-            <span className="text-sm font-bold text-ash-grey-700">Section Total</span>
+          <div className="flex items-center justify-between px-4 py-2 bg-nb-800 border-t border-nb-600">
+            <span className="text-sm font-bold text-slate-400">Section Total</span>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-ash-grey-700 tabular-nums">{fmt(sectionTotal)}</span>
-              <span className="text-sm text-ash-grey-500 tabular-nums hidden sm:inline">{fmt(sectionTotal * 12)}/yr</span>
+              <span className="text-sm font-bold text-slate-200 tabular-nums neon-white">{fmt(sectionTotal)}</span>
+              <span className="text-sm text-slate-500 tabular-nums hidden sm:inline">{fmt(sectionTotal * 12)}/yr</span>
             </div>
           </div>
 

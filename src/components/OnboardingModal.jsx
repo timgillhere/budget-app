@@ -52,21 +52,21 @@ function fmt(n) {
 
 // ─── Shared input components ───────────────────────────────────────────────
 function Label({ children }) {
-  return <label className="block text-xs font-medium text-ash-grey-600 mb-1">{children}</label>
+  return <label className="block text-xs font-medium text-slate-500 mb-1">{children}</label>
 }
 
 function TextInput({ value, onChange, placeholder, type = 'text', prefix, suffix }) {
   return (
     <div className="relative">
-      {prefix && <span className="absolute left-3 top-2.5 text-ash-grey-400 text-sm">{prefix}</span>}
+      {prefix && <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{prefix}</span>}
       <input
         type={type}
         value={value ?? ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
+        className={`w-full border border-nb-600 rounded-lg py-2 text-sm bg-nb-900 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-neuro-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
       />
-      {suffix && <span className="absolute right-3 top-2.5 text-ash-grey-400 text-sm">{suffix}</span>}
+      {suffix && <span className="absolute right-3 top-2.5 text-slate-500 text-sm">{suffix}</span>}
     </div>
   )
 }
@@ -83,16 +83,16 @@ function NumInput({ value, onChange, prefix, suffix, placeholder }) {
   }
   return (
     <div className="relative">
-      {prefix && <span className="absolute left-3 top-2.5 text-ash-grey-400 text-sm">{prefix}</span>}
+      {prefix && <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{prefix}</span>}
       <input
         type="text"
         inputMode="decimal"
         value={raw}
         onChange={e => handleChange(e.target.value)}
         placeholder={placeholder || '0'}
-        className={`w-full border border-ash-grey-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tropical-teal-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
+        className={`w-full border border-nb-600 rounded-lg py-2 text-sm bg-nb-900 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-neuro-500 ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
       />
-      {suffix && <span className="absolute right-3 top-2.5 text-ash-grey-400 text-sm">{suffix}</span>}
+      {suffix && <span className="absolute right-3 top-2.5 text-slate-500 text-sm">{suffix}</span>}
     </div>
   )
 }
@@ -103,26 +103,26 @@ function StepWelcome({ name }) {
   return (
     <div className="text-center py-4">
       <div className="text-5xl mb-4">👋</div>
-      <h2 className="text-2xl font-bold text-ash-grey-800 mb-2">
+      <h2 className="text-2xl font-bold text-slate-100 mb-2">
         Welcome, {name}!
       </h2>
-      <p className="text-ash-grey-500 mb-4 text-sm leading-relaxed max-w-sm mx-auto">
+      <p className="text-slate-500 mb-4 text-sm leading-relaxed max-w-sm mx-auto">
         Let's set up your personal finance dashboard. We'll walk through your income, savings, and spending in just a few steps.
       </p>
-      <div className="flex items-center justify-center gap-6 bg-ash-grey-50 rounded-xl p-4 mb-2">
+      <div className="flex items-center justify-center gap-6 bg-nb-700 rounded-xl p-4 mb-2">
         <div className="text-center">
-          <div className="text-lg font-bold text-tropical-teal-600">~3 min</div>
-          <div className="text-xs text-ash-grey-400">to complete</div>
+          <div className="text-lg font-bold text-neuro-400">~3 min</div>
+          <div className="text-xs text-slate-500">to complete</div>
         </div>
-        <div className="w-px h-8 bg-ash-grey-200" />
+        <div className="w-px h-8 bg-nb-600" />
         <div className="text-center">
-          <div className="text-lg font-bold text-tropical-teal-600">6 steps</div>
-          <div className="text-xs text-ash-grey-400">of setup</div>
+          <div className="text-lg font-bold text-neuro-400">6 steps</div>
+          <div className="text-xs text-slate-500">of setup</div>
         </div>
-        <div className="w-px h-8 bg-ash-grey-200" />
+        <div className="w-px h-8 bg-nb-600" />
         <div className="text-center">
-          <div className="text-lg font-bold text-tropical-teal-600">100%</div>
-          <div className="text-xs text-ash-grey-400">private</div>
+          <div className="text-lg font-bold text-neuro-400">100%</div>
+          <div className="text-xs text-slate-500">private</div>
         </div>
       </div>
     </div>
@@ -140,7 +140,7 @@ function StepAboutYou({ form, setForm }) {
       <div>
         <Label>Date of birth</Label>
         <TextInput type="date" value={form.dob} onChange={v => setForm(f => ({ ...f, dob: v, currentAge: ageFromDob(v) ?? f.currentAge }))} />
-        {age != null && <p className="text-xs text-tropical-teal-600 mt-1">Age: {age}</p>}
+        {age != null && <p className="text-xs text-neuro-400 mt-1">Age: {age}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -163,7 +163,7 @@ function StepIncome({ incomeItems, setIncomeItems }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ash-grey-500">Enter your monthly take-home pay after tax. Add as many income sources as you have.</p>
+      <p className="text-sm text-slate-500">Enter your monthly take-home pay after tax. Add as many income sources as you have.</p>
       <div className="space-y-2">
         {incomeItems.map((row, i) => (
           <div key={row.id} className="flex gap-2 items-center">
@@ -176,12 +176,12 @@ function StepIncome({ incomeItems, setIncomeItems }) {
               <NumInput value={row.monthly} onChange={v => update(row.id, 'monthly', v)} prefix="£" placeholder="0" />
             </div>
             {incomeItems.length > 1 && (
-              <button onClick={() => remove(row.id)} className={`text-ash-grey-400 hover:text-vibrant-coral-500 text-lg ${i === 0 ? 'mt-5' : ''}`}>✕</button>
+              <button onClick={() => remove(row.id)} className={`text-slate-500 hover:text-red-400 text-lg transition-colors ${i === 0 ? 'mt-5' : ''}`}>✕</button>
             )}
           </div>
         ))}
       </div>
-      <button onClick={addRow} className="text-sm text-tropical-teal-600 hover:text-tropical-teal-700 font-medium">
+      <button onClick={addRow} className="text-sm text-neuro-400 hover:text-neuro-300 font-medium">
         + Add another income source
       </button>
     </div>
@@ -191,7 +191,7 @@ function StepIncome({ incomeItems, setIncomeItems }) {
 function StepSavings({ form, setForm }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ash-grey-500">These help calculate your true savings rate and forecast your future wealth.</p>
+      <p className="text-sm text-slate-500">These help calculate your true savings rate and forecast your future wealth.</p>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>ISA balance</Label>
@@ -208,7 +208,7 @@ function StepSavings({ form, setForm }) {
         <div>
           <Label>Pension monthly contribution</Label>
           <NumInput value={form.pensionMonthlyContribution} onChange={v => setForm(f => ({ ...f, pensionMonthlyContribution: v }))} prefix="£" />
-          <p className="text-xs text-ash-grey-400 mt-0.5">Include employer contributions</p>
+          <p className="text-xs text-slate-500 mt-0.5">Include employer contributions</p>
         </div>
         <div>
           <Label>Emergency buffer / cash savings</Label>
@@ -217,7 +217,7 @@ function StepSavings({ form, setForm }) {
         <div>
           <Label>Savings rate target</Label>
           <NumInput value={form.savingsRateTarget} onChange={v => setForm(f => ({ ...f, savingsRateTarget: v }))} suffix="%" />
-          <p className="text-xs text-ash-grey-400 mt-0.5">Goal % of gross income saved</p>
+          <p className="text-xs text-slate-500 mt-0.5">Goal % of gross income saved</p>
         </div>
       </div>
     </div>
@@ -228,14 +228,14 @@ function StepProperty({ form, setForm }) {
   const hasProperty = !!form._hasProperty
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 p-3 bg-ash-grey-50 rounded-xl">
+      <div className="flex items-center gap-3 p-3 bg-nb-700 rounded-xl">
         <button
           onClick={() => setForm(f => ({ ...f, _hasProperty: !f._hasProperty }))}
-          className={`relative w-10 h-6 rounded-full transition-colors ${hasProperty ? 'bg-tropical-teal-500' : 'bg-ash-grey-300'}`}
+          className={`relative w-10 h-6 rounded-full transition-colors ${hasProperty ? 'bg-neuro-600' : 'bg-nb-500'}`}
         >
           <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${hasProperty ? 'left-5' : 'left-1'}`} />
         </button>
-        <span className="text-sm font-medium text-ash-grey-700">I own a property</span>
+        <span className="text-sm font-medium text-slate-300">I own a property</span>
       </div>
 
       {hasProperty ? (
@@ -258,7 +258,7 @@ function StepProperty({ form, setForm }) {
           </div>
         </div>
       ) : (
-        <div className="text-center py-8 text-ash-grey-400">
+        <div className="text-center py-8 text-slate-500">
           <div className="text-3xl mb-2">🏠</div>
           <p className="text-sm">No property details needed. You can always add these later in Settings.</p>
         </div>
@@ -270,20 +270,20 @@ function StepProperty({ form, setForm }) {
 function StepBudgetSetup({ choice, setChoice }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ash-grey-500">How would you like to set up your spending categories?</p>
+      <p className="text-sm text-slate-500">How would you like to set up your spending categories?</p>
       <div className="space-y-3">
         <button
           onClick={() => setChoice('template')}
-          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${choice === 'template' ? 'border-tropical-teal-500 bg-tropical-teal-50' : 'border-ash-grey-200 hover:border-ash-grey-300'}`}
+          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${choice === 'template' ? 'border-neuro-500 bg-neuro-500/10' : 'border-nb-600 hover:border-nb-500'}`}
         >
           <div className="flex items-start gap-3">
             <span className="text-2xl">🚀</span>
             <div>
-              <div className="font-semibold text-ash-grey-800 text-sm">Use a starter template</div>
-              <div className="text-xs text-ash-grey-500 mt-1">We'll create common spending categories (housing, food, transport, etc.) with £0 amounts. Fill in your actual costs afterwards.</div>
+              <div className="font-semibold text-slate-200 text-sm">Use a starter template</div>
+              <div className="text-xs text-slate-500 mt-1">We'll create common spending categories (housing, food, transport, etc.) with £0 amounts. Fill in your actual costs afterwards.</div>
               <div className="flex flex-wrap gap-1 mt-2">
                 {['🏠 Housing', '🛒 Food', '🚗 Transport', '📱 Subs', '🎉 Social', '🛡️ Emergency', '✈️ Holidays'].map(t => (
-                  <span key={t} className="text-xs bg-tropical-teal-100 text-tropical-teal-700 px-2 py-0.5 rounded-full">{t}</span>
+                  <span key={t} className="text-xs bg-neuro-900/60 text-neuro-300 px-2 py-0.5 rounded-full">{t}</span>
                 ))}
               </div>
             </div>
@@ -292,13 +292,13 @@ function StepBudgetSetup({ choice, setChoice }) {
 
         <button
           onClick={() => setChoice('blank')}
-          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${choice === 'blank' ? 'border-tropical-teal-500 bg-tropical-teal-50' : 'border-ash-grey-200 hover:border-ash-grey-300'}`}
+          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${choice === 'blank' ? 'border-neuro-500 bg-neuro-500/10' : 'border-nb-600 hover:border-nb-500'}`}
         >
           <div className="flex items-start gap-3">
             <span className="text-2xl">✏️</span>
             <div>
-              <div className="font-semibold text-ash-grey-800 text-sm">Start blank</div>
-              <div className="text-xs text-ash-grey-500 mt-1">Create your own groups and categories from scratch in the Budget tab. Best if you have a specific structure in mind.</div>
+              <div className="font-semibold text-slate-200 text-sm">Start blank</div>
+              <div className="text-xs text-slate-500 mt-1">Create your own groups and categories from scratch in the Budget tab. Best if you have a specific structure in mind.</div>
             </div>
           </div>
         </button>
@@ -310,22 +310,22 @@ function StepBudgetSetup({ choice, setChoice }) {
 function StepDone({ summary }) {
   return (
     <div className="text-center py-4">
-      <div className="w-16 h-16 bg-tropical-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg className="w-8 h-8 text-tropical-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <div className="w-16 h-16 bg-neuro-900/60 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg className="w-8 h-8 text-neuro-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <h2 className="text-2xl font-bold text-ash-grey-800 mb-2">You're all set!</h2>
-      <p className="text-ash-grey-500 text-sm mb-6">Your dashboard is ready. Here's a quick summary of what we've set up:</p>
-      <div className="bg-ash-grey-50 rounded-xl p-4 text-left space-y-2">
+      <h2 className="text-2xl font-bold text-slate-100 mb-2">You're all set!</h2>
+      <p className="text-slate-500 text-sm mb-6">Your dashboard is ready. Here's a quick summary of what we've set up:</p>
+      <div className="bg-nb-700 rounded-xl p-4 text-left space-y-2">
         {summary.map((line, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="text-tropical-teal-500">✓</span>
-            <span className="text-ash-grey-700">{line}</span>
+            <span className="text-neuro-400">✓</span>
+            <span className="text-slate-300">{line}</span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-ash-grey-400 mt-4">You can change any of this at any time in the Settings tab.</p>
+      <p className="text-xs text-slate-500 mt-4">You can change any of this at any time in the Settings tab.</p>
     </div>
   )
 }
@@ -439,16 +439,16 @@ export default function OnboardingModal({ jwtName, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="bg-nb-800 rounded-2xl shadow-2xl border border-nb-600 w-full max-w-lg max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-ash-grey-100">
+        <div className="px-6 pt-6 pb-4 border-b border-nb-700">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-medium text-ash-grey-400 uppercase tracking-wide">
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
               {isFirstStep ? 'Getting started' : isLastStep ? 'Complete' : `Step ${step} of ${STEPS.length - 2}`}
             </span>
             {!isFirstStep && !isLastStep && (
-              <button onClick={handleSkip} className="text-xs text-ash-grey-400 hover:text-ash-grey-600 transition-colors">
+              <button onClick={handleSkip} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                 Skip setup →
               </button>
             )}
@@ -461,9 +461,9 @@ export default function OnboardingModal({ jwtName, onClose }) {
                 <div
                   key={s.id}
                   className={`h-1.5 rounded-full transition-all ${
-                    i < indicatorIndex ? 'bg-tropical-teal-400 w-6' :
-                    i === indicatorIndex ? 'bg-tropical-teal-600 w-8' :
-                    'bg-ash-grey-200 w-4'
+                    i < indicatorIndex ? 'bg-neuro-500 w-6' :
+                    i === indicatorIndex ? 'bg-neuro-400 w-8' :
+                    'bg-nb-600 w-4'
                   }`}
                 />
               ))}
@@ -473,7 +473,7 @@ export default function OnboardingModal({ jwtName, onClose }) {
           {!isFirstStep && !isLastStep && (
             <div className="flex items-center gap-2">
               <span className="text-xl">{STEPS[step].icon}</span>
-              <h2 className="text-lg font-bold text-ash-grey-800">{STEPS[step].title}</h2>
+              <h2 className="text-lg font-bold text-slate-100">{STEPS[step].title}</h2>
             </div>
           )}
         </div>
@@ -490,9 +490,9 @@ export default function OnboardingModal({ jwtName, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-ash-grey-100 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-nb-700 flex items-center justify-between gap-3">
           {!isFirstStep && !isLastStep ? (
-            <button onClick={handleBack} className="px-4 py-2 text-sm text-ash-grey-600 hover:text-ash-grey-800 border border-ash-grey-200 rounded-lg transition-colors">
+            <button onClick={handleBack} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border border-nb-600 rounded-lg transition-colors">
               ← Back
             </button>
           ) : (
@@ -501,13 +501,13 @@ export default function OnboardingModal({ jwtName, onClose }) {
 
           <div className="flex gap-2">
             {isFirstStep && (
-              <button onClick={handleSkip} className="px-4 py-2 text-sm text-ash-grey-500 hover:text-ash-grey-700 transition-colors">
+              <button onClick={handleSkip} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-300 transition-colors">
                 Skip for now
               </button>
             )}
             <button
               onClick={handleNext}
-              className="px-6 py-2 text-sm font-medium bg-tropical-teal-600 text-white rounded-lg hover:bg-tropical-teal-700 transition-colors"
+              className="px-6 py-2 text-sm font-medium bg-neuro-600 text-white rounded-lg hover:bg-neuro-500 transition-colors"
             >
               {isFirstStep ? "Let's go →" : isLastStep ? 'Launch dashboard →' : 'Next →'}
             </button>
