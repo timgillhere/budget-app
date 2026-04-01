@@ -342,7 +342,7 @@ const STEPS = [
 ]
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function OnboardingModal({ jwtName }) {
+export default function OnboardingModal({ jwtName, onClose }) {
   const { data, save } = useBudget()
 
   const [step, setStep] = useState(0)
@@ -389,6 +389,7 @@ export default function OnboardingModal({ jwtName }) {
       netWorth: data?.netWorth || emptyBudget.netWorth,
     }
     save(newBudget)
+    if (onClose) onClose()
   }
 
   const handleSkip = () => buildAndSave(true)

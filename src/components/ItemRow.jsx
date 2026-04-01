@@ -30,12 +30,12 @@ export default function ItemRow({ item, groupIsSavings, onEdit, onDelete }) {
       <td className="px-4 py-2 text-sm text-ash-grey-700 text-right font-medium tabular-nums" style={{ width: '17%' }}>
         {fmt(item.monthly)}
       </td>
-      <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums" style={{ width: '17%' }}>
+      <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums hidden sm:table-cell" style={{ width: '17%' }}>
         {fmt(item.monthly * 12)}
       </td>
-      {/* Actions — opacity only, zero layout impact */}
+      {/* Actions — always visible on mobile, hover-only on desktop */}
       <td className="px-4 py-2 text-right" style={{ width: '11%' }}>
-        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEdit(item)}
             className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 px-2 py-1 rounded hover:bg-tropical-teal-50"

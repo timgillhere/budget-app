@@ -131,10 +131,11 @@ function Section({ title, children }) {
   )
 }
 
-export default function SettingsPanel() {
+export default function SettingsPanel({ onStartOnboarding }) {
   const { data, save, saveStatus } = useBudget()
   const [local, setLocal] = useState(data?.settings || {})
   const [goals, setGoals] = useState(data?.settings?.goals || [])
+  const [events, setEvents] = useState(data?.settings?.futureEvents || [])
   const [dirty, setDirty] = useState(false)
 
   const set = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
@@ -156,8 +157,18 @@ export default function SettingsPanel() {
   }
   const deleteGoal = (id) => { setGoals(gs => gs.filter(g => g.id !== id)); setDirty(true) }
 
+  const setEvent = (id, field, val) => {
+    setEvents(evs => evs.map(e => e.id === id ? { ...e, [field]: field === 'monthlyImpact' ? parseFloat(val) || 0 : val } : e))
+    setDirty(true)
+  }
+  const addEvent = () => {
+    setEvents(evs => [...evs, { id: `evt-${Date.now()}`, label: '', date: '', monthlyImpact: 0, icon: '📅' }])
+    setDirty(true)
+  }
+  const deleteEvent = (id) => { setEvents(evs => evs.filter(e => e.id !== id)); setDirty(true) }
+
   const handleSave = () => {
-    save({ ...data, settings: { ...local, goals } })
+    save({ ...data, settings: { ...local, goals, futureEvents: events } })
     setDirty(false)
   }
 
@@ -203,12 +214,38 @@ export default function SettingsPanel() {
         <NumField label="Rate after remortgage (estimate)" value={local.mortgageRateAfterRemortgage} onChange={v => setN('mortgageRateAfterRemortgage', v)} suffix="%" />
       </Section>
 
-      <Section title="📅 Known Future Events">
-        <Field label="Van costs end date" value={local.vanCostsEndDate} onChange={v => set('vanCostsEndDate', v)} type="date" />
-        <CurrencyField label="Van monthly cost (to free up)" value={local.vanCostMonthly} onChange={v => setN('vanCostMonthly', v)} />
-        <Field label="Pay rise date" value={local.expectedPayRiseDate} onChange={v => set('expectedPayRiseDate', v)} type="date" />
-        <CurrencyField label="Pay rise amount (monthly)" value={local.expectedPayRiseMonthly} onChange={v => setN('expectedPayRiseMonthly', v)} note="Net monthly take-home increase" />
-      </Section>
+      {/* Known Future Events */}
+      <div className="bg-white rounded-xl border border-ash-grey-200 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-ash-grey-700">📅 Known Future Events</h3>
+          <button onClick={addEvent} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 border border-tropical-teal-200 px-2 py-1 rounded-lg">+ Add event</button>
+        </div>
+        <p className="text-xs text-ash-grey-400 mb-3">Events affecting your monthly surplus — expense endings, pay rises, etc. Positive = money freed/gained.</p>
+        <div className="space-y-2">
+          {events.map(ev => (
+            <div key={ev.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-0 border border-ash-grey-100 rounded-lg sm:border-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <input value={ev.icon} onChange={e => setEvent(ev.id, 'icon', e.target.value)}
+                  className="w-10 flex-shrink-0 border border-ash-grey-200 rounded px-1 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" />
+                <input value={ev.label} onChange={e => setEvent(ev.id, 'label', e.target.value)}
+                  className="flex-1 min-w-0 border border-ash-grey-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Event name" />
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="date" value={ev.date} onChange={e => setEvent(ev.id, 'date', e.target.value)}
+                  className="flex-1 sm:w-36 border border-ash-grey-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" />
+                <div className="relative w-28 flex-shrink-0">
+                  <span className="absolute left-2 top-2 text-ash-grey-400 text-sm">£</span>
+                  <input type="number" value={ev.monthlyImpact} onChange={e => setEvent(ev.id, 'monthlyImpact', e.target.value)}
+                    className="w-full border border-ash-grey-200 rounded pl-6 pr-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="/mo" />
+                </div>
+                <button onClick={() => deleteEvent(ev.id)} className="text-vibrant-coral-400 hover:text-vibrant-coral-600 text-lg leading-none flex-shrink-0">✕</button>
+              </div>
+            </div>
+          ))}
+          {events.length === 0 && <p className="text-xs text-ash-grey-400">No events yet — add some above</p>}
+        </div>
+        <p className="text-xs text-ash-grey-400 mt-3">Icon · Event name · Date it takes effect · Monthly impact (£/mo, positive = money freed)</p>
+      </div>
 
       <Section title="📊 Forecast Assumptions">
         <NumField label="Savings rate target" value={local.savingsRateTarget ?? 10} onChange={v => setN('savingsRateTarget', v)} suffix="%" note="Used for gauge colour thresholds" />
@@ -223,18 +260,18 @@ export default function SettingsPanel() {
           <h3 className="text-sm font-semibold text-ash-grey-700">🎯 Savings Goals (for progress rings)</h3>
           <button onClick={addGoal} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 border border-tropical-teal-200 px-2 py-1 rounded-lg">+ Add goal</button>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {goals.map(g => (
-            <div key={g.id} className="grid grid-cols-6 gap-2 items-end">
+            <div key={g.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-0 border border-ash-grey-100 rounded-lg sm:border-0">
               <input value={g.icon} onChange={e => setGoal(g.id, 'icon', e.target.value)}
-                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-tropical-teal-400 col-span-1" />
+                className="w-10 flex-shrink-0 border border-ash-grey-200 rounded px-1 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" />
               <input value={g.name} onChange={e => setGoal(g.id, 'name', e.target.value)}
-                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tropical-teal-400 col-span-2" placeholder="Goal name" />
+                className="flex-1 min-w-[8rem] border border-ash-grey-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Goal name" />
               <input type="number" value={g.target} onChange={e => setGoal(g.id, 'target', e.target.value)}
-                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Target £" />
+                className="w-24 border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Target £" />
               <input type="number" value={g.current} onChange={e => setGoal(g.id, 'current', e.target.value)}
-                className="border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Current £" />
-              <button onClick={() => deleteGoal(g.id)} className="text-vibrant-coral-400 hover:text-vibrant-coral-600 text-xs py-1.5">✕</button>
+                className="w-24 border border-ash-grey-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-tropical-teal-400" placeholder="Current £" />
+              <button onClick={() => deleteGoal(g.id)} className="text-vibrant-coral-400 hover:text-vibrant-coral-600 text-lg leading-none flex-shrink-0">✕</button>
             </div>
           ))}
           {goals.length === 0 && <p className="text-xs text-ash-grey-400">No goals yet — add some above</p>}
@@ -242,7 +279,13 @@ export default function SettingsPanel() {
         <p className="text-xs text-ash-grey-400 mt-3">Icon · Name · Target · Current balance · (monthly auto-pulled from budget)</p>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        {onStartOnboarding && (
+          <button onClick={onStartOnboarding}
+            className="text-xs text-ash-grey-500 hover:text-ash-grey-700 border border-ash-grey-300 px-4 py-2 rounded-lg hover:bg-ash-grey-50 transition-colors">
+            ↩ Re-run setup wizard
+          </button>
+        )}
         <button onClick={handleSave} disabled={!dirty}
           className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700' : 'bg-ash-grey-100 text-ash-grey-400 cursor-default'}`}>
           {dirty ? 'Save All Settings' : 'All saved ✓'}
