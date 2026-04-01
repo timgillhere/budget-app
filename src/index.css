@@ -3,5 +3,57 @@
 @tailwind utilities;
 
 body {
-  background-color: #f3f4f6;
+  background-color: #131926;
+  color: #e2e8f0;
 }
+
+/* ── Dot grid background on page ─────────────────────────── */
+.nb-grid-bg {
+  background-image:
+    radial-gradient(circle, rgba(79, 126, 247, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ── Subtle blue glow for chart cards ────────────────────── */
+.nb-card-glow {
+  box-shadow:
+    0 0 0 1px rgba(79, 126, 247, 0.08),
+    0 4px 24px rgba(79, 126, 247, 0.06);
+}
+
+/* ── Custom scrollbars for dark theme ────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d1224; }
+::-webkit-scrollbar-thumb { background: #1c2844; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #253357; }
+
+/* ── Fix browser autofill overriding dark input bg ───────── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #090c17 inset !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+  caret-color: #e2e8f0;
+}
+
+/* ── Neon input border ────────────────────────────────────── */
+.neon-input {
+  background-color: #090c17 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 0 12px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.neon-input:focus {
+  background-color: #0e1220 !important;
+  border-color: rgba(79, 126, 247, 0.8) !important;
+  box-shadow: 0 0 0 1px rgba(79, 126, 247, 0.3), 0 0 12px rgba(79, 126, 247, 0.2), inset 0 0 12px rgba(0, 0, 0, 0.3) !important;
+  outline: none !important;
+}
+
+/* ── Neon number glows (subtle, accessible) ──────────────── */
+.neon-green  { text-shadow: 0 0 6px rgba(52, 211, 153, 0.5); }
+.neon-cyan   { text-shadow: 0 0 6px rgba(34, 211, 238, 0.5); }
+.neon-blue   { text-shadow: 0 0 6px rgba(79, 126, 247, 0.5); }
+.neon-amber  { text-shadow: 0 0 6px rgba(251, 146, 60, 0.4); }
+.neon-red    { text-shadow: 0 0 6px rgba(248, 113, 113, 0.4); }
+.neon-white  { text-shadow: 0 0 6px rgba(255, 255, 255, 0.25); }

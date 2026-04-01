@@ -11,42 +11,42 @@ export default function SummaryBar({ budget }) {
   const netWorth = (s.isaBalance || 0) + (s.pensionBalance || 0) + ((s.propertyValue || 0) - (s.mortgageBalance || 0)) + (s.bufferBalance || 0)
   const bufferMonths = totalExpenses > 0 ? ((s.bufferBalance || 0) / totalExpenses).toFixed(1) : '—'
   const bufferMonthsNum = totalExpenses > 0 ? (s.bufferBalance || 0) / totalExpenses : 0
-  const bufferColor = bufferMonthsNum >= 3 ? 'text-soft-linen-700' : bufferMonthsNum >= 1 ? 'text-lemon-chiffon-600' : 'text-vibrant-coral-600'
+  const bufferColor = bufferMonthsNum >= 3 ? 'text-emerald-400' : bufferMonthsNum >= 1 ? 'text-amber-400' : 'text-red-400'
 
-  const surplusColor = surplus >= 300 ? 'text-soft-linen-700' : surplus >= 100 ? 'text-lemon-chiffon-600' : 'text-vibrant-coral-600'
+  const surplusColor = surplus >= 300 ? 'text-emerald-400' : surplus >= 100 ? 'text-amber-400' : 'text-red-400'
 
   const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
-    <div className="bg-ash-grey-50 border-t border-ash-grey-100 px-3 sm:px-6 py-2 sm:py-3">
+    <div className="bg-nb-800 border-t border-nb-600 px-3 sm:px-6 py-2 sm:py-3">
       <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-4">
-        <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-soft-linen-700" />
-        <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-ash-grey-800" />
+        <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-emerald-400 neon-green" />
+        <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-slate-200 neon-white" />
         <Tile
           label="Monthly Surplus"
           value={(surplus < 0 ? '-' : '') + fmt(surplus)}
-          valueClass={surplusColor}
+          valueClass={surplusColor + (surplus >= 300 ? ' neon-green' : surplus >= 100 ? ' neon-amber' : ' neon-red')}
         />
         <Tile
           label="Savings Rate"
           value={`${savingsRate.toFixed(1)}%`}
-          valueClass={savingsRate >= savingsRateTarget ? 'text-soft-linen-700' : 'text-vibrant-coral-600'}
+          valueClass={(savingsRate >= savingsRateTarget ? 'text-emerald-400 neon-green' : 'text-red-400 neon-red')}
         />
         <Tile
           label="Monthly Savings"
           value={fmt(monthlySavings)}
-          valueClass={monthlySavings >= 500 ? 'text-soft-linen-700' : monthlySavings >= 200 ? 'text-lemon-chiffon-600' : 'text-vibrant-coral-600'}
+          valueClass={monthlySavings >= 500 ? 'text-emerald-400 neon-green' : monthlySavings >= 200 ? 'text-amber-400 neon-amber' : 'text-red-400 neon-red'}
           subtitle="incl. pension"
         />
         <Tile
           label="Net Worth"
           value={fmtK(netWorth)}
-          valueClass="text-tropical-teal-600"
+          valueClass="text-cyan-400 neon-cyan"
         />
         <Tile
           label="Buffer Coverage"
           value={bufferMonths === '—' ? '—' : `${bufferMonths}mo`}
-          valueClass={bufferColor}
+          valueClass={bufferColor + (bufferMonthsNum >= 3 ? ' neon-green' : bufferMonthsNum >= 1 ? ' neon-amber' : ' neon-red')}
           subtitle={`£${(s.bufferBalance||0).toLocaleString('en-GB')}`}
         />
       </div>
@@ -57,9 +57,9 @@ export default function SummaryBar({ budget }) {
 function Tile({ label, value, valueClass, subtitle }) {
   return (
     <div className="text-center">
-      <div className="text-[10px] sm:text-xs text-ash-grey-500 uppercase tracking-wide font-medium mb-0.5 sm:mb-1">{label}</div>
+      <div className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium mb-0.5 sm:mb-1">{label}</div>
       <div className={`text-sm sm:text-lg font-bold ${valueClass}`}>{value}</div>
-      {subtitle && <div className="text-[10px] sm:text-xs text-ash-grey-400 mt-0.5">{subtitle}</div>}
+      {subtitle && <div className="text-[10px] sm:text-xs text-slate-600 mt-0.5">{subtitle}</div>}
     </div>
   )
 }
