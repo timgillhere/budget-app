@@ -2,7 +2,7 @@ import { list, put } from '@vercel/blob';
 import { requireAuth } from './_auth.js';
 
 export default async function handler(req, res) {
-  const user = requireAuth(req, res);
+  const user = await requireAuth(req, res);
   if (!user) return;
 
   // Scoped to this user only — no other user's data can match this key

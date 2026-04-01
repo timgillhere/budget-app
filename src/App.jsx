@@ -8,6 +8,7 @@ import {
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
+import MfaVerifyScreen from './components/MfaVerifyScreen'
 import SummaryBar from './components/SummaryBar'
 import BudgetSection from './components/BudgetSection'
 import EditModal from './components/EditModal'
@@ -305,6 +306,20 @@ function BudgetTab() {
                 <span className="text-slate-400 font-medium">Monthly surplus</span>
                 <span className={`font-bold ${importPreview.surplus >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(importPreview.surplus)}</span>
               </div>
+              {(() => {
+                const events = importPreview.data?.settings?.futureEvents || []
+                return events.length > 0 ? (
+                  <div className="border-t border-nb-600 pt-2 space-y-1">
+                    <span className="text-slate-500">Known future events</span>
+                    {events.map((ev, i) => (
+                      <div key={i} className="flex justify-between pl-2">
+                        <span className="text-slate-400">{ev.icon || '📅'} {ev.label}</span>
+                        <span className={`font-medium ${ev.monthlyImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{ev.monthlyImpact >= 0 ? '+' : ''}£{ev.monthlyImpact}/mo</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null
+              })()}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setImportPreview(null)} className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg text-sm transition-colors">Cancel</button>
@@ -319,7 +334,7 @@ function BudgetTab() {
 
 
 // ── Main app shell ───────────────────────────────────────────────────
-function AppShell({ token, isAdmin, logout, name }) {
+function AppShell({ isAdmin, logout, name }) {
   const { data, loading, saveStatus } = useBudget()
   const [tab, setTab] = useState('budget')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -399,7 +414,7 @@ function AppShell({ token, isAdmin, logout, name }) {
         {tab === 'insights' && <Insights />}
         {tab === 'networth' && <NetWorthDashboard />}
         {tab === 'settings' && <SettingsPanel onStartOnboarding={() => setShowOnboarding(true)} />}
-        {tab === 'users'    && isAdmin && <AdminPanel token={token} />}
+        {tab === 'users'    && isAdmin && <AdminPanel />}
       </div>
 
       {showOnboarding && (
@@ -410,11 +425,20 @@ function AppShell({ token, isAdmin, logout, name }) {
 }
 
 export default function App() {
-  const { token, user, isAdmin, login, logout } = useAuth()
-  if (!token) return <LoginScreen onLogin={login} />
+  const { user, loading, isAdmin, mfaPending, login, logout, completeMfa } = useAuth()
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
+      <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3 opacity-70" /><div className="text-sm">Loading…</div></div>
+    </div>
+  )
+
+  if (mfaPending) return <MfaVerifyScreen onVerified={completeMfa} onCancel={logout} />
+  if (!user) return <LoginScreen onLogin={login} />
+
   return (
-    <BudgetProvider token={token} onLogout={logout}>
-      <AppShell token={token} isAdmin={isAdmin} logout={logout} name={user?.name} />
+    <BudgetProvider onLogout={logout}>
+      <AppShell isAdmin={isAdmin} logout={logout} name={user?.name} />
     </BudgetProvider>
   )
 }

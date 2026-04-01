@@ -3,15 +3,15 @@ import { defaultBudget, emptyBudget } from '../data/defaultBudget'
 
 const BudgetContext = createContext(null)
 
-export function BudgetProvider({ children, token, onLogout }) {
+export function BudgetProvider({ children, onLogout }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved')
 
   useEffect(() => {
-    fetch('/api/budget', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/budget', { credentials: 'include' })
       .then(r => {
-        if (r.status === 401) { onLogout(); return }
+        if (r.status === 401 || r.status === 403) { onLogout(); return }
         return r.json().then(raw => {
           const merged = raw ? mergeWithDefaults(raw) : emptyBudget
           setData(merged)
@@ -19,7 +19,7 @@ export function BudgetProvider({ children, token, onLogout }) {
         })
       })
       .catch(() => { setData(emptyBudget); setLoading(false) })
-  }, [token])
+  }, [])
 
   const save = useCallback(async (updated) => {
     setData(updated)
@@ -27,15 +27,16 @@ export function BudgetProvider({ children, token, onLogout }) {
     try {
       const r = await fetch('/api/budget', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(updated)
       })
-      if (r.status === 401) { onLogout(); return }
+      if (r.status === 401 || r.status === 403) { onLogout(); return }
       setSaveStatus('saved')
     } catch {
       setSaveStatus('error')
     }
-  }, [token])
+  }, [])
 
   // Merge saved JSON with default structure so new keys always exist
   function mergeWithDefaults(saved) {

@@ -1,58 +1,41 @@
 import bcrypt from 'bcryptjs';
-import { list, put } from '@vercel/blob';
 import { requireAdmin } from '../_auth.js';
-import { randomUUID } from 'crypto';
+import { getPool } from '../_db.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const admin = requireAdmin(req, res);
+  const admin = await requireAdmin(req, res);
   if (!admin) return;
 
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email and password required' });
   }
-
-  // Load existing users
-  let users = [];
-  try {
-    const blobs = await list({ prefix: 'users.json' });
-    if (blobs.blobs.length > 0) {
-      const response = await fetch(blobs.blobs[0].url, {
-        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-      });
-      users = await response.json();
-    }
-  } catch {
-    // Start fresh
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
-  if (users.find((u) => u.email === email)) {
-    return res.status(409).json({ error: 'A user with that email already exists' });
-  }
-
-  const newUser = {
-    id: randomUUID(),
-    name,
-    email,
-    passwordHash: await bcrypt.hash(password, 10),
-  };
-
-  users.push(newUser);
+  const pool = getPool();
+  const passwordHash = await bcrypt.hash(password, 10);
 
   try {
-    await put('users.json', JSON.stringify(users, null, 2), {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: 'application/json',
-    });
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, name, password_hash, is_admin)
+       VALUES ($1, $2, $3, false)
+       RETURNING id, email, name`,
+      [email.toLowerCase().trim(), name.trim(), passwordHash]
+    );
+    return res.status(201).json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'A user with that email already exists' });
+    }
     return res.status(500).json({ error: err.message });
   }
-
-  return res.status(201).json({ id: newUser.id, name: newUser.name, email: newUser.email });
 }

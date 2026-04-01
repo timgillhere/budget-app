@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBudget } from '../context/BudgetContext'
+import SecuritySettings from './SecuritySettings'
 
 // Derive age from ISO date string (YYYY-MM-DD)
 function ageFromDob(dob) {
@@ -290,6 +291,12 @@ export default function SettingsPanel({ onStartOnboarding }) {
           className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-neuro-600 hover:bg-neuro-500 text-white' : 'bg-nb-700 text-slate-500 cursor-default'}`}>
           {dirty ? 'Save All Settings' : 'All saved ✓'}
         </button>
+      </div>
+
+      {/* Security section */}
+      <div className="border-t border-nb-700/40 pt-5">
+        <h2 className="text-lg font-bold text-slate-300 mb-4">Account Security</h2>
+        <SecuritySettings />
       </div>
     </div>
   )

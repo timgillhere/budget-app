@@ -233,7 +233,7 @@ function SectionDonut({ sections }) {
       <div style={{ filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.4))' }}>
         <ResponsiveContainer width="100%" height={220}>
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" labelLine={false} label={renderLabel} strokeWidth={2} stroke="#090c17">
+            <Pie data={data} cx="50%" cy="44%" innerRadius={60} outerRadius={78} dataKey="value" labelLine={false} label={renderLabel} strokeWidth={2} stroke="#090c17">
               {data.map((entry) => <Cell key={entry.id} fill={SECTION_COLOURS[entry.id] || '#888'} />)}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
@@ -366,7 +366,7 @@ function SavingsBreakdown({ budget }) {
       <div style={{ filter: 'drop-shadow(0 0 8px rgba(52,211,153,0.35))' }}>
         <ResponsiveContainer width="100%" height={200}>
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" strokeWidth={2} stroke="#090c17">
+            <Pie data={data} cx="50%" cy="43%" innerRadius={55} outerRadius={70} dataKey="value" strokeWidth={2} stroke="#090c17">
               {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
@@ -414,7 +414,7 @@ function SectionIncomeDonut({ sections, totalIncome }) {
       <div style={{ filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.4))' }}>
         <ResponsiveContainer width="100%" height={200}>
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={82} dataKey="value" labelLine={false} label={renderLabel} strokeWidth={2} stroke="#090c17">
+            <Pie data={data} cx="50%" cy="43%" innerRadius={55} outerRadius={70} dataKey="value" labelLine={false} label={renderLabel} strokeWidth={2} stroke="#090c17">
               {data.map((entry) => <Cell key={entry.id} fill={SECTION_COLOURS[entry.id] || '#888'} />)}
             </Pie>
             <Tooltip content={<CustomTooltip />} />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export default function AdminPanel({ token }) {
+export default function AdminPanel() {
   // Registration form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,9 +23,7 @@ export default function AdminPanel({ token }) {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const res = await fetch('/api/admin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/admin/users', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load users');
       setUsers(await res.json());
     } catch (err) {
@@ -33,7 +31,7 @@ export default function AdminPanel({ token }) {
     } finally {
       setUsersLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -46,10 +44,8 @@ export default function AdminPanel({ token }) {
     try {
       const res = await fetch('/api/admin/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
@@ -75,10 +71,8 @@ export default function AdminPanel({ token }) {
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ userId, newPassword: newPw }),
       });
       const data = await res.json();
@@ -209,6 +203,7 @@ export default function AdminPanel({ token }) {
                 <tr className="border-b border-nb-600">
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+                  <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">2FA</th>
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Password</th>
                 </tr>
               </thead>
@@ -217,6 +212,11 @@ export default function AdminPanel({ token }) {
                   <tr key={user.id} className="group">
                     <td className="py-3 pr-4 text-sm font-medium text-slate-300">{user.name}</td>
                     <td className="py-3 pr-4 text-sm text-slate-500">{user.email}</td>
+                    <td className="py-3 pr-4 text-sm">
+                      {user.mfa_enabled
+                        ? <span className="text-emerald-400 font-medium">✓ On</span>
+                        : <span className="text-slate-600">Off</span>}
+                    </td>
                     <td className="py-3">
                       {/* Success message shown after saving (row closed) */}
                       {pwStatus[user.id] && changingPwId !== user.id && (
