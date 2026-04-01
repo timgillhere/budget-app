@@ -39,10 +39,20 @@ export function BudgetProvider({ children, token, onLogout }) {
 
   // Merge saved JSON with default structure so new keys always exist
   function mergeWithDefaults(saved) {
+    const { vanCostsEndDate, vanCostMonthly, expectedPayRiseDate, expectedPayRiseMonthly, ...restSettings } = saved.settings || {}
+
+    // Migrate old van/pay rise fields → futureEvents array
+    let futureEvents = restSettings.futureEvents
+    if (!futureEvents) {
+      futureEvents = []
+      if (vanCostsEndDate) futureEvents.push({ id: 'evt-van', label: 'Van costs end', date: vanCostsEndDate, monthlyImpact: vanCostMonthly || 0, icon: '🚐' })
+      if (expectedPayRiseDate) futureEvents.push({ id: 'evt-payrise', label: 'Pay rise', date: expectedPayRiseDate, monthlyImpact: expectedPayRiseMonthly || 0, icon: '💰' })
+    }
+
     return {
       ...defaultBudget,
       ...saved,
-      settings: { ...emptyBudget.settings, ...(saved.settings || {}) },
+      settings: { ...emptyBudget.settings, ...restSettings, futureEvents },
       holidays: saved.holidays || defaultBudget.holidays,
       netWorth: { ...defaultBudget.netWorth, ...(saved.netWorth || {}) }
     }

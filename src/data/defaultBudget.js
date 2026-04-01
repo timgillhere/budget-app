@@ -16,8 +16,7 @@ export const emptyBudget = {
     propertyValue: 0, mortgageBalance: 0, mortgageRate: 0,
     mortgageMonthlyPayment: 0, mortgageEndDate: '', mortgageRateAfterRemortgage: 0,
     bufferBalance: 0,
-    vanCostsEndDate: '', vanCostMonthly: 0,
-    expectedPayRiseDate: '', expectedPayRiseMonthly: 0,
+    futureEvents: [],
     investmentGrowthRatePct: 5, propertyGrowthRatePct: 3, inflationPct: 2.5,
     goals: [],
     onboardingComplete: false
@@ -185,10 +184,10 @@ export const defaultBudget = {
     mortgageRateAfterRemortgage: 4.5,
     bufferBalance: 6615,
     // Known future events
-    vanCostsEndDate: '2026-08-01',
-    vanCostMonthly: 150,
-    expectedPayRiseDate: '2026-08-01',
-    expectedPayRiseMonthly: 300,
+    futureEvents: [
+      { id: 'evt-van', label: 'Van conversion ends', date: '2026-08-01', monthlyImpact: 150, icon: '🚐' },
+      { id: 'evt-payrise', label: 'Pay rise', date: '2026-08-01', monthlyImpact: 300, icon: '💰' },
+    ],
     // Assumptions
     savingsRateTarget: 10,
     investmentGrowthRatePct: 5,

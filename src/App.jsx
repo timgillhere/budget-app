@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
@@ -49,6 +49,16 @@ function generateSnapshot(data) {
     })
     lines.push(`  Section total: ${fmt(sectionTotal)}/month`); lines.push(``)
   })
+
+  const futureEvents = budget.settings?.futureEvents || []
+  if (futureEvents.length > 0) {
+    lines.push(`── KNOWN FUTURE EVENTS ──`)
+    futureEvents.forEach(ev => {
+      const d = ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'no date'
+      lines.push(`  ${ev.icon || '📅'} ${ev.label}: ${d} — ${ev.monthlyImpact > 0 ? '+' : ''}£${ev.monthlyImpact}/month`)
+    })
+    lines.push(``)
+  }
 
   lines.push(`── SUMMARY ──`)
   lines.push(`  Take-home income: ${fmt(totalIncome)}/month | Total outgoings: ${fmt(totalExpenses)}/month | Surplus: ${fmt(surplus)}/month`)
@@ -158,29 +168,35 @@ function BudgetTab() {
   return (
     <>
       {/* Budget action bar */}
-      <div className="bg-ash-grey-50 border-b border-ash-grey-200 px-6 py-2 flex justify-end gap-2">
+      <div className="bg-ash-grey-50 border-b border-ash-grey-200 px-3 sm:px-6 py-2 flex flex-wrap justify-end gap-2">
         <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium bg-vibrant-coral-500 text-white hover:bg-vibrant-coral-600">
-          📥 Import from Claude
+          <span className="hidden sm:inline">📥 Import from JSON</span>
+          <span className="sm:hidden">📥 Import</span>
           <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
         </label>
-        <button onClick={exportJSON} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-ash-grey-600 text-white hover:bg-ash-grey-700">📤 Export JSON</button>
+        <button onClick={exportJSON} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-ash-grey-600 text-white hover:bg-ash-grey-700">
+          <span className="hidden sm:inline">📤 Export JSON</span>
+          <span className="sm:hidden">📤 Export</span>
+        </button>
         <button onClick={copyToClipboard}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-soft-linen-500 text-white' : 'bg-tropical-teal-600 text-white hover:bg-tropical-teal-700'}`}>
-          {copyFlash ? '✓ Copied!' : '📋 Copy for Claude'}
+          <span className="hidden sm:inline">{copyFlash ? '✓ Copied!' : '📋 Copy for Claude'}</span>
+          <span className="sm:hidden">{copyFlash ? '✓' : '📋 Claude'}</span>
         </button>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+      <main className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* Income */}
         <div className="bg-white rounded-xl shadow-sm border border-ash-grey-200 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-soft-linen-600">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 bg-soft-linen-600">
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-white font-bold">💵 Income</span>
               <span className="text-white/80 text-sm">{fmt(totalIncome)}/month</span>
             </div>
             <button onClick={() => setIncomeModal({ mode: 'add-item' })} className="text-white/80 hover:text-white text-xs border border-white/40 px-2 py-1 rounded">+ Add</button>
           </div>
-          <table className="w-full table-fixed">
+          <div className="overflow-x-auto">
+          <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
             <colgroup>
               <col style={{ width: '55%' }} />
               <col style={{ width: '17%' }} />
@@ -190,7 +206,7 @@ function BudgetTab() {
             <thead><tr className="text-xs text-ash-grey-400 border-b border-ash-grey-100">
               <th className="px-4 py-2 text-left font-medium">Source</th>
               <th className="px-4 py-2 text-right font-medium">Monthly</th>
-              <th className="px-4 py-2 text-right font-medium">Annual</th>
+              <th className="px-4 py-2 text-right font-medium hidden sm:table-cell">Annual</th>
               <th className="px-4 py-2"></th>
             </tr></thead>
             <tbody>
@@ -210,17 +226,18 @@ function BudgetTab() {
                     </div>
                   </td>
                   <td className="px-4 py-2 text-sm font-bold text-soft-linen-700 text-right tabular-nums">{fmt(item.monthly)}</td>
-                  <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums">{fmt(item.monthly * 12)}</td>
+                  <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums hidden sm:table-cell">{fmt(item.monthly * 12)}</td>
                   <td className="px-4 py-2 text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100">
+                    <div className="flex justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-tropical-teal-600 hover:text-tropical-teal-700 px-2 py-1 rounded hover:bg-tropical-teal-50">Edit</button>
-                      <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-vibrant-coral-500 hover:text-vibrant-coral-700 px-2 py-1 rounded hover:bg-vibrant-coral-50">Delete</button>
+                      <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-vibrant-coral-500 hover:text-vibrant-coral-700 px-2 py-1 rounded hover:bg-vibrant-coral-50">Del</button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {data.sections.map(section => (
@@ -273,6 +290,14 @@ function BudgetTab() {
 function AppShell({ token, isAdmin, logout, name }) {
   const { data, loading, saveStatus } = useBudget()
   const [tab, setTab] = useState('budget')
+  // Track onboarding separately so import doesn't re-trigger it
+  const [showOnboarding, setShowOnboarding] = useState(null)
+
+  useEffect(() => {
+    if (data && showOnboarding === null) {
+      setShowOnboarding(!data?.settings?.onboardingComplete)
+    }
+  }, [data, showOnboarding])
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-ash-grey-500">
@@ -282,24 +307,28 @@ function AppShell({ token, isAdmin, logout, name }) {
 
   return (
     <div className="min-h-screen bg-tropical-teal-50">
-      <header className="bg-ash-grey-800 border-b border-ash-grey-700 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="" className="h-6 w-6" />{(() => { const n = data?.settings?.name || name; return n ? `${n.split(' ')[0]}'s Budget` : 'Budget' })()}</h1>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+      <header className="bg-ash-grey-800 border-b border-ash-grey-700 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <h1 className="text-base sm:text-lg font-bold text-white flex items-center gap-1.5 sm:gap-2 truncate">
+            <img src="/logo.png" alt="" className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+            <span className="truncate">{(() => { const n = data?.settings?.name || name; return n ? `${n.split(' ')[0]}'s Budget` : 'Budget' })()}</span>
+          </h1>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
             saveStatus === 'saved'  ? 'bg-soft-linen-700 text-soft-linen-100' :
             saveStatus === 'saving' ? 'bg-lemon-chiffon-700 text-lemon-chiffon-100' :
                                       'bg-vibrant-coral-700 text-vibrant-coral-100'
           }`}>
-            {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? '⏳ Saving…' : '⚠ Error'}
+            {saveStatus === 'saved' ? '✓' : saveStatus === 'saving' ? '⏳' : '⚠'}
+            <span className="hidden sm:inline"> {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Error'}</span>
           </span>
         </div>
-        <button onClick={logout} className="text-xs text-ash-grey-300 hover:text-white border border-ash-grey-600 px-3 py-1.5 rounded-lg hover:bg-ash-grey-700 transition-colors">
+        <button onClick={logout} className="text-xs text-ash-grey-300 hover:text-white border border-ash-grey-600 px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-ash-grey-700 transition-colors flex-shrink-0">
           Sign out
         </button>
       </header>
 
       {/* Sticky top bar: tabs + summary */}
-      <div className="sticky top-[57px] z-30 bg-white shadow-sm">
+      <div className="sticky top-[49px] sm:top-[57px] z-30 bg-white shadow-sm">
         <TabBar active={tab} onChange={setTab} isAdmin={isAdmin} />
         {(tab === 'budget' || tab === 'charts') && <SummaryBar budget={data} />}
       </div>
@@ -310,11 +339,11 @@ function AppShell({ token, isAdmin, logout, name }) {
       {tab === 'holidays' && <HolidayPlanner />}
       {tab === 'insights' && <Insights />}
       {tab === 'networth' && <NetWorthDashboard />}
-      {tab === 'settings' && <SettingsPanel />}
+      {tab === 'settings' && <SettingsPanel onStartOnboarding={() => setShowOnboarding(true)} />}
       {tab === 'users'    && isAdmin && <AdminPanel token={token} />}
 
-      {!data?.settings?.onboardingComplete && (
-        <OnboardingModal jwtName={name} />
+      {showOnboarding && (
+        <OnboardingModal jwtName={name} onClose={() => setShowOnboarding(false)} />
       )}
     </div>
   )

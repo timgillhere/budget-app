@@ -45,14 +45,12 @@ function buildSurplus(data, settings, months) {
   const base = calcSurplus(data)
   const points = []
   const now = new Date()
+  const futureEvents = (settings.futureEvents || []).filter(ev => ev.date && !isNaN(new Date(ev.date).getTime()))
   for (let i = 0; i < months; i++) {
     const d = addMonths(now, i)
     const dateStr = d.toISOString().slice(0, 7)
     let s = base
-    const vanEnd = new Date(settings.vanCostsEndDate)
-    const payRise = new Date(settings.expectedPayRiseDate)
-    if (d >= vanEnd)  s += settings.vanCostMonthly || 0
-    if (d >= payRise) s += settings.expectedPayRiseMonthly || 0
+    futureEvents.forEach(ev => { if (d >= new Date(ev.date)) s += ev.monthlyImpact || 0 })
     const event = getEvent(d, settings)
     points.push({ date: dateStr, surplus: Math.round(s), event })
   }
@@ -85,12 +83,14 @@ function buildISA(settings, months) {
   const r = settings.investmentGrowthRatePct / 100 / 12
   const contrib = settings.isaMonthlyContribution || 0
   const now = new Date()
-  const payRise = new Date(settings.expectedPayRiseDate)
+  const incomeEvents = (settings.futureEvents || [])
+    .filter(ev => ev.date && !isNaN(new Date(ev.date).getTime()) && (ev.monthlyImpact || 0) > 0)
+    .map(ev => ({ date: new Date(ev.date), impact: ev.monthlyImpact || 0 }))
 
   for (let i = 0; i < months; i++) {
     const d = addMonths(now, i)
     let c = contrib
-    if (d >= payRise) c += (settings.expectedPayRiseMonthly || 0) * 0.5 // assume 50% of rise goes to ISA
+    incomeEvents.forEach(ev => { if (d >= ev.date) c += ev.impact * 0.5 }) // assume 50% of freed money goes to ISA
     base = base * (1 + r) + c
     opt  = opt  * (1 + r * 1.3) + c
     pess = pess * (1 + r * 0.7) + c
@@ -154,14 +154,16 @@ function buildRetirement(settings, months) {
   const isaContrib = settings.isaMonthlyContribution || 0
   const penContrib = settings.pensionMonthlyContribution || 0
   const now = new Date()
-  const payRiseDate = settings.expectedPayRiseDate ? new Date(settings.expectedPayRiseDate) : null
-  const payRiseExtra = (settings.expectedPayRiseMonthly || 0) * 0.5
+  const incomeEvents = (settings.futureEvents || [])
+    .filter(ev => ev.date && !isNaN(new Date(ev.date).getTime()) && (ev.monthlyImpact || 0) > 0)
+    .map(ev => ({ date: new Date(ev.date), impact: ev.monthlyImpact || 0 }))
 
   for (let i = 0; i < months; i++) {
     const d = addMonths(now, i)
     isaBase = isaBase * (1 + r) + isaContrib
     penBase = penBase * (1 + r) + penContrib
-    const extraPen = payRiseDate && d >= payRiseDate ? payRiseExtra : 0
+    let extraPen = 0
+    incomeEvents.forEach(ev => { if (d >= ev.date) extraPen += ev.impact * 0.5 })
     isaRise = isaRise * (1 + r) + isaContrib
     penRise = penRise * (1 + r) + penContrib + extraPen
     points.push({
@@ -177,9 +179,10 @@ function buildRetirement(settings, months) {
 
 function getEvent(date, settings) {
   const m = date.toISOString().slice(0, 7)
-  if (m === new Date(settings.vanCostsEndDate).toISOString().slice(0, 7)) return '🚐 Van ends'
-  if (m === new Date(settings.expectedPayRiseDate).toISOString().slice(0, 7)) return '💰 Pay rise'
-  if (m === new Date(settings.mortgageEndDate).toISOString().slice(0, 7).slice(0, 7)) return '🏠 Remortgage'
+  const futureEvents = settings.futureEvents || []
+  const match = futureEvents.find(ev => ev.date && !isNaN(new Date(ev.date).getTime()) && new Date(ev.date).toISOString().slice(0, 7) === m)
+  if (match) return `${match.icon || '📅'} ${match.label}`
+  if (settings.mortgageEndDate && !isNaN(new Date(settings.mortgageEndDate).getTime()) && new Date(settings.mortgageEndDate).toISOString().slice(0, 7) === m) return '🏠 Remortgage'
   return null
 }
 

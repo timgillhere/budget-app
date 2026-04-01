@@ -68,27 +68,27 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
 
                 {/* Group header */}
                 <div
-                  className="flex items-center justify-between px-5 py-2"
+                  className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2"
                   style={{ backgroundColor: section.bgLight }}
                 >
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-ash-grey-700">{group.name}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span className="text-sm font-semibold text-ash-grey-700 truncate">{group.name}</span>
                     {isSavingsGroup(group) && (
-                      <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1.5 py-0.5 rounded-full leading-none">🏦 saving</span>
+                      <span className="text-xs bg-soft-linen-100 text-soft-linen-700 border border-soft-linen-200 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">🏦</span>
                     )}
                     {group.currentBalance != null && (
-                      <span className="text-xs bg-tropical-teal-50 text-tropical-teal-700 border border-tropical-teal-200 px-1.5 py-0.5 rounded-full leading-none tabular-nums">
-                        {fmt(group.currentBalance)} in pot
+                      <span className="text-xs bg-tropical-teal-50 text-tropical-teal-700 border border-tropical-teal-200 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
+                        {fmt(group.currentBalance)}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-sm font-semibold text-ash-grey-600 tabular-nums">{fmt(groupTotal)}/mo</span>
                     <button
                       onClick={() => setModal({ mode: 'add-item', groupId: group.id })}
-                      className="text-xs text-ash-grey-500 hover:text-ash-grey-800 border border-ash-grey-300 hover:border-ash-grey-500 px-2 py-0.5 rounded"
+                      className="text-xs text-ash-grey-500 hover:text-ash-grey-800 border border-ash-grey-300 hover:border-ash-grey-500 px-1.5 py-0.5 rounded"
                     >
-                      + Item
+                      +
                     </button>
                     <button
                       onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group), currentBalance: group.currentBalance } })}
@@ -110,13 +110,14 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
 
                 {/* Items */}
                 {group.items.length > 0 ? (
-                  <table className="w-full table-fixed">
+                  <div className="overflow-x-auto">
+                  <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
                     <Cols />
                     <thead>
                       <tr className="text-xs text-ash-grey-400 border-b border-ash-grey-100">
                         <th className="px-4 py-1.5 text-left font-medium">Item</th>
                         <th className="px-4 py-1.5 text-right font-medium">Monthly</th>
-                        <th className="px-4 py-1.5 text-right font-medium">Annual</th>
+                        <th className="px-4 py-1.5 text-right font-medium hidden sm:table-cell">Annual</th>
                         <th className="px-4 py-1.5"></th>
                       </tr>
                     </thead>
@@ -135,11 +136,12 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                       <tr className="border-t border-ash-grey-100 bg-ash-grey-50">
                         <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500">Subtotal</td>
                         <td className="px-4 py-1.5 text-xs font-bold text-ash-grey-700 text-right tabular-nums">{fmt(groupTotal)}</td>
-                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500 text-right tabular-nums">{fmt(groupTotal * 12)}</td>
+                        <td className="px-4 py-1.5 text-xs font-semibold text-ash-grey-500 text-right tabular-nums hidden sm:table-cell">{fmt(groupTotal * 12)}</td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
+                  </div>
                 ) : (
                   <div className="px-5 py-3 text-sm text-ash-grey-400 italic">
                     No items yet —{' '}
@@ -152,18 +154,14 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
             )
           })}
 
-          {/* Section total footer — columns match table above */}
-          <table className="w-full table-fixed bg-ash-grey-50 border-t border-ash-grey-200">
-            <Cols />
-            <tbody>
-              <tr>
-                <td className="px-4 py-2 text-sm font-bold text-ash-grey-700">Section Total</td>
-                <td className="px-4 py-2 text-sm font-bold text-ash-grey-700 text-right tabular-nums">{fmt(sectionTotal)}</td>
-                <td className="px-4 py-2 text-sm text-ash-grey-500 text-right tabular-nums">{fmt(sectionTotal * 12)}</td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
+          {/* Section total footer */}
+          <div className="flex items-center justify-between px-4 py-2 bg-ash-grey-50 border-t border-ash-grey-200">
+            <span className="text-sm font-bold text-ash-grey-700">Section Total</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-ash-grey-700 tabular-nums">{fmt(sectionTotal)}</span>
+              <span className="text-sm text-ash-grey-500 tabular-nums hidden sm:inline">{fmt(sectionTotal * 12)}/yr</span>
+            </div>
+          </div>
 
         </div>
       )}

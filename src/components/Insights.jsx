@@ -91,12 +91,13 @@ function buildTimeline(settings) {
   const events = [
     { date: new Date('2026-04-01'), label: 'Water bill rises + council tax resumes', icon: '💧', fixed: true },
   ]
-  if (settings.vanCostsEndDate) {
-    events.push({ date: new Date(settings.vanCostsEndDate), label: `Van conversion ends — £${settings.vanCostMonthly || 0}/mo freed`, icon: '🚐' })
-  }
-  if (settings.expectedPayRiseDate) {
-    events.push({ date: new Date(settings.expectedPayRiseDate), label: `Pay rise: +£${settings.expectedPayRiseMonthly || 0}/mo`, icon: '💰' })
-  }
+  const futureEvents = settings.futureEvents || []
+  futureEvents.forEach(ev => {
+    if (!ev.date) return
+    const impact = ev.monthlyImpact || 0
+    const impactStr = impact !== 0 ? ` — ${impact > 0 ? '+' : ''}£${Math.abs(impact)}/mo ${impact > 0 ? 'freed' : 'added'}` : ''
+    events.push({ date: new Date(ev.date), label: `${ev.label}${impactStr}`, icon: ev.icon || '📅' })
+  })
   if (settings.mortgageEndDate) {
     events.push({ date: new Date(settings.mortgageEndDate), label: 'Mortgage fixed rate expires — start comparing 6 months out', icon: '🏠' })
   }
@@ -176,19 +177,26 @@ export default function Insights() {
       cards.push({ icon: '📱', title: `${subs.length} subscriptions detected — £${subTotal.toFixed(2)}/month`, body: subs.map(s => `${s.name} £${s.monthly}`).join(' · '), colour: 'blue' })
     }
 
-    // 7. Van costs ending (now shows up to 12 months out)
-    const vanEnd = settings.vanCostsEndDate ? new Date(settings.vanCostsEndDate) : null
-    if (vanEnd) {
-      const monthsToVanEnd = Math.round((vanEnd - now) / (1000 * 60 * 60 * 24 * 30))
-      if (monthsToVanEnd >= 0 && monthsToVanEnd <= 12) {
+    // 7. Future events happening within the next 12 months
+    const futureEvents = settings.futureEvents || []
+    futureEvents.forEach(ev => {
+      if (!ev.date) return
+      const evDate = new Date(ev.date)
+      const monthsAway = Math.round((evDate - now) / (1000 * 60 * 60 * 24 * 30))
+      if (monthsAway >= 0 && monthsAway <= 12) {
+        const impact = ev.monthlyImpact || 0
         cards.push({
-          icon: '🚐',
-          title: `Van costs ending in ~${monthsToVanEnd} month${monthsToVanEnd !== 1 ? 's' : ''}`,
-          body: `£${settings.vanCostMonthly}/month freed from ${vanEnd.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. Plan ahead: pension or ISA boost recommended.`,
-          colour: monthsToVanEnd <= 2 ? 'green' : 'blue',
+          icon: ev.icon || '📅',
+          title: `${ev.label} in ~${monthsAway} month${monthsAway !== 1 ? 's' : ''}`,
+          body: impact > 0
+            ? `£${impact}/month freed from ${evDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}. Plan ahead: pension or ISA boost recommended.`
+            : impact < 0
+              ? `£${Math.abs(impact)}/month additional cost from ${evDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`
+              : `Upcoming: ${evDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`,
+          colour: monthsAway <= 2 ? 'green' : 'blue',
         })
       }
-    }
+    })
 
     // 8. Remortgage alert — always visible while in future, colour by proximity
     const mortEnd = settings.mortgageEndDate ? new Date(settings.mortgageEndDate) : null
@@ -226,7 +234,7 @@ export default function Insights() {
       cards.push({
         icon: '📊',
         title: `ISA allowance mostly unused (£${isaContrib}/mo)`,
-        body: `Annual allowance is £20,000 — barely anything is going in. Even £100/mo compounds to ~£${(projAt100/1000).toFixed(0)}k over ${retYears} years. Consider directing some of the August inflection surplus here.`,
+        body: `Annual allowance is £20,000 — barely anything is going in. Even £100/mo compounds to ~£${(projAt100/1000).toFixed(0)}k over ${retYears} years. Consider directing some upcoming freed funds here.`,
         colour: 'amber',
       })
     }
@@ -252,19 +260,22 @@ export default function Insights() {
       progress: bufferPct,
     })
 
-    // 12. August inflection point
-    const payRiseDate = settings.expectedPayRiseDate ? new Date(settings.expectedPayRiseDate) : null
-    if (vanEnd && payRiseDate) {
-      const monthsToVan = Math.round((vanEnd - now) / (1000 * 60 * 60 * 24 * 30))
-      const monthsToRise = Math.round((payRiseDate - now) / (1000 * 60 * 60 * 24 * 30))
-      if (monthsToVan >= -6 || monthsToRise >= -6) {
-        const freed = (settings.vanCostMonthly || 0) + (settings.expectedPayRiseMonthly || 0)
-        const newISA = isaContrib + Math.round(freed * 0.5)
-        const mortgageOverpay = Math.round(freed * 0.3)
+    // 12. Multiple upcoming events that free up significant money
+    const upcomingPositive = futureEvents.filter(ev => {
+      if (!ev.date || (ev.monthlyImpact || 0) <= 0) return false
+      const monthsAway = Math.round((new Date(ev.date) - now) / (1000 * 60 * 60 * 24 * 30))
+      return monthsAway >= -6 && monthsAway <= 12
+    })
+    if (upcomingPositive.length >= 1) {
+      const totalFreed = upcomingPositive.reduce((s, ev) => s + (ev.monthlyImpact || 0), 0)
+      if (totalFreed >= 100) {
+        const newISA = isaContrib + Math.round(totalFreed * 0.5)
+        const mortgageOverpay = Math.round(totalFreed * 0.3)
+        const evLabels = upcomingPositive.map(ev => `${ev.label} (£${ev.monthlyImpact}/mo)`).join(' + ')
         cards.push({
           icon: '🚀',
-          title: `August inflection: ~£${freed}/month newly available`,
-          body: `Van ends (£${settings.vanCostMonthly || 0}/mo) + pay rise (£${settings.expectedPayRiseMonthly || 0}/mo) = £${freed}/mo freed up. Options: (1) Boost ISA to £${newISA}/mo, (2) Overpay mortgage £${mortgageOverpay}/mo, (3) Split ISA + pension top-up. Worth deciding now before lifestyle creep sets in.`,
+          title: `Upcoming windfall: ~£${totalFreed}/month newly available`,
+          body: `${evLabels} = £${totalFreed}/mo freed up. Options: (1) Boost ISA to £${newISA}/mo, (2) Overpay mortgage £${mortgageOverpay}/mo, (3) Split ISA + pension top-up. Worth deciding now before lifestyle creep sets in.`,
           colour: 'green',
         })
       }

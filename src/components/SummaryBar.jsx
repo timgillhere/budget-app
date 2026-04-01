@@ -18,8 +18,8 @@ export default function SummaryBar({ budget }) {
   const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
-    <div className="bg-ash-grey-50 border-t border-ash-grey-100 px-6 py-3">
-      <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
+    <div className="bg-ash-grey-50 border-t border-ash-grey-100 px-3 sm:px-6 py-2 sm:py-3">
+      <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-4">
         <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-soft-linen-700" />
         <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-ash-grey-800" />
         <Tile
@@ -57,9 +57,9 @@ export default function SummaryBar({ budget }) {
 function Tile({ label, value, valueClass, subtitle }) {
   return (
     <div className="text-center">
-      <div className="text-xs text-ash-grey-500 uppercase tracking-wide font-medium mb-1">{label}</div>
-      <div className={`text-lg font-bold ${valueClass}`}>{value}</div>
-      {subtitle && <div className="text-xs text-ash-grey-400 mt-0.5">{subtitle}</div>}
+      <div className="text-[10px] sm:text-xs text-ash-grey-500 uppercase tracking-wide font-medium mb-0.5 sm:mb-1">{label}</div>
+      <div className={`text-sm sm:text-lg font-bold ${valueClass}`}>{value}</div>
+      {subtitle && <div className="text-[10px] sm:text-xs text-ash-grey-400 mt-0.5">{subtitle}</div>}
     </div>
   )
 }
