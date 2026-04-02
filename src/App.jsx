@@ -236,13 +236,28 @@ function BudgetTab() {
             </div>
             <button onClick={() => setIncomeModal({ mode: 'add-item' })} className="text-emerald-400/70 hover:text-emerald-300 text-xs border border-emerald-700/50 hover:border-emerald-600 px-2 py-1 rounded transition-colors">+ Add</button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile: plain list */}
+          <div className="sm:hidden divide-y divide-nb-700">
+            {data.income.items.map(item => (
+              <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3 hover:bg-nb-700 transition-colors">
+                <span className="text-sm text-slate-300 truncate min-w-0">{item.name}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(item.monthly)}</span>
+                  <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-600 transition-colors">Edit</button>
+                  <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-600 transition-colors">Del</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: full table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
               <colgroup><col style={{ width: '55%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '11%' }} /></colgroup>
               <thead><tr className="text-xs text-slate-500 border-b border-nb-600">
                 <th className="px-4 py-2 text-left font-medium">Source</th>
                 <th className="px-4 py-2 text-right font-medium">Monthly</th>
-                <th className="px-4 py-2 text-right font-medium hidden sm:table-cell">Annual</th>
+                <th className="px-4 py-2 text-right font-medium">Annual</th>
                 <th className="px-4 py-2"></th>
               </tr></thead>
               <tbody>
@@ -260,9 +275,9 @@ function BudgetTab() {
                       </div>
                     </td>
                     <td className="px-4 py-2 text-sm font-bold text-emerald-400 text-right tabular-nums">{fmt(item.monthly)}</td>
-                    <td className="px-4 py-2 text-sm text-slate-500 text-right tabular-nums hidden sm:table-cell">{fmt(item.monthly * 12)}</td>
+                    <td className="px-4 py-2 text-sm text-slate-500 text-right tabular-nums">{fmt(item.monthly * 12)}</td>
                     <td className="px-4 py-2 text-right">
-                      <div className="flex justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700">Edit</button>
                         <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-700">Del</button>
                       </div>
@@ -358,7 +373,7 @@ function AppShell({ isAdmin, logout, name }) {
   const firstName = (data?.settings?.name || name || '').split(' ')[0] || ''
 
   return (
-    <div className="nb-grid-bg min-h-screen bg-nb-900">
+    <div className="nb-grid-bg min-h-screen bg-nb-900 overflow-x-hidden">
 
       {/* ── Desktop sidebar (fixed left) ─────────────── */}
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-nb-700/40 z-40 overflow-y-auto">

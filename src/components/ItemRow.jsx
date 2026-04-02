@@ -18,8 +18,7 @@ export default function ItemRow({ item, groupIsSavings, onEdit, onDelete }) {
               <span className="
                 pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2
                 bg-nb-800 border border-nb-600 text-slate-200 text-xs rounded-lg px-3 py-2 w-56 leading-relaxed z-50
-                opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 whitespace-normal
-                shadow-xl
+                opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 whitespace-normal shadow-xl
               ">
                 {item.notes}
                 <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-nb-800" />
@@ -31,11 +30,11 @@ export default function ItemRow({ item, groupIsSavings, onEdit, onDelete }) {
       <td className="px-4 py-2 text-sm text-slate-300 text-right font-medium tabular-nums neon-white" style={{ width: '17%' }}>
         {fmt(item.monthly)}
       </td>
-      <td className="px-4 py-2 text-sm text-slate-500 text-right tabular-nums hidden sm:table-cell" style={{ width: '17%' }}>
+      <td className="px-4 py-2 text-sm text-slate-500 text-right tabular-nums" style={{ width: '17%' }}>
         {fmt(item.monthly * 12)}
       </td>
       <td className="px-4 py-2 text-right" style={{ width: '11%' }}>
-        <div className="flex justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEdit(item)}
             className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700 transition-colors"

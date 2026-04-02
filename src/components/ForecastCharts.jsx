@@ -282,9 +282,9 @@ export default function ForecastCharts() {
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 
       {/* Horizon picker */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-sm font-medium text-slate-400">Forecast horizon:</span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {HORIZONS.map((h, i) => (
             <button
               key={h.label}
@@ -299,7 +299,7 @@ export default function ForecastCharts() {
             </button>
           ))}
         </div>
-        <span className={`ml-auto text-xs font-medium ${conf.color}`}>{conf.label}</span>
+        <span className={`text-xs font-medium ${conf.color}`}>{conf.label}</span>
       </div>
 
       {/* 1. Mortgage balance */}

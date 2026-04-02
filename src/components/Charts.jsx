@@ -284,7 +284,7 @@ function GroupBreakdown({ sections }) {
           <BarChart data={top} layout="vertical" margin={{ top: 0, right: 60, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={GRID_STROKE} />
             <XAxis type="number" tickFormatter={fmt} tick={{ fontSize: 11, fill: TICK_FILL }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: CURSOR_FILL }} />
             <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={{ position: 'right', formatter: fmt, fontSize: 11, fill: TICK_FILL }}>
               {top.map((_, i) => <Cell key={i} fill={GROUP_COLOURS[i % GROUP_COLOURS.length]} />)}

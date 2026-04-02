@@ -42,18 +42,18 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
       }}
     >
 
-      {/* Section header — uses section.color from data */}
+      {/* Section header */}
       <div
-        className="flex items-center justify-between px-5 py-3 cursor-pointer select-none"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
         style={{ backgroundColor: section.color }}
         onClick={() => setCollapsed(c => !c)}
       >
-        <div className="flex items-center gap-3">
-          <span className="text-white font-bold text-base">{section.name}</span>
-          <span className="text-white/80 text-sm font-medium">{fmt(sectionTotal)}/month</span>
-          <span className="text-white/60 text-xs">({fmt(sectionTotal * 12)}/year)</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-white font-bold text-base truncate">{section.name}</span>
+          <span className="text-white/80 text-sm font-medium flex-shrink-0">{fmt(sectionTotal)}/mo</span>
+          <span className="text-white/60 text-xs flex-shrink-0 hidden sm:inline">({fmt(sectionTotal * 12)}/yr)</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           <button
             onClick={e => { e.stopPropagation(); setModal({ mode: 'add-group' }) }}
             className="text-white/80 hover:text-white text-xs border border-white/40 hover:border-white px-2 py-1 rounded transition-colors"
@@ -69,16 +69,15 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
 
           {section.groups.map(group => {
             const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
+            const groupIsSavings = isSavingsGroup(group)
             return (
               <div key={group.id}>
 
                 {/* Group header */}
-                <div
-                  className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2 bg-nb-700"
-                >
+                <div className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2 bg-nb-700">
                   <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                     <span className="text-sm font-semibold text-slate-200 truncate">{group.name}</span>
-                    {isSavingsGroup(group) && (
+                    {groupIsSavings && (
                       <span className="inline-flex items-center gap-1 text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
                         <BuildingLibraryIcon className="w-3 h-3" />
                       </span>
@@ -93,13 +92,13 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                     <span className="text-sm font-semibold text-slate-400 tabular-nums neon-white">{fmt(groupTotal)}/mo</span>
                     <button
                       onClick={() => setModal({ mode: 'add-item', groupId: group.id })}
-                      className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 p-0.5 rounded transition-colors"
+                      className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 p-1.5 rounded transition-colors"
                     >
                       <PlusIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: isSavingsGroup(group), currentBalance: group.currentBalance } })}
-                      className="text-slate-500 hover:text-neuro-400 transition-colors"
+                      onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance } })}
+                      className="text-slate-500 hover:text-neuro-400 p-1 rounded transition-colors"
                     >
                       <PencilSquareIcon className="w-3.5 h-3.5" />
                     </button>
@@ -108,7 +107,7 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
                         if (group.items.length > 0 && !window.confirm(`Delete "${group.name}" and all ${group.items.length} item(s)?`)) return
                         onDeleteGroup(group.id)
                       }}
-                      className="text-slate-500 hover:text-red-400 transition-colors"
+                      className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors"
                     >
                       <TrashIcon className="w-3.5 h-3.5" />
                     </button>
@@ -117,38 +116,72 @@ export default function BudgetSection({ section, onAddItem, onEditItem, onDelete
 
                 {/* Items */}
                 {group.items.length > 0 ? (
-                  <div className="overflow-x-auto">
-                  <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
-                    <Cols />
-                    <thead>
-                      <tr className="text-xs text-slate-600 border-b border-nb-600">
-                        <th className="px-4 py-1.5 text-left font-medium">Item</th>
-                        <th className="px-4 py-1.5 text-right font-medium">Monthly</th>
-                        <th className="px-4 py-1.5 text-right font-medium hidden sm:table-cell">Annual</th>
-                        <th className="px-4 py-1.5"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <>
+                    {/* Mobile: plain list, no table */}
+                    <div className="sm:hidden divide-y divide-nb-700">
                       {group.items.map(item => (
-                        <ItemRow
-                          key={item.id}
-                          item={item}
-                          groupIsSavings={isSavingsGroup(group)}
-                          onEdit={(item) => setModal({ mode: 'edit-item', groupId: group.id, item })}
-                          onDelete={(id) => onDeleteItem(group.id, id)}
-                        />
+                        <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3 hover:bg-nb-700 transition-colors">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm text-slate-300 truncate">{item.name}</span>
+                            {item.isSavings && !groupIsSavings && (
+                              <span className="inline-flex items-center text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1 py-0.5 rounded-full leading-none flex-shrink-0">
+                                <BuildingLibraryIcon className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-sm font-bold text-slate-200 tabular-nums neon-white">{fmt(item.monthly)}</span>
+                            <button
+                              onClick={() => setModal({ mode: 'edit-item', groupId: group.id, item })}
+                              className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-600 transition-colors"
+                            >Edit</button>
+                            <button
+                              onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) onDeleteItem(group.id, item.id) }}
+                              className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-600 transition-colors"
+                            >Del</button>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-nb-600 bg-nb-800">
-                        <td className="px-4 py-1.5 text-xs font-semibold text-slate-500">Subtotal</td>
-                        <td className="px-4 py-1.5 text-xs font-bold text-slate-300 text-right tabular-nums">{fmt(groupTotal)}</td>
-                        <td className="px-4 py-1.5 text-xs font-semibold text-slate-500 text-right tabular-nums hidden sm:table-cell">{fmt(groupTotal * 12)}</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                  </div>
+                      <div className="flex items-center justify-between px-4 py-2 bg-nb-800 border-t border-nb-600">
+                        <span className="text-xs font-semibold text-slate-500">Subtotal</span>
+                        <span className="text-xs font-bold text-slate-300 tabular-nums">{fmt(groupTotal)}</span>
+                      </div>
+                    </div>
+
+                    {/* Desktop: full table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
+                        <Cols />
+                        <thead>
+                          <tr className="text-xs text-slate-600 border-b border-nb-600">
+                            <th className="px-4 py-1.5 text-left font-medium">Item</th>
+                            <th className="px-4 py-1.5 text-right font-medium">Monthly</th>
+                            <th className="px-4 py-1.5 text-right font-medium">Annual</th>
+                            <th className="px-4 py-1.5"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.items.map(item => (
+                            <ItemRow
+                              key={item.id}
+                              item={item}
+                              groupIsSavings={groupIsSavings}
+                              onEdit={(item) => setModal({ mode: 'edit-item', groupId: group.id, item })}
+                              onDelete={(id) => onDeleteItem(group.id, id)}
+                            />
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-nb-600 bg-nb-800">
+                            <td className="px-4 py-1.5 text-xs font-semibold text-slate-500">Subtotal</td>
+                            <td className="px-4 py-1.5 text-xs font-bold text-slate-300 text-right tabular-nums">{fmt(groupTotal)}</td>
+                            <td className="px-4 py-1.5 text-xs font-semibold text-slate-500 text-right tabular-nums">{fmt(groupTotal * 12)}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </>
                 ) : (
                   <div className="px-5 py-3 text-sm text-slate-600 italic">
                     No items yet —{' '}
