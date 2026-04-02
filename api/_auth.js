@@ -41,15 +41,17 @@ export async function requireAuth(req, res) {
 
   const pool = getPool();
 
-  // Session revocation check
-  const { rows } = await pool.query(
-    'SELECT id FROM sessions WHERE id = $1 AND expires_at > NOW()',
-    [payload.sessionId]
-  );
-  if (rows.length === 0) {
-    clearSessionCookie(res);
-    res.status(401).json({ error: 'Session expired' });
-    return null;
+  // Session revocation check (bypass for bootstrap admin — no DB row exists)
+  if (payload.sessionId !== 'bootstrap-session') {
+    const { rows } = await pool.query(
+      'SELECT id FROM sessions WHERE id = $1 AND expires_at > NOW()',
+      [payload.sessionId]
+    );
+    if (rows.length === 0) {
+      clearSessionCookie(res);
+      res.status(401).json({ error: 'Session expired' });
+      return null;
+    }
   }
 
   if (!payload.mfaVerified) {

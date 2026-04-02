@@ -9,7 +9,8 @@ export function BudgetProvider({ children, onLogout }) {
   const [saveStatus, setSaveStatus] = useState('saved')
 
   useEffect(() => {
-    fetch('/api/budget', { credentials: 'include' })
+    const controller = new AbortController()
+    fetch('/api/budget', { credentials: 'include', signal: controller.signal })
       .then(r => {
         if (r.status === 401 || r.status === 403) { onLogout(); return }
         return r.json().then(raw => {
@@ -18,7 +19,11 @@ export function BudgetProvider({ children, onLogout }) {
           setLoading(false)
         })
       })
-      .catch(() => { setData(emptyBudget); setLoading(false) })
+      .catch(err => {
+        if (err.name === 'AbortError') return
+        setData(emptyBudget); setLoading(false)
+      })
+    return () => controller.abort()
   }, [])
 
   const save = useCallback(async (updated) => {
@@ -32,6 +37,7 @@ export function BudgetProvider({ children, onLogout }) {
         body: JSON.stringify(updated)
       })
       if (r.status === 401 || r.status === 403) { onLogout(); return }
+      if (!r.ok) { setSaveStatus('error'); return }
       setSaveStatus('saved')
     } catch {
       setSaveStatus('error')
@@ -50,10 +56,16 @@ export function BudgetProvider({ children, onLogout }) {
       if (expectedPayRiseDate) futureEvents.push({ id: 'evt-payrise', label: 'Pay rise', date: expectedPayRiseDate, monthlyImpact: expectedPayRiseMonthly || 0, icon: '💰' })
     }
 
+    // If onboardingComplete was never set but real data exists, treat onboarding as done
+    const hasData = (saved.income?.items?.length > 0)
+    const onboardingComplete = restSettings.onboardingComplete !== undefined
+      ? restSettings.onboardingComplete
+      : hasData
+
     return {
       ...defaultBudget,
       ...saved,
-      settings: { ...emptyBudget.settings, ...restSettings, futureEvents },
+      settings: { ...emptyBudget.settings, ...restSettings, futureEvents, onboardingComplete },
       holidays: saved.holidays || defaultBudget.holidays,
       netWorth: { ...defaultBudget.netWorth, ...(saved.netWorth || {}) }
     }

@@ -16,9 +16,7 @@ export default async function handler(req, res) {
       if (!blob) {
         return res.status(200).json(null);
       }
-      const response = await fetch(blob.url, {
-        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-      });
+      const response = await fetch(blob.downloadUrl);
       const data = await response.json();
       return res.status(200).json(data);
     } catch (err) {
