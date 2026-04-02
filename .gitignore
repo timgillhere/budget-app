@@ -24,5 +24,4 @@ budget.json
 .idea/
 .vercel
 .env*.local
-.claude/worktrees/
-.claude/worktrees/
+.claude/
