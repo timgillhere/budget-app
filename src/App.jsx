@@ -152,7 +152,9 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
       <div className="px-3 py-3 border-t border-nb-700/40 flex-shrink-0">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-200 hover:bg-nb-650 transition-all"
+          disabled={saveStatus === 'saving'}
+          title={saveStatus === 'saving' ? 'Saving your data — please wait…' : undefined}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-200 hover:bg-nb-650 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-500"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
           <span>Logout</span>
