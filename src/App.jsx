@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   BanknotesIcon, ChartBarIcon, ArrowTrendingUpIcon, PaperAirplaneIcon,
   LightBulbIcon, CircleStackIcon, Cog6ToothIcon, UsersIcon,
   ArrowRightOnRectangleIcon, Bars3Icon,
   ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
@@ -167,10 +168,7 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
 // ── Budget tab ───────────────────────────────────────────────────────
 function BudgetTab() {
   const { data, save } = useBudget()
-  const [copyFlash, setCopyFlash] = useState(false)
   const [incomeModal, setIncomeModal] = useState(null)
-  const [importError, setImportError] = useState(null)
-  const [importPreview, setImportPreview] = useState(null)
 
   const addItem    = (sectionId, groupId, item) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items.push({ ...item, id: `item-${Date.now()}` }); save(u) }
   const editItem   = (sectionId, groupId, itemId, item) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); const idx = g.items.findIndex(i => i.id === itemId); g.items[idx] = { ...item, id: itemId }; save(u) }
@@ -188,45 +186,12 @@ function BudgetTab() {
     save(u); setIncomeModal(null)
   }
   const deleteIncomeItem = (id) => { const u = deepClone(data); u.income.items = u.income.items.filter(i => i.id !== id); save(u) }
-  const copyToClipboard = () => { navigator.clipboard.writeText(generateSnapshot(data)).then(() => { setCopyFlash(true); setTimeout(() => setCopyFlash(false), 2500) }) }
-  const exportJSON = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `budget-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url) }
-  const handleFileChange = (e) => {
-    setImportError(null); const file = e.target.files[0]; if (!file) return; e.target.value = ''
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result)
-        const err = validateBudget(parsed); if (err) { setImportError(`Invalid file: ${err}`); return }
-        const totalIncome = parsed.income.items.reduce((s, i) => s + i.monthly, 0)
-        const totalExpenses = parsed.sections.reduce((s, sec) => s + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-        setImportPreview({ data: parsed, totalIncome, totalExpenses, surplus: totalIncome - totalExpenses })
-      } catch { setImportError("Couldn't parse file") }
-    }
-    reader.readAsText(file)
-  }
 
   const totalIncome = data.income.items.reduce((s, i) => s + i.monthly, 0)
 
   return (
     <>
-      {/* Action bar */}
-      <div className="bg-nb-800 border-b border-nb-600 px-3 sm:px-6 py-2 flex flex-wrap justify-end gap-2">
-        <label className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500 transition-colors flex items-center gap-1.5">
-          <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Import from JSON</span><span className="sm:hidden">Import</span>
-          <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
-        </label>
-        <button onClick={exportJSON} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white transition-colors border border-nb-500 flex items-center gap-1.5">
-          <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Export JSON</span><span className="sm:hidden">Export</span>
-        </button>
-        <button onClick={copyToClipboard} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${copyFlash ? 'bg-emerald-700 text-white' : 'bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white border border-nb-500'}`}>
-          <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{copyFlash ? 'Copied!' : 'Copy for Claude'}</span><span className="sm:hidden">{copyFlash ? '✓' : ''}</span>
-        </button>
-      </div>
-
-      <main className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      <main className="w-full max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* Income */}
         <div className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 bg-emerald-900/40 border-b border-nb-600">
@@ -236,19 +201,27 @@ function BudgetTab() {
             </div>
             <button onClick={() => setIncomeModal({ mode: 'add-item' })} className="text-emerald-400/70 hover:text-emerald-300 text-xs border border-emerald-700/50 hover:border-emerald-600 px-2 py-1 rounded transition-colors">+ Add</button>
           </div>
-          {/* Mobile: plain list */}
-          <div className="sm:hidden divide-y divide-nb-700">
+          {/* Mobile: tap-row-to-edit list */}
+          <ul className="sm:hidden divide-y divide-nb-700">
             {data.income.items.map(item => (
-              <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3 hover:bg-nb-700 transition-colors">
-                <span className="text-sm text-slate-300 truncate min-w-0">{item.name}</span>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(item.monthly)}</span>
-                  <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-600 transition-colors">Edit</button>
-                  <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-600 transition-colors">Del</button>
-                </div>
-              </div>
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => setIncomeModal({ mode: 'edit-item', item })}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-4 min-h-[56px] text-left active:bg-nb-700 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] text-slate-200 truncate">{item.name}</div>
+                    <div className="text-xs text-slate-500 tabular-nums">{fmt(item.monthly * 12)}/yr</div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-base font-bold text-emerald-400 tabular-nums">{fmt(item.monthly)}</span>
+                    <ChevronRightIcon className="w-4 h-4 text-slate-600" />
+                  </div>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
 
           {/* Desktop: full table */}
           <div className="hidden sm:block overflow-x-auto">
@@ -302,7 +275,158 @@ function BudgetTab() {
         <p className="text-center text-xs text-slate-600 pb-4">Changes saved automatically</p>
       </main>
 
-      {incomeModal && <EditModal mode={incomeModal.mode} initial={incomeModal.item} onSave={handleIncomeModalSave} onClose={() => setIncomeModal(null)} />}
+      {incomeModal && (
+        <EditModal
+          mode={incomeModal.mode}
+          initial={incomeModal.item}
+          onSave={handleIncomeModalSave}
+          onClose={() => setIncomeModal(null)}
+          onDelete={incomeModal.mode === 'edit-item' ? () => { deleteIncomeItem(incomeModal.item.id); setIncomeModal(null) } : undefined}
+        />
+      )}
+
+    </>
+  )
+}
+
+
+// ── Main app shell ───────────────────────────────────────────────────
+function AppShell({ isAdmin, logout, name }) {
+  const { data, loading, saveStatus, save } = useBudget()
+  const [tab, setTab] = useState('budget')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(null)
+  const [scrolled, setScrolled] = useState(false)
+  const [copyFlash, setCopyFlash] = useState(false)
+  const [importPreview, setImportPreview] = useState(null)
+  const [importError, setImportError] = useState(null)
+
+  useEffect(() => {
+    if (data && showOnboarding === null) setShowOnboarding(!data?.settings?.onboardingComplete)
+  }, [data, showOnboarding])
+
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `budget-${new Date().toISOString().slice(0, 10)}.json`; a.click()
+    URL.revokeObjectURL(url)
+  }
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generateSnapshot(data)).then(() => { setCopyFlash(true); setTimeout(() => setCopyFlash(false), 2500) })
+  }
+  const handleFileChange = (e) => {
+    setImportError(null); const file = e.target.files[0]; if (!file) return; e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result)
+        const err = validateBudget(parsed); if (err) { setImportError(`Invalid file: ${err}`); return }
+        const totalIncome = parsed.income.items.reduce((s, i) => s + i.monthly, 0)
+        const totalExpenses = parsed.sections.reduce((s, sec) => s + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
+        setImportPreview({ data: parsed, totalIncome, totalExpenses, surplus: totalIncome - totalExpenses })
+      } catch { setImportError("Couldn't parse file") }
+    }
+    reader.readAsText(file)
+  }
+
+  // Close sidebar on tab change (mobile)
+  const handleTabChange = (newTab) => { setTab(newTab); setSidebarOpen(false) }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
+      <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3 opacity-70" /><div className="text-sm">Loading...</div></div>
+    </div>
+  )
+
+  const firstName = (data?.settings?.name || name || '').split(' ')[0] || ''
+
+  return (
+    <div className="nb-grid-bg min-h-screen bg-nb-900">
+
+      {/* ── Desktop sidebar (fixed left) ─────────────── */}
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-nb-700/40 z-40 overflow-y-auto">
+        <SidebarContents
+          tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
+          firstName={firstName} logout={logout} saveStatus={saveStatus}
+          onClose={() => {}}
+        />
+      </aside>
+
+      {/* ── Mobile sidebar overlay ────────────────────── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-nb-700/40 flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <SidebarContents
+          tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
+          firstName={firstName} logout={logout} saveStatus={saveStatus}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </aside>
+
+      {/* ── Main content area ─────────────────────────── */}
+      <div className="lg:ml-52 flex flex-col h-screen overflow-y-auto overflow-x-hidden" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 60)}>
+
+        {/* Sticky header block: mobile nav + action bar + summary */}
+        <div className="sticky top-0 z-30">
+          {/* Mobile header */}
+          <header className="lg:hidden bg-nb-800/95 backdrop-blur border-b border-nb-600 px-4 flex items-center gap-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-slate-400 hover:text-white p-2.5 -ml-1 min-w-11 min-h-11 rounded-lg hover:bg-nb-700 transition-colors flex-shrink-0 flex items-center justify-center"
+            >
+              <Bars3Icon className="w-6 h-6" />
+            </button>
+            <img src="/logo.png" alt="" className="h-6 w-6 flex-shrink-0" />
+            <span className="text-slate-300 font-bold text-sm truncate">
+              {firstName ? `${firstName}'s Budget` : 'Budget'}
+            </span>
+            <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${
+              saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
+              saveStatus === 'saving' ? 'bg-amber-900/50 text-amber-400 border-amber-800/60' :
+                                        'bg-red-900/50 text-red-400 border-red-800/60'
+            }`}>
+              {saveStatus === 'saved' ? '✓' : saveStatus === 'saving' ? '…' : '!'}
+            </span>
+          </header>
+
+          {/* Global action bar — all pages, mobile + desktop */}
+          <div className="bg-nb-800 border-b border-nb-600 px-3 sm:px-6 py-1.5 flex justify-end gap-2">
+            <label className="cursor-pointer px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500 transition-colors flex items-center gap-1.5">
+              <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Import from JSON</span><span className="sm:hidden">Import</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
+            </label>
+            <button onClick={exportJSON} className="px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white transition-colors border border-nb-500 flex items-center gap-1.5">
+              <ArrowUpTrayIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export JSON</span><span className="sm:hidden">Export</span>
+            </button>
+            <button onClick={copyToClipboard} className={`px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium transition-all flex items-center gap-1.5 ${copyFlash ? 'bg-emerald-700 text-white' : 'bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white border border-nb-500'}`}>
+              <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{copyFlash ? 'Copied!' : 'Copy for Claude'}</span><span className="sm:hidden">{copyFlash ? '✓' : 'Claude'}</span>
+            </button>
+          </div>
+
+          {/* Summary bar — budget + charts tabs only */}
+          {(tab === 'budget' || tab === 'charts') && <SummaryBar budget={data} compact={scrolled} />}
+        </div>
+
+        {/* Tab content */}
+        {tab === 'budget'   && <BudgetTab />}
+        {tab === 'charts'   && <div className="max-w-5xl mx-auto px-4 py-6"><Charts budget={data} /></div>}
+        {tab === 'forecast' && <ForecastCharts />}
+        {tab === 'holidays' && <HolidayPlanner />}
+        {tab === 'insights' && <Insights />}
+        {tab === 'networth' && <NetWorthDashboard />}
+        {tab === 'settings' && <SettingsPanel onStartOnboarding={() => setShowOnboarding(true)} />}
+        {tab === 'users'    && isAdmin && <AdminPanel />}
+      </div>
+
+      {showOnboarding && (
+        <OnboardingModal jwtName={name} onClose={() => setShowOnboarding(false)} />
+      )}
 
       {importError && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-900 border border-red-700 text-red-200 text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50 max-w-md">
@@ -344,98 +468,6 @@ function BudgetTab() {
             </div>
           </div>
         </div>
-      )}
-    </>
-  )
-}
-
-
-// ── Main app shell ───────────────────────────────────────────────────
-function AppShell({ isAdmin, logout, name }) {
-  const { data, loading, saveStatus } = useBudget()
-  const [tab, setTab] = useState('budget')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(null)
-
-  useEffect(() => {
-    if (data && showOnboarding === null) setShowOnboarding(!data?.settings?.onboardingComplete)
-  }, [data, showOnboarding])
-
-  // Close sidebar on tab change (mobile)
-  const handleTabChange = (newTab) => { setTab(newTab); setSidebarOpen(false) }
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
-      <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3 opacity-70" /><div className="text-sm">Loading...</div></div>
-    </div>
-  )
-
-  const firstName = (data?.settings?.name || name || '').split(' ')[0] || ''
-
-  return (
-    <div className="nb-grid-bg min-h-screen bg-nb-900 overflow-x-hidden">
-
-      {/* ── Desktop sidebar (fixed left) ─────────────── */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-nb-700/40 z-40 overflow-y-auto">
-        <SidebarContents
-          tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          firstName={firstName} logout={logout} saveStatus={saveStatus}
-          onClose={() => {}}
-        />
-      </aside>
-
-      {/* ── Mobile sidebar overlay ────────────────────── */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-nb-700/40 flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <SidebarContents
-          tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          firstName={firstName} logout={logout} saveStatus={saveStatus}
-          onClose={() => setSidebarOpen(false)}
-        />
-      </aside>
-
-      {/* ── Main content area ─────────────────────────── */}
-      <div className="lg:ml-52 flex flex-col min-h-screen">
-
-        {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-30 bg-nb-800 border-b border-nb-600 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-nb-700 transition-colors flex-shrink-0"
-          >
-            <Bars3Icon className="w-5 h-5" />
-          </button>
-          <img src="/logo.png" alt="" className="h-6 w-6 flex-shrink-0" />
-          <span className="text-slate-300 font-bold text-sm truncate">
-            {firstName ? `${firstName}'s Budget` : 'Budget'}
-          </span>
-          <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${
-            saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
-            saveStatus === 'saving' ? 'bg-amber-900/50 text-amber-400 border-amber-800/60' :
-                                      'bg-red-900/50 text-red-400 border-red-800/60'
-          }`}>
-            {saveStatus === 'saved' ? '✓' : saveStatus === 'saving' ? '…' : '!'}
-          </span>
-        </header>
-
-        {/* Summary bar */}
-        {(tab === 'budget' || tab === 'charts') && <SummaryBar budget={data} />}
-
-        {/* Tab content */}
-        {tab === 'budget'   && <BudgetTab />}
-        {tab === 'charts'   && <div className="max-w-5xl mx-auto px-4 py-6"><Charts budget={data} /></div>}
-        {tab === 'forecast' && <ForecastCharts />}
-        {tab === 'holidays' && <HolidayPlanner />}
-        {tab === 'insights' && <Insights />}
-        {tab === 'networth' && <NetWorthDashboard />}
-        {tab === 'settings' && <SettingsPanel onStartOnboarding={() => setShowOnboarding(true)} />}
-        {tab === 'users'    && isAdmin && <AdminPanel />}
-      </div>
-
-      {showOnboarding && (
-        <OnboardingModal jwtName={name} onClose={() => setShowOnboarding(false)} />
       )}
     </div>
   )
