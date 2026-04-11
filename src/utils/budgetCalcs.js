@@ -2,6 +2,10 @@
 // group.isSavings === true is also respected for any user-added groups.
 const SAVINGS_GROUP_IDS = ['monzo-van', 'monzo-prop', 'monzo-inst', 'monzo-goals']
 
+export function stripPrefix(name) {
+  return (name || '').replace(/^Space\s+\d+:\s*/i, '').trim()
+}
+
 export function isSavingsGroup(group) {
   return group.isSavings === true || SAVINGS_GROUP_IDS.includes(group.id)
 }
