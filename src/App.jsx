@@ -204,6 +204,7 @@ function BudgetTab() {
   const deleteGroup = (sectionId, groupId) => { const u = deepClone(data); const sec = u.sections.find(s => s.id === sectionId); sec.groups = sec.groups.filter(g => g.id !== groupId); save(u) }
   const reorderGroups = (sectionId, newGroupsArray) => { const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups = newGroupsArray; save(u) }
   const reorderSections = (newSections) => { const u = deepClone(data); u.sections = newSections; save(u) }
+  const editSection = (sectionId, { name, color }) => { const u = deepClone(data); const s = u.sections.find(s => s.id === sectionId); s.name = name; if (color) s.color = color; save(u) }
 
   const sectionSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -305,6 +306,7 @@ function BudgetTab() {
                 {(dragHandleListeners) => (
                   <BudgetSection section={section}
                     dragHandleListeners={dragHandleListeners}
+                    onEditSection={(data) => editSection(section.id, data)}
                     onAddItem={(groupId, item) => addItem(section.id, groupId, item)}
                     onEditItem={(groupId, itemId, item) => editItem(section.id, groupId, itemId, item)}
                     onDeleteItem={(groupId, itemId) => deleteItem(section.id, groupId, itemId)}

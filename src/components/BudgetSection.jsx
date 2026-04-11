@@ -89,6 +89,7 @@ function SortableMobileGroup({ id, children }) {
 
 export default function BudgetSection({
   section, dragHandleListeners,
+  onEditSection,
   onAddItem, onEditItem, onDeleteItem, onAddGroup, onEditGroup, onDeleteGroup, onReorderGroups,
 }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -112,7 +113,8 @@ export default function BudgetSection({
 
   const handleModalSave = (data) => {
     const { mode, groupId, item } = modal
-    if (mode === 'add-item')   onAddItem(groupId, data)
+    if (mode === 'edit-section') onEditSection({ name: data.name, color: data.color })
+    else if (mode === 'add-item')   onAddItem(groupId, data)
     else if (mode === 'edit-item')  onEditItem(groupId, item.id, data)
     else if (mode === 'add-group')  onAddGroup({ name: data.name, isSavings: data.isSavings, color: data.color })
     else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, isSavings: data.isSavings, currentBalance: data.currentBalance, color: data.color })
@@ -172,6 +174,14 @@ export default function BudgetSection({
             className="text-white/80 hover:text-white text-xs border border-white/40 hover:border-white px-2 py-1 rounded transition-colors"
           >
             + Add Group
+          </button>
+          <button
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setModal({ mode: 'edit-section', item: { name: section.name, color: section.color } }) }}
+            className="text-white/60 hover:text-white/90 p-1 rounded transition-colors"
+            title="Edit section"
+          >
+            <PencilSquareIcon className="w-4 h-4" />
           </button>
           {collapsed ? <ChevronRightIcon className="w-4 h-4 text-white/80" /> : <ChevronDownIcon className="w-4 h-4 text-white/80" />}
         </div>

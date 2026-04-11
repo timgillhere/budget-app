@@ -7,8 +7,16 @@ const GROUP_COLORS = [
   '#7c3aed', '#db2777', '#65a30d', '#6b7280',
 ]
 
+const SECTION_COLORS = [
+  '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
+  '#ec4899', '#ef4444', '#f97316', '#f59e0b',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+  '#06b6d4', '#0ea5e9', '#64748b', '#94a3b8',
+]
+
 export default function EditModal({ mode, initial, onSave, onClose, onDelete }) {
   const isGroup = mode === 'add-group' || mode === 'edit-group'
+  const isSection = mode === 'edit-section'
 
   const [name, setName] = useState(isGroup ? stripPrefix(initial?.name || '') : (initial?.name || ''))
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
@@ -26,7 +34,9 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
 
   const handleSave = () => {
     if (!name.trim()) { setError('Name is required'); return }
-    if (!isGroup) {
+    if (isSection) {
+      onSave({ name: name.trim(), color: color || null })
+    } else if (!isGroup) {
       const val = parseFloat(monthly)
       if (isNaN(val) || val < 0) { setError('Enter a valid amount (£)'); return }
       onSave({ name: name.trim(), monthly: val, notes: notes.trim(), isSavings })
@@ -45,6 +55,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
     'edit-item': 'Edit Line Item',
     'add-group': 'Add Group',
     'edit-group': 'Edit Group',
+    'edit-section': 'Edit Section',
   }[mode]
 
   const inputCls = "w-full bg-nb-800 text-slate-100 rounded-lg px-3 py-3 sm:py-2 text-base sm:text-sm placeholder-slate-600 neon-input"
@@ -70,35 +81,60 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-1">
-                {isGroup ? 'Group name' : 'Item name'}
+                {isSection ? 'Section name' : isGroup ? 'Group name' : 'Item name'}
               </label>
               <input
                 autoFocus
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && isGroup) handleSave() }}
+                onKeyDown={e => { if (e.key === 'Enter' && (isGroup || isSection)) handleSave() }}
                 className={inputCls}
-                placeholder={isGroup ? 'e.g. Groceries' : 'e.g. Gym Membership'}
+                placeholder={isSection ? 'e.g. Starling Spaces' : isGroup ? 'e.g. Groceries' : 'e.g. Gym Membership'}
               />
             </div>
 
-            <div
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${
-                isSavings ? 'bg-emerald-900/20 border-emerald-800/60' : 'bg-nb-800 border-nb-500'
-              }`}
-              onClick={() => setIsSavings(v => !v)}
-            >
+            {isSection && (
               <div>
-                <div className="text-sm font-medium text-slate-300">Count as savings</div>
-                <div className="text-xs text-slate-500">
-                  {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
+                <label className="block text-sm font-medium text-slate-400 mb-2">
+                  Section colour
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {SECTION_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${color === c ? 'border-white scale-110' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
+                </div>
+                {color && (
+                  <div className="mt-3 h-2 rounded-full" style={{ backgroundColor: color }} />
+                )}
+              </div>
+            )}
+
+            {!isSection && (
+              <div
+                className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${
+                  isSavings ? 'bg-emerald-900/20 border-emerald-800/60' : 'bg-nb-800 border-nb-500'
+                }`}
+                onClick={() => setIsSavings(v => !v)}
+              >
+                <div>
+                  <div className="text-sm font-medium text-slate-300">Count as savings</div>
+                  <div className="text-xs text-slate-500">
+                    {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
+                  </div>
+                </div>
+                <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-emerald-600' : 'bg-nb-500'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </div>
               </div>
-              <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-emerald-600' : 'bg-nb-500'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
-            </div>
+            )}
 
             {isGroup && (
               <div>
@@ -151,7 +187,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
               </div>
             )}
 
-            {!isGroup && (
+            {!isGroup && !isSection && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-1">Monthly amount (£)</label>
