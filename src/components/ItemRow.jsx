@@ -1,7 +1,7 @@
-import { BuildingLibraryIcon, BanknotesIcon } from '@heroicons/react/24/outline'
+import { BuildingLibraryIcon, BanknotesIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function ItemRow({ item, groupIsSavings, onEdit, onDelete, indent = false, small = false }) {
+export default function ItemRow({ item, groupIsSavings, onEdit, onDelete, indent = false, small = false, onMoveUp, onMoveDown }) {
   const isSav = groupIsSavings || item.isSavings
 
   return (
@@ -39,6 +39,16 @@ export default function ItemRow({ item, groupIsSavings, onEdit, onDelete, indent
       </td>
       <td className="px-4 py-2 text-right" style={{ width: '11%' }}>
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onMoveUp && (
+            <button onClick={onMoveUp} className="text-slate-500 hover:text-slate-300 p-1 rounded hover:bg-nb-700 transition-colors" title="Move up">
+              <ChevronUpIcon className="w-3 h-3" />
+            </button>
+          )}
+          {onMoveDown && (
+            <button onClick={onMoveDown} className="text-slate-500 hover:text-slate-300 p-1 rounded hover:bg-nb-700 transition-colors" title="Move down">
+              <ChevronDownIcon className="w-3 h-3" />
+            </button>
+          )}
           <button
             onClick={() => onEdit(item)}
             className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700 transition-colors"

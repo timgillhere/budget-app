@@ -203,6 +203,7 @@ function BudgetTab() {
   }
   const deleteGroup = (sectionId, groupId) => { const u = deepClone(data); const sec = u.sections.find(s => s.id === sectionId); sec.groups = sec.groups.filter(g => g.id !== groupId); save(u) }
   const reorderGroups = (sectionId, newGroupsArray) => { const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups = newGroupsArray; save(u) }
+  const reorderItems = (sectionId, groupId, newItemsArray) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items = newItemsArray; save(u) }
   const reorderSections = (newSections) => { const u = deepClone(data); u.sections = newSections; save(u) }
   const editSection = (sectionId, { name, color }) => { const u = deepClone(data); const s = u.sections.find(s => s.id === sectionId); s.name = name; if (color) s.color = color; save(u) }
 
@@ -314,6 +315,7 @@ function BudgetTab() {
                     onEditGroup={(groupId, grp) => editGroup(section.id, groupId, grp)}
                     onDeleteGroup={(groupId) => deleteGroup(section.id, groupId)}
                     onReorderGroups={(newArr) => reorderGroups(section.id, newArr)}
+                    onReorderItems={(groupId, newArr) => reorderItems(section.id, groupId, newArr)}
                   />
                 )}
               </SortableSectionItem>

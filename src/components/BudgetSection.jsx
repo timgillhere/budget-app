@@ -90,7 +90,7 @@ function SortableMobileGroup({ id, children }) {
 export default function BudgetSection({
   section, dragHandleListeners,
   onEditSection,
-  onAddItem, onEditItem, onDeleteItem, onAddGroup, onEditGroup, onDeleteGroup, onReorderGroups,
+  onAddItem, onEditItem, onDeleteItem, onAddGroup, onEditGroup, onDeleteGroup, onReorderGroups, onReorderItems,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [modal, setModal] = useState(null)
@@ -406,6 +406,7 @@ export default function BudgetSection({
                                 </span>
                                 {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
                                 <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
+                                {!namesDiffer && item.notes && <NotesTooltip notes={item.notes} />}
                                 {group.currentBalance != null && (
                                   <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full tabular-nums flex-shrink-0">
                                     {fmt(group.currentBalance)}
@@ -417,9 +418,6 @@ export default function BudgetSection({
                                   <span className="truncate">{item.name}</span>
                                   {item.notes && <NotesTooltip notes={item.notes} />}
                                 </div>
-                              )}
-                              {!namesDiffer && item.notes && (
-                                <div className="mt-0.5"><NotesTooltip notes={item.notes} /></div>
                               )}
                             </td>
                             <td className="px-4 py-2.5 text-sm text-slate-300 text-right font-medium tabular-nums neon-white">
@@ -486,7 +484,7 @@ export default function BudgetSection({
                         </tr>
                         {!isGroupCollapsed && (
                           <>
-                            {group.items.map(item => (
+                            {group.items.map((item, idx) => (
                               <ItemRow
                                 key={item.id}
                                 item={item}
@@ -495,6 +493,8 @@ export default function BudgetSection({
                                 small={true}
                                 onEdit={(item) => setModal({ mode: 'edit-item', groupId: group.id, item })}
                                 onDelete={(id) => setConfirmDelete({ type: 'item', groupId: group.id, itemId: id, label: item.name })}
+                                onMoveUp={idx > 0 ? () => { const a = [...group.items]; [a[idx-1], a[idx]] = [a[idx], a[idx-1]]; onReorderItems(group.id, a) } : undefined}
+                                onMoveDown={idx < group.items.length - 1 ? () => { const a = [...group.items]; [a[idx], a[idx+1]] = [a[idx+1], a[idx]]; onReorderItems(group.id, a) } : undefined}
                               />
                             ))}
                             <tr className="border-t border-nb-500 bg-nb-800">
