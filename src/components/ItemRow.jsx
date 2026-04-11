@@ -1,14 +1,20 @@
-import { BuildingLibraryIcon, BanknotesIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import { BuildingLibraryIcon, BanknotesIcon, ChevronUpIcon, ChevronDownIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function ItemRow({ item, groupIsSavings, onEdit, onDelete, indent = false, small = false, onMoveUp, onMoveDown }) {
-  const isSav = groupIsSavings || item.isSavings
+export default function ItemRow({ item, groupIsSavings, groupSavingsType, onEdit, onDelete, indent = false, small = false, onMoveUp, onMoveDown }) {
+  const effectiveSavingsType = groupIsSavings
+    ? (groupSavingsType || 'longterm')
+    : (item.savingsType || (item.isSavings ? 'longterm' : null))
 
   return (
     <tr className="group hover:bg-nb-700 transition-colors">
       <td className={`${indent ? 'pl-6 pr-4' : 'px-4'} py-2 ${small ? 'text-xs text-slate-400' : 'text-sm text-slate-400'}`} style={{ width: '55%' }}>
         <div className="relative inline-flex items-center gap-1.5 max-w-full">
-          {isSav ? (
+          {effectiveSavingsType === 'annual' ? (
+            <span className="inline-flex items-center text-xs bg-amber-900/40 text-amber-400 border border-amber-700/60 px-1 py-0.5 rounded-full leading-none flex-shrink-0">
+              <CalendarDaysIcon className="w-3 h-3" />
+            </span>
+          ) : effectiveSavingsType === 'longterm' ? (
             <span className="inline-flex items-center text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1 py-0.5 rounded-full leading-none flex-shrink-0">
               <BuildingLibraryIcon className="w-3 h-3" />
             </span>

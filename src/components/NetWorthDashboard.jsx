@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, ReferenceLine } from 'recharts'
-import { calcBudgetSummary } from '../utils/budgetCalcs'
+import { calcBudgetSummary, getPensionTotals } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${Math.round(n || 0).toLocaleString('en-GB')}`
 const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : fmt(n)
@@ -25,7 +25,7 @@ export default function NetWorthDashboard() {
   const snapshots = data.netWorth?.snapshots || []
 
   const isa     = s.isaBalance || 0
-  const pension = s.pensionBalance || 0
+  const { pensions, pensionBalance: pension, pensionMonthlyContribution: pensionMonthly } = getPensionTotals(s)
   const propVal = s.propertyValue || 0
   const mortgage = s.mortgageBalance || 0
   const buffer  = s.bufferBalance || 0
@@ -46,7 +46,7 @@ export default function NetWorthDashboard() {
   const addSnapshot = () => {
     const today = new Date().toISOString().slice(0, 10)
     const { surplus } = calcBudgetSummary(data)
-    const newSnap = { date: today, isa, pension, propertyEquity: equity, buffer, other: 0, total, surplus: Math.round(surplus) }
+    const newSnap = { date: today, isa, pension: Math.round(pension), propertyEquity: equity, buffer, other: 0, total, surplus: Math.round(surplus) }
     const existing = snapshots.filter(s => s.date.slice(0, 7) !== today.slice(0, 7))
     save({ ...data, netWorth: { snapshots: [...existing, newSnap].sort((a, b) => a.date.localeCompare(b.date)) } })
     setSnapFlash(true)
@@ -56,7 +56,7 @@ export default function NetWorthDashboard() {
   const tiles = [
     { label: 'Property Equity',  value: equity,  sub: `£${propVal.toLocaleString('en-GB')} value − £${mortgage.toLocaleString('en-GB')} mortgage`, colour: 'text-amber-400' },
     { label: 'Vanguard ISA',     value: isa,     sub: `Update in Settings`, colour: 'text-emerald-400' },
-    { label: 'Pension',          value: pension, sub: `£${s.pensionMonthlyContribution || 537}/month contributions`, colour: 'text-cyan-400' },
+    { label: pensions.length > 1 ? `Pensions (${pensions.length})` : 'Pension', value: pension, sub: `£${pensionMonthly.toLocaleString('en-GB')}/month contributions`, colour: 'text-cyan-400' },
     { label: 'Buffer',           value: buffer,  sub: `~${Math.round(buffer / ((data.sections.reduce((t, sec) => t + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)) / 12 * 12))} months expenses`, colour: 'text-amber-400' },
   ]
 

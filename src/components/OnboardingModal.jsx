@@ -10,24 +10,24 @@ function buildStarterTemplate() {
       {
         id: 'current', name: '💳 Current Account', color: '#C55A11', bgLight: '#FEF3C7',
         groups: [
-          { id: 'tmpl-housing',  name: '🏠 Housing',        isSavings: false, items: [{ id: 'i-rent', name: 'Rent / Mortgage', monthly: 0, notes: '' }] },
-          { id: 'tmpl-food',     name: '🛒 Food & Drink',   isSavings: false, items: [{ id: 'i-groceries', name: 'Groceries', monthly: 0, notes: '' }, { id: 'i-eating', name: 'Eating out', monthly: 0, notes: '' }] },
-          { id: 'tmpl-transport',name: '🚗 Transport',      isSavings: false, items: [{ id: 'i-fuel', name: 'Fuel / Travel', monthly: 0, notes: '' }] },
-          { id: 'tmpl-subs',     name: '📱 Subscriptions',  isSavings: false, items: [{ id: 'i-subs', name: 'Streaming & apps', monthly: 0, notes: '' }] },
-          { id: 'tmpl-fun',      name: '🎉 Fun & Social',   isSavings: false, items: [{ id: 'i-fun', name: 'Social & hobbies', monthly: 0, notes: '' }] },
+          { id: 'tmpl-housing',  name: '🏠 Housing',        savingsType: null, items: [{ id: 'i-rent', name: 'Rent / Mortgage', monthly: 0, notes: '' }] },
+          { id: 'tmpl-food',     name: '🛒 Food & Drink',   savingsType: null, items: [{ id: 'i-groceries', name: 'Groceries', monthly: 0, notes: '' }, { id: 'i-eating', name: 'Eating out', monthly: 0, notes: '' }] },
+          { id: 'tmpl-transport',name: '🚗 Transport',      savingsType: null, items: [{ id: 'i-fuel', name: 'Fuel / Travel', monthly: 0, notes: '' }] },
+          { id: 'tmpl-subs',     name: '📱 Subscriptions',  savingsType: null, items: [{ id: 'i-subs', name: 'Streaming & apps', monthly: 0, notes: '' }] },
+          { id: 'tmpl-fun',      name: '🎉 Fun & Social',   savingsType: null, items: [{ id: 'i-fun', name: 'Social & hobbies', monthly: 0, notes: '' }] },
         ]
       },
       {
         id: 'starling', name: '⭐ Starling Spaces', color: '#2E75B6', bgLight: '#DBEAFE',
         groups: [
-          { id: 'tmpl-emergency', name: '🛡️ Emergency Fund', isSavings: true,  items: [{ id: 'i-emrg', name: 'Emergency fund top-up', monthly: 0, notes: '' }] },
-          { id: 'tmpl-holiday',   name: '✈️ Holiday Saving',  isSavings: true,  items: [{ id: 'i-hol',  name: 'Holiday fund', monthly: 0, notes: '' }] },
+          { id: 'tmpl-emergency', name: '🛡️ Emergency Fund', savingsType: 'longterm', isSavings: true,  items: [{ id: 'i-emrg', name: 'Emergency fund top-up', monthly: 0, notes: '' }] },
+          { id: 'tmpl-holiday',   name: '✈️ Holiday Saving',  savingsType: 'longterm', isSavings: true,  items: [{ id: 'i-hol',  name: 'Holiday fund', monthly: 0, notes: '' }] },
         ]
       },
       {
         id: 'monzo', name: '💜 Monzo Spaces', color: '#7030A0', bgLight: '#F3E8FF',
         groups: [
-          { id: 'tmpl-goals', name: '🎯 Savings & Goals', isSavings: true, items: [{ id: 'i-goals', name: 'General savings', monthly: 0, notes: '' }] },
+          { id: 'tmpl-goals', name: '🎯 Savings & Goals', savingsType: 'longterm', isSavings: true, items: [{ id: 'i-goals', name: 'General savings', monthly: 0, notes: '' }] },
         ]
       }
     ]
@@ -388,7 +388,7 @@ export default function OnboardingModal({ jwtName, onClose }) {
 
   // Build the final budget and save
   const buildAndSave = (complete) => {
-    const { _hasProperty, ...settingsRaw } = form
+    const { _hasProperty, pensionBalance, pensionMonthlyContribution, ...settingsRaw } = form
     const sections = budgetChoice === 'template'
       ? buildStarterTemplate().sections
       : (data?.sections || emptyBudget.sections)
@@ -400,6 +400,9 @@ export default function OnboardingModal({ jwtName, onClose }) {
       settings: {
         ...emptyBudget.settings,
         ...settingsRaw,
+        pensions: (pensionBalance > 0 || pensionMonthlyContribution > 0)
+          ? [{ id: 'pension-1', name: 'Pension', balance: pensionBalance || 0, monthlyContribution: pensionMonthlyContribution || 0 }]
+          : [],
         onboardingComplete: complete,
       },
       holidays: data?.holidays || emptyBudget.holidays,

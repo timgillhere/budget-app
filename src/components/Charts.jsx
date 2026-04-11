@@ -68,11 +68,12 @@ const CHART_DATA_SOURCES = [
   {
     id: 'savings-breakdown', label: 'Savings Breakdown',
     getChartData: (budget) => {
-      const { pensionContribution, isaContribution, budgetedSavings, surplus } = calcBudgetSummary(budget)
+      const { pensionContribution, isaContribution, annualFunds, longtermSavings, surplus } = calcBudgetSummary(budget)
       return [
         { name: 'Pension', value: pensionContribution },
         { name: 'ISA', value: isaContribution },
-        { name: 'Savings Groups', value: budgetedSavings },
+        { name: 'Long-term Pots', value: longtermSavings },
+        { name: 'Annual Funds', value: annualFunds },
         surplus > 0 ? { name: 'Surplus', value: surplus } : null,
       ].filter(Boolean).filter(d => d.value > 0)
     },
@@ -92,12 +93,13 @@ const CHART_DATA_SOURCES = [
   {
     id: 'income-expenses', label: 'Income vs Spending',
     getChartData: (budget) => {
-      const { totalIncome, budgetedSpending, budgetedSavings } = calcBudgetSummary(budget)
+      const { totalIncome, budgetedSpending, annualFunds, longtermSavings } = calcBudgetSummary(budget)
       return [
         { name: 'Income', value: totalIncome },
         { name: 'Spending', value: budgetedSpending },
-        { name: 'Savings', value: budgetedSavings },
-      ]
+        { name: 'Annual Funds', value: annualFunds },
+        { name: 'Long-term Savings', value: longtermSavings },
+      ].filter(d => d.value > 0)
     },
   },
 ]
@@ -338,11 +340,12 @@ function HolidayProgress({ budget }) {
 
 // ── Savings breakdown donut ──────────────────────────────────────────
 function SavingsBreakdown({ budget }) {
-  const { pensionContribution, isaContribution, budgetedSavings, surplus } = calcBudgetSummary(budget)
+  const { pensionContribution, isaContribution, annualFunds, longtermSavings, surplus } = calcBudgetSummary(budget)
   const data = [
-    { name: 'Pension',        value: pensionContribution, fill: '#22d3ee' },
-    { name: 'ISA',            value: isaContribution,     fill: '#34d399' },
-    { name: 'Savings Groups', value: budgetedSavings,     fill: '#4f7ef7' },
+    { name: 'Pension',          value: pensionContribution, fill: '#22d3ee' },
+    { name: 'ISA',              value: isaContribution,     fill: '#34d399' },
+    { name: 'Long-term Pots',   value: longtermSavings,     fill: '#4f7ef7' },
+    { name: 'Annual Funds',     value: annualFunds,         fill: '#f59e0b' },
     surplus > 0 ? { name: 'Surplus', value: surplus, fill: '#fbbf24' } : null,
   ].filter(Boolean).filter(d => d.value > 0)
 

@@ -4,7 +4,7 @@ import {
   LightBulbIcon, CircleStackIcon, Cog6ToothIcon, UsersIcon,
   ArrowRightOnRectangleIcon, Bars3Icon,
   ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon,
-  ChevronRightIcon,
+  ChevronRightIcon, BuildingLibraryIcon,
 } from '@heroicons/react/24/outline'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -28,6 +28,7 @@ import NetWorthDashboard from './components/NetWorthDashboard'
 import SettingsPanel from './components/SettingsPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingModal from './components/OnboardingModal'
+import SavingsOverview from './components/SavingsOverview'
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)) }
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -36,11 +37,12 @@ function findGroup(budget, sectionId, groupId) {
   return budget.sections.find(s => s.id === sectionId)?.groups.find(g => g.id === groupId)
 }
 
-import { calcBudgetSummary } from './utils/budgetCalcs'
+import { calcBudgetSummary, getPensionTotals } from './utils/budgetCalcs'
 
 function generateSnapshot(data) {
   const budget = data
-  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, budgetedSavings } = calcBudgetSummary(budget)
+  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, annualFunds, longtermSavings } = calcBudgetSummary(budget)
+  const { pensions } = getPensionTotals(budget.settings)
   const savingsRateFmt = savingsRate.toFixed(1)
   const lines = [
     `=== BUDGET SNAPSHOT ===`, `Generated: ${new Date().toLocaleString('en-GB')}`, ``,
@@ -69,7 +71,10 @@ function generateSnapshot(data) {
   }
   lines.push(`── SUMMARY ──`)
   lines.push(`  Take-home income: ${fmt(totalIncome)}/month | Total outgoings: ${fmt(totalExpenses)}/month | Surplus: ${fmt(surplus)}/month`)
-  lines.push(`  Savings: Pension ${fmt(pensionContribution)} (pre-tax) + ISA ${fmt(isaContribution)} + Savings groups ${fmt(budgetedSavings)} + Surplus ${fmt(surplus)} | True savings rate: ${savingsRateFmt}% of gross income`)
+  if (pensions.length > 1) {
+    lines.push(`  Pensions: ${pensions.map(p => `${p.name || 'Pension'}: ${fmt(p.balance || 0)} balance · ${fmt(p.monthlyContribution || 0)}/mo`).join(' | ')}`)
+  }
+  lines.push(`  Savings: Pension ${fmt(pensionContribution)}/mo (pre-tax) + ISA ${fmt(isaContribution)}/mo + Long-term pots ${fmt(longtermSavings)}/mo + Surplus ${fmt(surplus)}/mo | Annual funds (not in rate): ${fmt(annualFunds)}/mo | True savings rate: ${savingsRateFmt}% of gross income`)
   lines.push(``, `════════════════════════════════════`, `INSTRUCTIONS FOR CLAUDE`, `════════════════════════════════════`)
   lines.push(`You are a UK personal financial advisor. The full data is in the JSON block below.`)
   lines.push(`1. Acknowledge current state (surplus, savings rate, key observations)`)
@@ -77,6 +82,7 @@ function generateSnapshot(data) {
   lines.push(`3. When done, output the COMPLETE updated data as a JSON code block tagged: \`\`\`budget-json`)
   lines.push(`Rules: preserve all IDs, new items use "item-<timestamp>", new groups use "grp-<timestamp>",`)
   lines.push(`never change section ids (starling/current/monzo), all monthly values must be numbers.`)
+  lines.push(`savingsType field: null = spending, "annual" = annual sinking fund (not in savings rate), "longterm" = long-term savings (in savings rate).`)
   lines.push(`Output the FULL JSON every time.`)
   lines.push(`════════════════════════════════════`, ``, `\`\`\`budget-json`)
   lines.push(JSON.stringify(data, null, 2)); lines.push(`\`\`\``)
@@ -94,6 +100,7 @@ function validateBudget(data) {
 const NAV_TABS = [
   { id: 'budget',   label: 'Budget',    Icon: BanknotesIcon },
   { id: 'charts',   label: 'Charts',    Icon: ChartBarIcon },
+  { id: 'savings',  label: 'Savings',   Icon: BuildingLibraryIcon },
   { id: 'forecast', label: 'Forecast',  Icon: ArrowTrendingUpIcon },
   { id: 'holidays', label: 'Holidays',  Icon: PaperAirplaneIcon },
   { id: 'insights', label: 'Insights',  Icon: LightBulbIcon },
@@ -194,9 +201,9 @@ function BudgetTab() {
   const addItem    = (sectionId, groupId, item) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items.push({ ...item, id: `item-${Date.now()}` }); save(u) }
   const editItem   = (sectionId, groupId, itemId, item) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); const idx = g.items.findIndex(i => i.id === itemId); g.items[idx] = { ...item, id: itemId }; save(u) }
   const deleteItem = (sectionId, groupId, itemId) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.items = g.items.filter(i => i.id !== itemId); save(u) }
-  const addGroup   = (sectionId, { name, isSavings, color }) => { const u = deepClone(data); const grp = { id: `grp-${Date.now()}`, name, isSavings: !!isSavings, items: [] }; if (color) grp.color = color; u.sections.find(s => s.id === sectionId).groups.push(grp); save(u) }
-  const editGroup  = (sectionId, groupId, { name, isSavings, currentBalance, color }) => {
-    const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.name = name; g.isSavings = !!isSavings
+  const addGroup   = (sectionId, { name, savingsType, isSavings, color }) => { const u = deepClone(data); const grp = { id: `grp-${Date.now()}`, name, savingsType: savingsType ?? null, isSavings: !!isSavings, items: [] }; if (color) grp.color = color; u.sections.find(s => s.id === sectionId).groups.push(grp); save(u) }
+  const editGroup  = (sectionId, groupId, { name, savingsType, isSavings, currentBalance, color }) => {
+    const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.name = name; g.savingsType = savingsType ?? null; g.isSavings = !!isSavings
     if (currentBalance != null) g.currentBalance = currentBalance; else delete g.currentBalance
     if (color) g.color = color; else delete g.color
     save(u)
@@ -491,13 +498,14 @@ function AppShell({ isAdmin, logout, name }) {
 
           </div>
 
-          {/* Summary bar — budget + charts tabs only */}
-          {(tab === 'budget' || tab === 'charts') && <SummaryBar budget={data} compact={scrolled} />}
+          {/* Summary bar — budget, charts, savings tabs */}
+          {(tab === 'budget' || tab === 'charts' || tab === 'savings') && <SummaryBar budget={data} compact={scrolled} />}
         </div>
 
         {/* Tab content */}
         {tab === 'budget'   && <BudgetTab />}
         {tab === 'charts'   && <div className="max-w-5xl mx-auto px-4 py-6"><Charts budget={data} /></div>}
+        {tab === 'savings'  && <SavingsOverview />}
         {tab === 'forecast' && <ForecastCharts />}
         {tab === 'holidays' && <HolidayPlanner />}
         {tab === 'insights' && <Insights />}

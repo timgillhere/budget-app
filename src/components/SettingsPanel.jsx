@@ -137,6 +137,7 @@ export default function SettingsPanel({ onStartOnboarding }) {
   const [local, setLocal] = useState(data?.settings || {})
   const [goals, setGoals] = useState(data?.settings?.goals || [])
   const [events, setEvents] = useState(data?.settings?.futureEvents || [])
+  const [pensions, setPensions] = useState(data?.settings?.pensions || [])
   const [dirty, setDirty] = useState(false)
 
   const set = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
@@ -168,8 +169,21 @@ export default function SettingsPanel({ onStartOnboarding }) {
   }
   const deleteEvent = (id) => { setEvents(evs => evs.filter(e => e.id !== id)); setDirty(true) }
 
+  const addPension = () => {
+    setPensions(ps => [...ps, { id: `p-${Date.now()}`, name: '', balance: 0, monthlyContribution: 0 }])
+    setDirty(true)
+  }
+  const deletePension = (id) => { setPensions(ps => ps.filter(p => p.id !== id)); setDirty(true) }
+  const setPension = (id, field, val) => {
+    setPensions(ps => ps.map(p => p.id === id
+      ? { ...p, [field]: field === 'name' ? val : parseFloat(val) || 0 }
+      : p
+    ))
+    setDirty(true)
+  }
+
   const handleSave = () => {
-    save({ ...data, settings: { ...local, goals, futureEvents: events } })
+    save({ ...data, settings: { ...local, goals, futureEvents: events, pensions } })
     setDirty(false)
   }
 
@@ -201,10 +215,54 @@ export default function SettingsPanel({ onStartOnboarding }) {
       <Section title="Account Balances (update monthly)">
         <CurrencyField label="ISA balance" value={local.isaBalance} onChange={v => setN('isaBalance', v)} note="Update each month after login" />
         <CurrencyField label="ISA monthly contribution" value={local.isaMonthlyContribution} onChange={v => setN('isaMonthlyContribution', v)} />
-        <CurrencyField label="Pension balance" value={local.pensionBalance} onChange={v => setN('pensionBalance', v)} />
-        <CurrencyField label="Pension monthly contribution" value={local.pensionMonthlyContribution} onChange={v => setN('pensionMonthlyContribution', v)} note="Total incl. employer" />
         <CurrencyField label="Buffer / emergency fund" value={local.bufferBalance} onChange={v => setN('bufferBalance', v)} />
       </Section>
+
+      {/* Pensions */}
+      <div className="bg-nb-750 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-slate-300">Pensions</h3>
+          <button onClick={addPension} className="text-xs text-neuro-400 hover:text-neuro-300 border border-nb-500 hover:border-nb-400 px-2 py-1 rounded-lg">+ Add pension</button>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Add each pension separately — name, current balance, and total monthly contribution including employer.</p>
+        <div className="space-y-3">
+          {pensions.map(p => (
+            <div key={p.id} className="flex flex-col sm:flex-row gap-2 p-3 bg-nb-800 rounded-lg border border-nb-600">
+              <input
+                value={p.name}
+                onChange={e => setPension(p.id, 'name', e.target.value)}
+                placeholder="e.g. Workplace Pension"
+                className="flex-1 min-w-0 bg-nb-700 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
+              />
+              <div className="flex gap-2 items-center">
+                <div className="relative w-32 flex-shrink-0">
+                  <span className="absolute left-2 top-2 text-slate-500 text-sm">£</span>
+                  <input
+                    type="number" min="0" step="1"
+                    value={p.balance || ''}
+                    onChange={e => setPension(p.id, 'balance', e.target.value)}
+                    placeholder="Balance"
+                    className="w-full bg-nb-700 border border-nb-600 rounded pl-6 pr-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
+                  />
+                </div>
+                <div className="relative w-28 flex-shrink-0">
+                  <span className="absolute left-2 top-2 text-slate-500 text-sm">£</span>
+                  <input
+                    type="number" min="0" step="1"
+                    value={p.monthlyContribution || ''}
+                    onChange={e => setPension(p.id, 'monthlyContribution', e.target.value)}
+                    placeholder="/month"
+                    className="w-full bg-nb-700 border border-nb-600 rounded pl-6 pr-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
+                  />
+                </div>
+                <button onClick={() => deletePension(p.id)} className="text-red-500 hover:text-red-400 text-lg leading-none flex-shrink-0 px-1">✕</button>
+              </div>
+            </div>
+          ))}
+          {pensions.length === 0 && <p className="text-xs text-slate-500">No pensions added yet.</p>}
+        </div>
+        <p className="text-xs text-slate-600 mt-3">Name · Current balance · Monthly contribution (incl. employer)</p>
+      </div>
 
       <Section title="Property & Mortgage">
         <CurrencyField label="Property value" value={local.propertyValue} onChange={v => setN('propertyValue', v)} />

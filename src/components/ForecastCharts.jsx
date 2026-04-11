@@ -5,6 +5,7 @@ import {
   BarChart, Bar, Cell
 } from 'recharts'
 import { useBudget } from '../context/BudgetContext'
+import { getPensionTotals } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${Math.round(Math.abs(n)).toLocaleString('en-GB')}`
 const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : `£${Math.round(n)}`
@@ -101,10 +102,11 @@ function buildISA(settings, months) {
 
 function buildPension(settings, months) {
   const points = []
-  let base = settings.pensionBalance
+  const { pensionBalance: pensionBal, pensionMonthlyContribution: pensionContrib } = getPensionTotals(settings)
+  let base = pensionBal
   let opt = base, pess = base
   const r = settings.investmentGrowthRatePct / 100 / 12
-  const contrib = settings.pensionMonthlyContribution || 537
+  const contrib = pensionContrib || 0
   const now = new Date()
 
   for (let i = 0; i < months; i++) {
@@ -121,7 +123,8 @@ function buildNetWorth(settings, months) {
   const points = []
   let mortgage = settings.mortgageBalance
   let isa = settings.isaBalance
-  let pension = settings.pensionBalance
+  const { pensionBalance: pensionBal, pensionMonthlyContribution: penContribTotal } = getPensionTotals(settings)
+  let pension = pensionBal
   let propVal = settings.propertyValue
   const r = settings.investmentGrowthRatePct / 100 / 12
   const propR = settings.propertyGrowthRatePct / 100 / 12
@@ -135,7 +138,7 @@ function buildNetWorth(settings, months) {
     const mRate = d > remortgageDate ? settings.mortgageRateAfterRemortgage/100/12 : monthlyRate
     if (mortgage > 0) mortgage = Math.max(0, mortgage + mortgage * mRate - payment)
     isa = isa * (1 + r) + (settings.isaMonthlyContribution || 0)
-    pension = pension * (1 + r) + (settings.pensionMonthlyContribution || 537)
+    pension = pension * (1 + r) + penContribTotal
     propVal = propVal * (1 + propR)
     const equity = propVal - mortgage
     const total = Math.round(isa + pension + equity + (settings.bufferBalance || 0))
@@ -147,12 +150,12 @@ function buildNetWorth(settings, months) {
 function buildRetirement(settings, months) {
   const points = []
   let isaBase = settings.isaBalance || 0
-  let penBase = settings.pensionBalance || 0
+  const { pensionBalance: penBal, pensionMonthlyContribution: penContrib } = getPensionTotals(settings)
+  let penBase = penBal || 0
   let isaRise = isaBase
   let penRise = penBase
   const r = (settings.investmentGrowthRatePct || 5) / 100 / 12
   const isaContrib = settings.isaMonthlyContribution || 0
-  const penContrib = settings.pensionMonthlyContribution || 0
   const now = new Date()
   const incomeEvents = (settings.futureEvents || [])
     .filter(ev => ev.date && !isNaN(new Date(ev.date).getTime()) && (ev.monthlyImpact || 0) > 0)
@@ -357,8 +360,8 @@ export default function ForecastCharts() {
           title="Pension Projection"
           confidence={conf}
           assumptions={[
-            `Current: £${settings.pensionBalance?.toLocaleString('en-GB')}`,
-            `Contribution: £${settings.pensionMonthlyContribution}/month (15% combined)`,
+            `Current: £${getPensionTotals(settings).pensionBalance.toLocaleString('en-GB')}`,
+            `Contribution: £${getPensionTotals(settings).pensionMonthlyContribution}/month total`,
             `Growth: ${settings.investmentGrowthRatePct}% real annually`,
             'State pension £230.25/week from age 68 not shown here'
           ]}

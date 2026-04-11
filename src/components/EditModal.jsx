@@ -21,7 +21,9 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
   const [name, setName] = useState(isGroup ? stripPrefix(initial?.name || '') : (initial?.name || ''))
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
   const [notes, setNotes] = useState(initial?.notes || '')
-  const [isSavings, setIsSavings] = useState(initial?.isSavings || false)
+  const [savingsType, setSavingsType] = useState(
+    initial?.savingsType ?? (initial?.isSavings ? 'longterm' : null)
+  )
   const [currentBalance, setCurrentBalance] = useState(initial?.currentBalance?.toString() || '')
   const [color, setColor] = useState(initial?.color || '')
   const [error, setError] = useState('')
@@ -39,14 +41,14 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
     } else if (!isGroup) {
       const val = parseFloat(monthly)
       if (isNaN(val) || val < 0) { setError('Enter a valid amount (£)'); return }
-      onSave({ name: name.trim(), monthly: val, notes: notes.trim(), isSavings })
+      onSave({ name: name.trim(), monthly: val, notes: notes.trim(), savingsType, isSavings: savingsType !== null })
     } else {
       let balanceVal = null
       if (currentBalance.trim() !== '') {
         balanceVal = parseFloat(currentBalance)
         if (isNaN(balanceVal) || balanceVal < 0) { setError('Enter a valid balance (£) or leave blank'); return }
       }
-      onSave({ name: name.trim(), isSavings, currentBalance: balanceVal, color: color || null })
+      onSave({ name: name.trim(), savingsType, isSavings: savingsType !== null, currentBalance: balanceVal, color: color || null })
     }
   }
 
@@ -118,20 +120,28 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
             )}
 
             {!isSection && (
-              <div
-                className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer select-none transition-colors ${
-                  isSavings ? 'bg-emerald-900/20 border-emerald-800/60' : 'bg-nb-800 border-nb-500'
-                }`}
-                onClick={() => setIsSavings(v => !v)}
-              >
-                <div>
-                  <div className="text-sm font-medium text-slate-300">Count as savings</div>
-                  <div className="text-xs text-slate-500">
-                    {isGroup ? 'All items in this group count toward your savings rate' : 'This item counts toward your savings rate'}
-                  </div>
+              <div>
+                <div className="text-sm font-medium text-slate-400 mb-2">Type</div>
+                <div className="flex gap-1.5">
+                  {[
+                    { value: null,       label: 'Spending',       style: savingsType === null      ? 'bg-nb-700 border-nb-400 text-slate-200' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-nb-400' },
+                    { value: 'annual',   label: 'Annual Fund',    style: savingsType === 'annual'   ? 'bg-amber-900/30 border-amber-600 text-amber-300' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-amber-800' },
+                    { value: 'longterm', label: 'Long-term',      style: savingsType === 'longterm' ? 'bg-emerald-900/30 border-emerald-600 text-emerald-300' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-emerald-800' },
+                  ].map(opt => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => setSavingsType(opt.value)}
+                      className={`flex-1 px-2 py-2 rounded-lg border text-xs font-medium transition-colors ${opt.style}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isSavings ? 'bg-emerald-600' : 'bg-nb-500'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                <div className="text-xs text-slate-600 mt-1.5">
+                  {savingsType === null      && 'Counted as an expense'}
+                  {savingsType === 'annual'  && 'Set aside for known annual costs — not counted in savings rate'}
+                  {savingsType === 'longterm' && (isGroup ? 'All items in this group count toward your savings rate' : 'Counted toward your savings rate')}
                 </div>
               </div>
             )}

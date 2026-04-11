@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   PencilSquareIcon, TrashIcon, PlusIcon, BuildingLibraryIcon,
-  ChevronDownIcon, ChevronRightIcon, Bars3Icon, BanknotesIcon,
+  ChevronDownIcon, ChevronRightIcon, Bars3Icon, BanknotesIcon, CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -12,7 +12,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import ItemRow from './ItemRow'
 import EditModal from './EditModal'
-import { isSavingsGroup, stripPrefix } from '../utils/budgetCalcs'
+import { isSavingsGroup, isAnnualFundGroup, stripPrefix } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -43,8 +43,15 @@ function NotesTooltip({ notes }) {
   )
 }
 
-// Savings badge
-function SavingsBadge() {
+// Savings badge — amber for annual funds, emerald for long-term savings
+function SavingsBadge({ type }) {
+  if (type === 'annual') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs bg-amber-900/40 text-amber-400 border border-amber-700/60 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
+        <CalendarDaysIcon className="w-3 h-3" />
+      </span>
+    )
+  }
   return (
     <span className="inline-flex items-center gap-1 text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
       <BuildingLibraryIcon className="w-3 h-3" />
@@ -116,8 +123,8 @@ export default function BudgetSection({
     if (mode === 'edit-section') onEditSection({ name: data.name, color: data.color })
     else if (mode === 'add-item')   onAddItem(groupId, data)
     else if (mode === 'edit-item')  onEditItem(groupId, item.id, data)
-    else if (mode === 'add-group')  onAddGroup({ name: data.name, isSavings: data.isSavings, color: data.color })
-    else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, isSavings: data.isSavings, currentBalance: data.currentBalance, color: data.color })
+    else if (mode === 'add-group')  onAddGroup({ name: data.name, savingsType: data.savingsType, isSavings: data.isSavings, color: data.color })
+    else if (mode === 'edit-group') onEditGroup(groupId, { name: data.name, savingsType: data.savingsType, isSavings: data.isSavings, currentBalance: data.currentBalance, color: data.color })
     setModal(null)
   }
 
@@ -198,6 +205,7 @@ export default function BudgetSection({
                 {section.groups.map(group => {
                   const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
                   const groupIsSavings = isSavingsGroup(group)
+                  const groupSavingsType = groupIsSavings ? (isAnnualFundGroup(group) ? 'annual' : 'longterm') : null
                   const isGroupCollapsed = collapsedGroups.has(group.id)
                   const groupColor = effectiveGroupColor(group)
 
@@ -208,12 +216,12 @@ export default function BudgetSection({
                           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                             <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                             <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
-                            {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
+                            {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className="text-sm text-slate-600 italic">No items —</span>
                             <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-neuro-400 hover:text-neuro-300 text-sm hover:underline transition-colors">add one</button>
-                            <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-2 rounded transition-colors">
+                            <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, savingsType: group.savingsType, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-2 rounded transition-colors">
                               <PencilSquareIcon className="w-4 h-4" />
                             </button>
                             <button onPointerDown={e => e.stopPropagation()} onClick={() => setConfirmDelete({ type: 'group', groupId: group.id, label: displayName(group.name), itemCount: 0 })} className="text-slate-500 hover:text-red-400 p-2 rounded transition-colors">
@@ -239,7 +247,7 @@ export default function BudgetSection({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              {groupIsSavings ? <BuildingLibraryIcon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <OutgoingIcon />}
+                              {groupIsSavings ? (groupSavingsType === 'annual' ? <CalendarDaysIcon className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" /> : <BuildingLibraryIcon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />) : <OutgoingIcon />}
                               <span className="text-[15px] text-slate-200 font-semibold truncate">{displayName(group.name)}</span>
                               {group.currentBalance != null && (
                                 <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full tabular-nums flex-shrink-0">
@@ -272,7 +280,7 @@ export default function BudgetSection({
                           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                             <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                             <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
-                            {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
+                            {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                             {group.currentBalance != null && (
                               <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
                                 {fmt(group.currentBalance)}
@@ -285,7 +293,7 @@ export default function BudgetSection({
                             <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'add-item', groupId: group.id }) }} className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded transition-colors">
                               <PlusIcon className="w-4 h-4" />
                             </button>
-                            <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } }) }} className="text-slate-500 hover:text-neuro-400 inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded transition-colors">
+                            <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, savingsType: group.savingsType, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } }) }} className="text-slate-500 hover:text-neuro-400 inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded transition-colors">
                               <PencilSquareIcon className="w-4 h-4" />
                             </button>
                             <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setConfirmDelete({ type: 'group', groupId: group.id, label: displayName(group.name), itemCount: group.items.length }) }} className="text-slate-500 hover:text-red-400 inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded transition-colors">
@@ -306,8 +314,12 @@ export default function BudgetSection({
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5">
-                                      {(groupIsSavings || item.isSavings) ? (
-                                        <BuildingLibraryIcon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                      {(groupIsSavings || item.isSavings || item.savingsType) ? (
+                                        (groupSavingsType === 'annual' || item.savingsType === 'annual') ? (
+                                          <CalendarDaysIcon className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                                        ) : (
+                                          <BuildingLibraryIcon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                        )
                                       ) : (
                                         <OutgoingIcon />
                                       )}
@@ -359,6 +371,7 @@ export default function BudgetSection({
                   {section.groups.map(group => {
                     const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
                     const groupIsSavings = isSavingsGroup(group)
+                    const groupSavingsType = groupIsSavings ? (isAnnualFundGroup(group) ? 'annual' : 'longterm') : null
                     const isGroupCollapsed = collapsedGroups.has(group.id)
                     const groupColor = effectiveGroupColor(group)
 
@@ -372,12 +385,12 @@ export default function BudgetSection({
                                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                                   <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                                   <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
-                                  {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
+                                  {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <span className="text-sm text-slate-600 italic">No items —</span>
                                   <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-neuro-400 hover:text-neuro-300 text-sm hover:underline transition-colors">add one</button>
-                                  <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-1.5 rounded transition-colors">
+                                  <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, savingsType: group.savingsType, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-1.5 rounded transition-colors">
                                     <PencilSquareIcon className="w-4 h-4" />
                                   </button>
                                   <button onPointerDown={e => e.stopPropagation()} onClick={() => setConfirmDelete({ type: 'group', groupId: group.id, label: displayName(group.name), itemCount: 0 })} className="text-slate-500 hover:text-red-400 p-1.5 rounded transition-colors">
@@ -404,7 +417,7 @@ export default function BudgetSection({
                                 <span className="opacity-0 group-hover/row:opacity-100 transition-opacity flex-shrink-0">
                                   <Bars3Icon className="w-3.5 h-3.5 text-slate-600" />
                                 </span>
-                                {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
+                                {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                                 <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
                                 {!namesDiffer && item.notes && <NotesTooltip notes={item.notes} />}
                                 {group.currentBalance != null && (
@@ -433,7 +446,7 @@ export default function BudgetSection({
                                 <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'add-item', groupId: group.id })} className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 p-1 rounded transition-colors" title="Add item to group">
                                   <PlusIcon className="w-3.5 h-3.5" />
                                 </button>
-                                <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-1 rounded transition-colors" title="Edit group">
+                                <button onPointerDown={e => e.stopPropagation()} onClick={() => setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, savingsType: group.savingsType, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } })} className="text-slate-500 hover:text-neuro-400 p-1 rounded transition-colors" title="Edit group">
                                   <PencilSquareIcon className="w-3.5 h-3.5" />
                                 </button>
                                 <button onPointerDown={e => e.stopPropagation()} onClick={() => setConfirmDelete({ type: 'group', groupId: group.id, label: displayName(group.name), itemCount: 1 })} className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors" title="Delete group">
@@ -459,7 +472,7 @@ export default function BudgetSection({
                               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                                 <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                                 <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
-                                {groupIsSavings ? <SavingsBadge /> : <OutgoingIcon />}
+                                {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                                 {group.currentBalance != null && (
                                   <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
                                     {fmt(group.currentBalance)}
@@ -472,7 +485,7 @@ export default function BudgetSection({
                                 <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'add-item', groupId: group.id }) }} className="text-slate-500 hover:text-slate-200 border border-nb-500 hover:border-nb-400 inline-flex items-center justify-center p-1.5 rounded transition-colors">
                                   <PlusIcon className="w-4 h-4" />
                                 </button>
-                                <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } }) }} className="text-slate-500 hover:text-neuro-400 inline-flex items-center justify-center p-1.5 rounded transition-colors">
+                                <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModal({ mode: 'edit-group', groupId: group.id, item: { name: group.name, savingsType: group.savingsType, isSavings: groupIsSavings, currentBalance: group.currentBalance, color: group.color } }) }} className="text-slate-500 hover:text-neuro-400 inline-flex items-center justify-center p-1.5 rounded transition-colors">
                                   <PencilSquareIcon className="w-4 h-4" />
                                 </button>
                                 <button onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setConfirmDelete({ type: 'group', groupId: group.id, label: displayName(group.name), itemCount: group.items.length }) }} className="text-slate-500 hover:text-red-400 inline-flex items-center justify-center p-1.5 rounded transition-colors">
@@ -489,6 +502,7 @@ export default function BudgetSection({
                                 key={item.id}
                                 item={item}
                                 groupIsSavings={groupIsSavings}
+                                groupSavingsType={groupSavingsType}
                                 indent={true}
                                 small={true}
                                 onEdit={(item) => setModal({ mode: 'edit-item', groupId: group.id, item })}
