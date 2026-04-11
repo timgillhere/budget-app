@@ -444,19 +444,51 @@ function AppShell({ isAdmin, logout, name }) {
 
           {/* Global action bar — all pages, mobile + desktop */}
           <div className="bg-nb-800 border-b border-nb-600 px-3 sm:px-6 py-1.5 flex justify-end gap-2">
-            <label className="cursor-pointer px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500 transition-colors flex items-center gap-1.5">
-              <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Import from JSON</span><span className="sm:hidden">Import</span>
-              <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
-            </label>
-            <button onClick={exportJSON} className="px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white transition-colors border border-nb-500 flex items-center gap-1.5">
-              <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export JSON</span><span className="sm:hidden">Export</span>
-            </button>
-            <button onClick={copyToClipboard} className={`px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium transition-all flex items-center gap-1.5 ${copyFlash ? 'bg-emerald-700 text-white' : 'bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white border border-nb-500'}`}>
-              <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{copyFlash ? 'Copied!' : 'Copy for Claude'}</span><span className="sm:hidden">{copyFlash ? '✓' : 'Claude'}</span>
-            </button>
+
+            {/* Import from JSON */}
+            <div className="relative group/tip">
+              <label className="cursor-pointer px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500 transition-colors flex items-center gap-1.5">
+                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Import from JSON</span><span className="sm:hidden">Import</span>
+                <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
+              </label>
+              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-nb-600" />
+                Import a budget JSON file — e.g. after making changes with an AI, or restoring a backup
+              </span>
+            </div>
+
+            {/* Export JSON */}
+            <div className="relative group/tip">
+              <button onClick={exportJSON} className="px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white transition-colors border border-nb-500 flex items-center gap-1.5">
+                <ArrowUpTrayIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export JSON</span><span className="sm:hidden">Export</span>
+              </button>
+              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-nb-600" />
+                Download your budget as a JSON file for backup, or to share with an AI that supports file uploads
+              </span>
+            </div>
+
+            {/* Copy for Claude */}
+            <div className="relative group/tip">
+              <button onClick={copyToClipboard} className={`px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium transition-all flex items-center gap-1.5 ${copyFlash ? 'bg-emerald-700 text-white' : 'bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white border border-nb-500'}`}>
+                <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{copyFlash ? 'Copied!' : 'Copy for Claude'}</span><span className="sm:hidden">{copyFlash ? '✓' : 'Claude'}</span>
+              </button>
+              <span className="pointer-events-none absolute top-full right-0 mt-2 w-72 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
+                <span className="absolute bottom-full right-4 border-4 border-transparent border-b-nb-600" />
+                <span className="block font-semibold text-slate-200 mb-1.5">AI budget workflow</span>
+                <ol className="space-y-1 list-decimal list-inside text-slate-400">
+                  <li>Click to copy your budget + AI instructions</li>
+                  <li>Paste into Claude, ChatGPT, or any LLM</li>
+                  <li>Chat about your budget and ask for changes</li>
+                  <li>The AI outputs an updated <code className="font-mono bg-nb-800 px-0.5 rounded">budget-json</code> block</li>
+                  <li>Save that as a .json file, then use Import</li>
+                </ol>
+              </span>
+            </div>
+
           </div>
 
           {/* Summary bar — budget + charts tabs only */}
