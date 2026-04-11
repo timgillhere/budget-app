@@ -6,6 +6,13 @@ import {
   ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
@@ -165,6 +172,20 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
   )
 }
 
+// Sortable wrapper for section-level reordering — passes drag handle listeners down
+function SortableSectionItem({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      {...attributes}
+    >
+      {children(listeners)}
+    </div>
+  )
+}
+
 // ── Budget tab ───────────────────────────────────────────────────────
 function BudgetTab() {
   const { data, save } = useBudget()
@@ -173,12 +194,27 @@ function BudgetTab() {
   const addItem    = (sectionId, groupId, item) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items.push({ ...item, id: `item-${Date.now()}` }); save(u) }
   const editItem   = (sectionId, groupId, itemId, item) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); const idx = g.items.findIndex(i => i.id === itemId); g.items[idx] = { ...item, id: itemId }; save(u) }
   const deleteItem = (sectionId, groupId, itemId) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.items = g.items.filter(i => i.id !== itemId); save(u) }
-  const addGroup   = (sectionId, { name, isSavings }) => { const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups.push({ id: `grp-${Date.now()}`, name, isSavings: !!isSavings, items: [] }); save(u) }
-  const editGroup  = (sectionId, groupId, { name, isSavings, currentBalance }) => {
+  const addGroup   = (sectionId, { name, isSavings, color }) => { const u = deepClone(data); const grp = { id: `grp-${Date.now()}`, name, isSavings: !!isSavings, items: [] }; if (color) grp.color = color; u.sections.find(s => s.id === sectionId).groups.push(grp); save(u) }
+  const editGroup  = (sectionId, groupId, { name, isSavings, currentBalance, color }) => {
     const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.name = name; g.isSavings = !!isSavings
-    if (currentBalance != null) g.currentBalance = currentBalance; else delete g.currentBalance; save(u)
+    if (currentBalance != null) g.currentBalance = currentBalance; else delete g.currentBalance
+    if (color) g.color = color; else delete g.color
+    save(u)
   }
   const deleteGroup = (sectionId, groupId) => { const u = deepClone(data); const sec = u.sections.find(s => s.id === sectionId); sec.groups = sec.groups.filter(g => g.id !== groupId); save(u) }
+  const reorderGroups = (sectionId, newGroupsArray) => { const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups = newGroupsArray; save(u) }
+  const reorderSections = (newSections) => { const u = deepClone(data); u.sections = newSections; save(u) }
+
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  )
+  const handleSectionDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIdx = data.sections.findIndex(s => s.id === active.id)
+    const newIdx = data.sections.findIndex(s => s.id === over.id)
+    reorderSections(arrayMove([...data.sections], oldIdx, newIdx))
+  }
   const handleIncomeModalSave = (item) => {
     const u = deepClone(data)
     if (incomeModal.mode === 'add-item') u.income.items.push({ ...item, id: `inc-${Date.now()}` })
@@ -224,8 +260,8 @@ function BudgetTab() {
           </ul>
 
           {/* Desktop: full table */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full table-fixed" style={{ minWidth: '380px' }}>
+          <div className="hidden sm:block">
+            <table className="w-full table-fixed">
               <colgroup><col style={{ width: '55%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '11%' }} /></colgroup>
               <thead><tr className="text-xs text-slate-500 border-b border-nb-600">
                 <th className="px-4 py-2 text-left font-medium">Source</th>
@@ -262,16 +298,26 @@ function BudgetTab() {
           </div>
         </div>
 
-        {data.sections.map(section => (
-          <BudgetSection key={section.id} section={section}
-            onAddItem={(groupId, item) => addItem(section.id, groupId, item)}
-            onEditItem={(groupId, itemId, item) => editItem(section.id, groupId, itemId, item)}
-            onDeleteItem={(groupId, itemId) => deleteItem(section.id, groupId, itemId)}
-            onAddGroup={(name) => addGroup(section.id, name)}
-            onEditGroup={(groupId, name) => editGroup(section.id, groupId, name)}
-            onDeleteGroup={(groupId) => deleteGroup(section.id, groupId)}
-          />
-        ))}
+        <DndContext sensors={sectionSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+          <SortableContext items={data.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            {data.sections.map(section => (
+              <SortableSectionItem key={section.id} id={section.id}>
+                {(dragHandleListeners) => (
+                  <BudgetSection section={section}
+                    dragHandleListeners={dragHandleListeners}
+                    onAddItem={(groupId, item) => addItem(section.id, groupId, item)}
+                    onEditItem={(groupId, itemId, item) => editItem(section.id, groupId, itemId, item)}
+                    onDeleteItem={(groupId, itemId) => deleteItem(section.id, groupId, itemId)}
+                    onAddGroup={(grp) => addGroup(section.id, grp)}
+                    onEditGroup={(groupId, grp) => editGroup(section.id, groupId, grp)}
+                    onDeleteGroup={(groupId) => deleteGroup(section.id, groupId)}
+                    onReorderGroups={(newArr) => reorderGroups(section.id, newArr)}
+                  />
+                )}
+              </SortableSectionItem>
+            ))}
+          </SortableContext>
+        </DndContext>
         <p className="text-center text-xs text-slate-600 pb-4">Changes saved automatically</p>
       </main>
 

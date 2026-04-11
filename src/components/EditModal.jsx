@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
+import { stripPrefix } from '../utils/budgetCalcs'
+
+const GROUP_COLORS = [
+  '#3b6aef', '#2E75B6', '#C55A11', '#7030A0',
+  '#059669', '#dc2626', '#d97706', '#0891b2',
+  '#7c3aed', '#db2777', '#65a30d', '#6b7280',
+]
 
 export default function EditModal({ mode, initial, onSave, onClose, onDelete }) {
   const isGroup = mode === 'add-group' || mode === 'edit-group'
 
-  const [name, setName] = useState(initial?.name || '')
+  const [name, setName] = useState(isGroup ? stripPrefix(initial?.name || '') : (initial?.name || ''))
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
   const [notes, setNotes] = useState(initial?.notes || '')
   const [isSavings, setIsSavings] = useState(initial?.isSavings || false)
   const [currentBalance, setCurrentBalance] = useState(initial?.currentBalance?.toString() || '')
+  const [color, setColor] = useState(initial?.color || '')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -28,7 +36,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
         balanceVal = parseFloat(currentBalance)
         if (isNaN(balanceVal) || balanceVal < 0) { setError('Enter a valid balance (£) or leave blank'); return }
       }
-      onSave({ name: name.trim(), isSavings, currentBalance: balanceVal })
+      onSave({ name: name.trim(), isSavings, currentBalance: balanceVal, color: color || null })
     }
   }
 
@@ -71,7 +79,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && isGroup) handleSave() }}
                 className={inputCls}
-                placeholder={isGroup ? 'e.g. Space 13: New Category' : 'e.g. Gym Membership'}
+                placeholder={isGroup ? 'e.g. Groceries' : 'e.g. Gym Membership'}
               />
             </div>
 
@@ -91,6 +99,34 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
                 <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isSavings ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </div>
+
+            {isGroup && (
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">
+                  Group colour <span className="text-xs font-normal text-slate-600">optional — defaults to section colour</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setColor('')}
+                    className={`w-7 h-7 rounded-full border-2 bg-nb-700 flex items-center justify-center transition-all ${!color ? 'border-white scale-110' : 'border-nb-500 hover:border-nb-400'}`}
+                    title="Use section colour"
+                  >
+                    <span className="text-slate-400 text-xs leading-none">×</span>
+                  </button>
+                  {GROUP_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${color === c ? 'border-white scale-110' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {mode === 'edit-group' && (
               <div>
