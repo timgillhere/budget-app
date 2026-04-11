@@ -326,6 +326,23 @@ function StepDone({ summary }) {
         ))}
       </div>
       <p className="text-xs text-slate-500 mt-4">You can change any of this at any time in the Settings tab.</p>
+      <div className="mt-6 bg-nb-700 rounded-xl p-4 text-left border border-nb-600">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Working with AI assistants</p>
+        <ol className="space-y-2">
+          {[
+            { n: '1', text: 'Click "Copy for Claude" — copies your budget and AI instructions to clipboard.' },
+            { n: '2', text: 'Paste into Claude, ChatGPT, or any LLM and chat about your budget.' },
+            { n: '3', text: 'Ask it to suggest changes — it outputs an updated budget block.' },
+            { n: '4', text: 'Copy that block, save as a .json file, then click "Import from JSON".' },
+          ].map(({ n, text }) => (
+            <li key={n} className="flex items-start gap-2.5 text-sm text-slate-400">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-nb-600 border border-nb-500 text-xs text-slate-300 flex items-center justify-center font-medium mt-0.5">{n}</span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="text-xs text-slate-600 mt-3">Works with any AI — Claude, ChatGPT, Gemini, etc.</p>
+      </div>
     </div>
   )
 }
