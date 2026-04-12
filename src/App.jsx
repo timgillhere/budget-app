@@ -366,6 +366,20 @@ function AppShell({ isAdmin, logout, name }) {
     if (data && showOnboarding === null) setShowOnboarding(!data?.settings?.onboardingComplete)
   }, [data, showOnboarding])
 
+  useEffect(() => {
+    const onScroll = () => {
+      const top = window.scrollY
+      setScrolled(prev => {
+        if (!prev && top > 80) return true
+        if (prev && top < 40) return false
+        return prev
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+
 
   const exportJSON = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -393,7 +407,7 @@ function AppShell({ isAdmin, logout, name }) {
   }
 
   // Close sidebar on tab change (mobile)
-  const handleTabChange = (newTab) => { setTab(newTab); setSidebarOpen(false) }
+  const handleTabChange = (newTab) => { setTab(newTab); setSidebarOpen(false); window.scrollTo(0, 0) }
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
@@ -404,7 +418,7 @@ function AppShell({ isAdmin, logout, name }) {
   const firstName = (data?.settings?.name || name || '').split(' ')[0] || ''
 
   return (
-    <div className="nb-grid-bg min-h-screen bg-nb-900">
+    <div className="nb-grid-bg min-h-svh bg-nb-900">
 
       {/* ── Desktop sidebar (fixed left) ─────────────── */}
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-nb-700/40 z-40 overflow-y-auto">
@@ -428,14 +442,7 @@ function AppShell({ isAdmin, logout, name }) {
       </aside>
 
       {/* ── Main content area ─────────────────────────── */}
-      <div className="lg:ml-52 flex flex-col h-screen overflow-y-auto overflow-x-hidden" onScroll={(e) => {
-          const top = e.currentTarget.scrollTop
-          setScrolled(prev => {
-            if (!prev && top > 80) return true
-            if (prev && top < 40) return false
-            return prev
-          })
-        }}>
+      <div className="lg:ml-52">
 
         {/* Sticky header block: mobile nav + action bar + summary */}
         <div className="sticky top-0 z-30">

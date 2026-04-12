@@ -119,7 +119,7 @@ export default function SummaryBar({ budget, compact = false }) {
             </span>
           </div>
           {/* Secondary snap-scroll tiles */}
-          <div className="mt-3 flex gap-2 overflow-x-auto snap-x pb-1" style={{ scrollbarWidth: 'none' }}>
+          <div className="mt-3 flex gap-2 overflow-x-auto snap-x pb-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
             <SnapTile label="Net Worth" value={fmtK(netWorth)} valueClass="text-cyan-400" />
             <SnapTile label="Buffer" value={bufferMonths === '—' ? '—' : `${bufferMonths}mo`} valueClass={bufferColor} />
             <SnapTile label="Monthly Savings" value={fmtK(monthlySavings)} valueClass={savingsColor} />

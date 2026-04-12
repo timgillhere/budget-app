@@ -2,19 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  overflow-x: hidden;
-  max-width: 100vw;
+html {
   width: 100%;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  max-width: 100%;
+  background-color: #131926; /* covers any gap outside body with viewport-fit=cover */
 }
-
 body {
+  overflow-x: hidden; /* only here — propagates to viewport without creating nested scroll container */
+  width: 100%;
+  max-width: 100%;
   background-color: #131926;
   color: #e2e8f0;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent iOS Safari from zooming in when an input is focused.
+   iOS auto-zooms any input with font-size < 16px — this resets it globally. */
+@media screen and (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px;
+  }
 }
 
 /* ── Dot grid background on page ─────────────────────────── */
