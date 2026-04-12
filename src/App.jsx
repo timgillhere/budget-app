@@ -41,7 +41,7 @@ import { calcBudgetSummary, getPensionTotals } from './utils/budgetCalcs'
 
 function generateSnapshot(data) {
   const budget = data
-  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, annualFunds, longtermSavings } = calcBudgetSummary(budget)
+  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, annualFunds } = calcBudgetSummary(budget)
   const { pensions } = getPensionTotals(budget.settings)
   const savingsRateFmt = savingsRate.toFixed(1)
   const lines = [
@@ -55,8 +55,12 @@ function generateSnapshot(data) {
     lines.push(`── ${section.name.toUpperCase()} — ${fmt(sectionTotal)}/month ──`)
     section.groups.forEach(group => {
       const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
-      lines.push(`  ${group.name} [${fmt(groupTotal)}/month]`)
-      group.items.forEach(item => lines.push(`    • ${item.name}: ${fmt(item.monthly)}/month${item.notes ? ' — ' + item.notes : ''}`))
+      const typeTag = group.savingsType === 'annual' ? ' [Annual Savings]' : ''
+      lines.push(`  ${group.name}${typeTag} [${fmt(groupTotal)}/month]`)
+      group.items.forEach(item => {
+        const itemTypeTag = item.savingsType === 'annual' ? ' [Annual Savings]' : ''
+        lines.push(`    • ${item.name}${itemTypeTag}: ${fmt(item.monthly)}/month${item.notes ? ' — ' + item.notes : ''}`)
+      })
     })
     lines.push(`  Section total: ${fmt(sectionTotal)}/month`); lines.push(``)
   })
@@ -74,7 +78,7 @@ function generateSnapshot(data) {
   if (pensions.length > 1) {
     lines.push(`  Pensions: ${pensions.map(p => `${p.name || 'Pension'}: ${fmt(p.balance || 0)} balance · ${fmt(p.monthlyContribution || 0)}/mo`).join(' | ')}`)
   }
-  lines.push(`  Savings: Pension ${fmt(pensionContribution)}/mo (pre-tax) + ISA ${fmt(isaContribution)}/mo + Long-term pots ${fmt(longtermSavings)}/mo + Surplus ${fmt(surplus)}/mo | Annual funds (not in rate): ${fmt(annualFunds)}/mo | True savings rate: ${savingsRateFmt}% of gross income`)
+  lines.push(`  Savings (in rate): Pension ${fmt(pensionContribution)}/mo (pre-tax) + ISA ${fmt(isaContribution)}/mo | Annual savings (not in rate): ${fmt(annualFunds)}/mo | Unallocated surplus: ${fmt(surplus)}/mo | True savings rate: ${savingsRateFmt}% of gross income`)
   lines.push(``, `════════════════════════════════════`, `INSTRUCTIONS FOR CLAUDE`, `════════════════════════════════════`)
   lines.push(`You are a UK personal financial advisor. The full data is in the JSON block below.`)
   lines.push(`1. Acknowledge current state (surplus, savings rate, key observations)`)
@@ -82,7 +86,7 @@ function generateSnapshot(data) {
   lines.push(`3. When done, output the COMPLETE updated data as a JSON code block tagged: \`\`\`budget-json`)
   lines.push(`Rules: preserve all IDs, new items use "item-<timestamp>", new groups use "grp-<timestamp>",`)
   lines.push(`never change section ids (starling/current/monzo), all monthly values must be numbers.`)
-  lines.push(`savingsType field: null = spending, "annual" = annual sinking fund (not in savings rate), "longterm" = long-term savings (in savings rate).`)
+  lines.push(`savingsType field: null = regular spending, "annual" = annual savings (sinking fund for periodic costs — NOT counted in savings rate). Pension and ISA contributions are tracked in settings, not as budget line items.`)
   lines.push(`Output the FULL JSON every time.`)
   lines.push(`════════════════════════════════════`, ``, `\`\`\`budget-json`)
   lines.push(JSON.stringify(data, null, 2)); lines.push(`\`\`\``)
@@ -424,7 +428,14 @@ function AppShell({ isAdmin, logout, name }) {
       </aside>
 
       {/* ── Main content area ─────────────────────────── */}
-      <div className="lg:ml-52 flex flex-col h-screen overflow-y-auto overflow-x-hidden" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 60)}>
+      <div className="lg:ml-52 flex flex-col h-screen overflow-y-auto overflow-x-hidden" onScroll={(e) => {
+          const top = e.currentTarget.scrollTop
+          setScrolled(prev => {
+            if (!prev && top > 80) return true
+            if (prev && top < 40) return false
+            return prev
+          })
+        }}>
 
         {/* Sticky header block: mobile nav + action bar + summary */}
         <div className="sticky top-0 z-30">

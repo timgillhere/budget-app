@@ -42,7 +42,7 @@ function NeonCard({ accent = '#4f7ef7', children, className = '' }) {
 function DarkTooltip({ children }) {
   return (
     <div className="bg-nb-800 border border-nb-500 rounded-lg px-3 py-2 shadow-2xl text-sm"
-      style={{ boxShadow: '0 0 20px rgba(0,0,0,0.6)' }}>
+      style={{ backgroundColor: '#0d1224', boxShadow: '0 0 20px rgba(0,0,0,0.8)' }}>
       {children}
     </div>
   )
@@ -68,14 +68,12 @@ const CHART_DATA_SOURCES = [
   {
     id: 'savings-breakdown', label: 'Savings Breakdown',
     getChartData: (budget) => {
-      const { pensionContribution, isaContribution, annualFunds, longtermSavings, surplus } = calcBudgetSummary(budget)
+      const { pensionContribution, isaContribution, annualFunds } = calcBudgetSummary(budget)
       return [
         { name: 'Pension', value: pensionContribution },
         { name: 'ISA', value: isaContribution },
-        { name: 'Long-term Pots', value: longtermSavings },
         { name: 'Annual Funds', value: annualFunds },
-        surplus > 0 ? { name: 'Surplus', value: surplus } : null,
-      ].filter(Boolean).filter(d => d.value > 0)
+      ].filter(d => d.value > 0)
     },
   },
   {
@@ -93,12 +91,11 @@ const CHART_DATA_SOURCES = [
   {
     id: 'income-expenses', label: 'Income vs Spending',
     getChartData: (budget) => {
-      const { totalIncome, budgetedSpending, annualFunds, longtermSavings } = calcBudgetSummary(budget)
+      const { totalIncome, budgetedSpending, annualFunds } = calcBudgetSummary(budget)
       return [
         { name: 'Income', value: totalIncome },
         { name: 'Spending', value: budgetedSpending },
         { name: 'Annual Funds', value: annualFunds },
-        { name: 'Long-term Savings', value: longtermSavings },
       ].filter(d => d.value > 0)
     },
   },
@@ -340,14 +337,12 @@ function HolidayProgress({ budget }) {
 
 // ── Savings breakdown donut ──────────────────────────────────────────
 function SavingsBreakdown({ budget }) {
-  const { pensionContribution, isaContribution, annualFunds, longtermSavings, surplus } = calcBudgetSummary(budget)
+  const { pensionContribution, isaContribution, annualFunds } = calcBudgetSummary(budget)
   const data = [
-    { name: 'Pension',          value: pensionContribution, fill: '#22d3ee' },
-    { name: 'ISA',              value: isaContribution,     fill: '#34d399' },
-    { name: 'Long-term Pots',   value: longtermSavings,     fill: '#4f7ef7' },
-    { name: 'Annual Funds',     value: annualFunds,         fill: '#f59e0b' },
-    surplus > 0 ? { name: 'Surplus', value: surplus, fill: '#fbbf24' } : null,
-  ].filter(Boolean).filter(d => d.value > 0)
+    { name: 'Pension',      value: pensionContribution, fill: '#22d3ee' },
+    { name: 'ISA',          value: isaContribution,     fill: '#34d399' },
+    { name: 'Annual Funds', value: annualFunds,         fill: '#f59e0b' },
+  ].filter(d => d.value > 0)
 
   const total = data.reduce((s, d) => s + d.value, 0)
   if (data.length === 0) return null

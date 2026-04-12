@@ -22,7 +22,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
   const [monthly, setMonthly] = useState(initial?.monthly?.toString() || '')
   const [notes, setNotes] = useState(initial?.notes || '')
   const [savingsType, setSavingsType] = useState(
-    initial?.savingsType ?? (initial?.isSavings ? 'longterm' : null)
+    initial?.savingsType === 'longterm' ? 'annual' : (initial?.savingsType ?? (initial?.isSavings ? 'annual' : null))
   )
   const [currentBalance, setCurrentBalance] = useState(initial?.currentBalance?.toString() || '')
   const [color, setColor] = useState(initial?.color || '')
@@ -126,7 +126,6 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
                   {[
                     { value: null,       label: 'Spending',       style: savingsType === null      ? 'bg-nb-700 border-nb-400 text-slate-200' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-nb-400' },
                     { value: 'annual',   label: 'Annual Fund',    style: savingsType === 'annual'   ? 'bg-amber-900/30 border-amber-600 text-amber-300' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-amber-800' },
-                    { value: 'longterm', label: 'Long-term',      style: savingsType === 'longterm' ? 'bg-emerald-900/30 border-emerald-600 text-emerald-300' : 'bg-nb-800 border-nb-600 text-slate-500 hover:border-emerald-800' },
                   ].map(opt => (
                     <button
                       key={String(opt.value)}
@@ -141,7 +140,6 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
                 <div className="text-xs text-slate-600 mt-1.5">
                   {savingsType === null      && 'Counted as an expense'}
                   {savingsType === 'annual'  && 'Set aside for known annual costs — not counted in savings rate'}
-                  {savingsType === 'longterm' && (isGroup ? 'All items in this group count toward your savings rate' : 'Counted toward your savings rate')}
                 </div>
               </div>
             )}

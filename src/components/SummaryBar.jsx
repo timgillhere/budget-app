@@ -6,8 +6,8 @@ const fmtK = (n) => n >= 1000000 ? `£${(n/1000000).toFixed(1)}m` : n >= 1000 ? 
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function SummaryBar({ budget, compact = false }) {
-  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, budgetedSavings, annualFunds, longtermSavings, budgetedSpending, grossIncome, totalSavings } = calcBudgetSummary(budget)
-  const monthlySavings = pensionContribution + isaContribution + longtermSavings
+  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, budgetedSavings, annualFunds, budgetedSpending, grossIncome, totalSavings } = calcBudgetSummary(budget)
+  const monthlySavings = pensionContribution + isaContribution
   const savingsRateTarget = budget?.settings?.savingsRateTarget || 10
 
   const s = budget?.settings || {}
@@ -35,7 +35,6 @@ export default function SummaryBar({ budget, compact = false }) {
   const expensesTooltip = [
     { label: 'Spending', value: fmt(budgetedSpending) },
     ...(annualFunds > 0  ? [{ label: 'Annual funds', value: fmt(annualFunds) }] : []),
-    ...(longtermSavings > 0 ? [{ label: 'Long-term pots', value: fmt(longtermSavings) }] : []),
     { label: 'Total', value: fmt(totalExpenses), highlight: 'text-slate-200', dividerBefore: true },
   ]
 
@@ -51,9 +50,7 @@ export default function SummaryBar({ budget, compact = false }) {
 
   const savingsRateTooltip = [
     ...pensionTooltipLines,
-    { label: 'ISA', value: fmt(isaContribution) },
-    { label: 'Long-term pots', value: fmt(longtermSavings) },
-    { label: 'Surplus', value: (surplus < 0 ? '-' : '') + fmt(surplus), dividerAfter: true },
+    { label: 'ISA', value: fmt(isaContribution), dividerAfter: true },
     ...(annualFunds > 0 ? [{ label: 'Annual funds (excl.)', value: fmt(annualFunds), highlight: 'text-amber-500' }] : []),
     { label: '÷ Gross income', value: fmt(grossIncome) },
     { label: '= Savings rate', value: `${savingsRate.toFixed(1)}%`, highlight: rateColor, dividerBefore: true },
@@ -62,7 +59,6 @@ export default function SummaryBar({ budget, compact = false }) {
   const monthlySavingsTooltip = [
     ...pensionTooltipLines,
     { label: 'ISA', value: fmt(isaContribution) },
-    { label: 'Long-term pots', value: fmt(longtermSavings) },
     { label: 'Total', value: fmt(monthlySavings), highlight: savingsColor, dividerBefore: true },
   ]
 

@@ -36,7 +36,7 @@ export function isLongtermSavingsGroup(group) {
  * Annual funds (van, insurance etc.) are excluded from the savings rate —
  * they are predictable costs set aside, not genuine wealth accumulation.
  *
- * True savings = pension (pre-tax) + ISA + long-term pots + unallocated surplus
+ * True savings = pension (pre-tax) + ISA + long-term pots (intentional savings only)
  * Gross income = take-home + pension (pension on both sides keeps the % honest)
  */
 /**
@@ -65,35 +65,33 @@ export function calcBudgetSummary(budget) {
   const totalIncome = budget.income.items.reduce((s, i) => s + i.monthly, 0)
 
   let annualFunds = 0
-  let longtermSavings = 0
   let budgetedSpending = 0
 
   budget.sections.forEach(sec => {
     sec.groups.forEach(g => {
       const groupType = resolveSavingsType(g)
-      if (groupType) {
-        // Entire group is savings — split by type
+      if (groupType === 'annual') {
+        // Annual sinking fund — not counted as spending or savings rate
         const groupTotal = g.items.reduce((s, i) => s + i.monthly, 0)
-        if (groupType === 'annual') annualFunds += groupTotal
-        else longtermSavings += groupTotal
+        annualFunds += groupTotal
       } else {
-        // Check item-level savingsType / legacy isSavings
+        // All other groups (including legacy longterm) treated as spending
         g.items.forEach(item => {
           const itemType = resolveSavingsType(item)
-          if (itemType === 'annual')   annualFunds += item.monthly
-          else if (itemType === 'longterm') longtermSavings += item.monthly
+          if (itemType === 'annual') annualFunds += item.monthly
           else budgetedSpending += item.monthly
         })
       }
     })
   })
 
-  const budgetedSavings = annualFunds + longtermSavings   // kept for backward compat
-  const totalExpenses = budgetedSavings + budgetedSpending
+  const budgetedSavings = annualFunds   // kept for backward compat
+  const longtermSavings = 0             // no longer tracked via budget items
+  const totalExpenses = annualFunds + budgetedSpending
   const surplus = totalIncome - totalExpenses
 
-  // True savings: annual funds are excluded (they're predictable costs, not wealth building)
-  const totalSavings = pensionContribution + isaContribution + longtermSavings + surplus
+  // True savings: pension and ISA contributions from settings only
+  const totalSavings = pensionContribution + isaContribution
 
   const grossIncome = totalIncome + pensionContribution
 
@@ -104,13 +102,13 @@ export function calcBudgetSummary(budget) {
     grossIncome,        // take-home + pension
     totalExpenses,      // all budget groups combined
     budgetedSpending,   // non-savings groups only
-    budgetedSavings,    // annualFunds + longtermSavings (backward compat)
+    budgetedSavings,    // annualFunds (backward compat)
     annualFunds,        // annual sinking funds — excluded from savings rate
-    longtermSavings,    // long-term savings pots — counted in savings rate
+    longtermSavings,    // always 0 — kept for backward compat
     isaContribution,    // from settings.isaMonthlyContribution
     pensionContribution,// from settings.pensionMonthlyContribution (pre-tax)
     surplus,            // take-home minus all budgeted groups
-    totalSavings,       // pension + ISA + long-term pots + surplus
+    totalSavings,       // pension + ISA (intentional savings only)
     savingsRate,        // totalSavings / grossIncome * 100
   }
 }

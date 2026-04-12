@@ -113,7 +113,7 @@ export const defaultBudget = {
         { id: 'monzo-inst', name: '🎻 Instrument Insurance', savingsType: 'annual', isSavings: true, items: [
           { id: 'm-i1', name: 'Viola Insurance', monthly: 10, notes: '' }
         ]},
-        { id: 'monzo-goals', name: '🎯 Savings & Goals', savingsType: 'longterm', isSavings: true, items: [
+        { id: 'monzo-goals', name: '🎯 Savings & Goals', savingsType: 'annual', isSavings: true, items: [
           { id: 'm-g1', name: 'Holidays', monthly: 100, notes: 'Auto-linked to Holiday Planner' },
           { id: 'm-g2', name: 'Emergency Fund Top-Up', monthly: 40, notes: 'Buffer at £6,615' },
           { id: 'm-g3', name: 'Clothing', monthly: 40, notes: '' },

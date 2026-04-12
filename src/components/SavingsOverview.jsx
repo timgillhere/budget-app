@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useBudget } from '../context/BudgetContext'
-import { calcBudgetSummary, getPensionTotals, isLongtermSavingsGroup, stripPrefix } from '../utils/budgetCalcs'
-import { ChevronDownIcon, ChevronRightIcon, BuildingLibraryIcon } from '@heroicons/react/24/outline'
+import { calcBudgetSummary, getPensionTotals, isAnnualFundGroup, stripPrefix } from '../utils/budgetCalcs'
 
 const fmt     = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 const fmtFull = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -29,15 +28,32 @@ function NeonCard({ accent = '#4f7ef7', children, className = '' }) {
 }
 
 // ── Stat tile ─────────────────────────────────────────────────────────
-function StatTile({ label, value, sub, accent }) {
+function StatTile({ label, value, sub, accent, tooltip }) {
   return (
     <div
-      className="bg-nb-750 rounded-xl border border-nb-600 px-4 py-3.5 text-center"
+      className="bg-nb-750 rounded-xl border border-nb-600 px-4 py-3.5 text-center relative group/tip"
       style={{ boxShadow: `0 0 25px ${accent}18` }}
     >
       <div className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-1">{label}</div>
       <div className="text-xl font-bold" style={{ color: accent, textShadow: `0 0 12px ${accent}66` }}>{value}</div>
       {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+      {tooltip && (
+        <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-56 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+          <span className="block rounded-lg border border-nb-600 px-3 py-2 text-xs text-left shadow-xl" style={{ backgroundColor: '#0d1224' }}>
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-nb-600" />
+            {tooltip.map((line, i) => (
+              <span key={i} className="block">
+                {line.dividerBefore && <span className="block border-t border-nb-600 my-1.5" />}
+                <span className="flex justify-between gap-4">
+                  <span className="text-slate-400">{line.label}</span>
+                  <span className={line.highlight || 'text-slate-200'}>{line.value}</span>
+                </span>
+                {line.dividerAfter && <span className="block border-t border-nb-600 my-1.5" />}
+              </span>
+            ))}
+          </span>
+        </span>
+      )}
     </div>
   )
 }
@@ -50,7 +66,7 @@ function SavingsDonut({ data, total }) {
     if (!a || !payload?.length) return null
     const d = payload[0].payload
     return (
-      <div className="bg-nb-800 border border-nb-500 rounded-lg px-3 py-2 shadow-2xl text-sm">
+      <div className="bg-nb-800 border border-nb-500 rounded-lg px-3 py-2 shadow-2xl text-sm" style={{ backgroundColor: '#0d1224', boxShadow: '0 0 20px rgba(0,0,0,0.8)' }}>
         <p className="font-semibold text-slate-200 mb-0.5">{d.name}</p>
         <p style={{ color: d.fill }}>{fmtFull(d.value)}/month</p>
         <p className="text-slate-500 text-xs">{total > 0 ? ((d.value / total) * 100).toFixed(1) : 0}% of savings</p>
@@ -81,11 +97,11 @@ function SavingsDonut({ data, total }) {
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} wrapperStyle={{ background: 'transparent', border: 'none', boxShadow: 'none' }} />
         </PieChart>
       </ResponsiveContainer>
-      {/* Centre label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+      {/* Centre label — hide when a segment tooltip is active */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ opacity: active !== null ? 0 : 1, transition: 'opacity 0.15s' }}>
         <span className="text-[10px] text-slate-500 uppercase tracking-wide">Monthly</span>
         <span className="text-lg font-bold text-slate-100" style={{ textShadow: '0 0 10px rgba(79,126,247,0.4)' }}>
           {fmt(total)}
@@ -104,100 +120,6 @@ function LegendRow({ label, value, fill, pct, sub }) {
       {sub && <span className="text-xs text-slate-500">{sub}</span>}
       <span className="text-xs text-slate-500 tabular-nums w-10 text-right">{pct}%</span>
       <span className="text-sm font-semibold tabular-nums w-20 text-right" style={{ color: fill }}>{fmtFull(value)}</span>
-    </div>
-  )
-}
-
-// ── Long-term pots accordion ──────────────────────────────────────────
-function PotsAccordion({ budget }) {
-  const [open, setOpen] = useState(new Set())
-
-  const pots = []
-  budget.sections.forEach(sec => {
-    sec.groups.forEach(g => {
-      if (!isLongtermSavingsGroup(g)) return
-      const items = g.items.filter(i => i.monthly > 0)
-      const total = items.reduce((s, i) => s + i.monthly, 0)
-      if (total === 0 && !g.currentBalance) return
-      pots.push({ ...g, _sectionName: sec.name.replace(/\p{Emoji}/gu, '').trim(), _items: items, _total: total })
-    })
-  })
-
-  if (pots.length === 0) {
-    return (
-      <div className="text-center py-8 text-slate-500 text-sm">
-        No long-term saving pots yet. Mark a group as "Long-term Savings" in the budget to see it here.
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {pots.map(pot => {
-        const isOpen = open.has(pot.id)
-        return (
-          <div key={pot.id} className="rounded-xl border border-nb-600 overflow-hidden">
-            <button
-              onClick={() => setOpen(prev => { const n = new Set(prev); n.has(pot.id) ? n.delete(pot.id) : n.add(pot.id); return n })}
-              className="w-full flex items-center justify-between px-4 py-3.5 bg-nb-800 hover:bg-nb-700 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="inline-flex items-center text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">
-                  <BuildingLibraryIcon className="w-3 h-3" />
-                </span>
-                <div className="min-w-0">
-                  <span className="text-sm font-semibold text-slate-200 block truncate">{stripPrefix(pot.name)}</span>
-                  <span className="text-[10px] text-slate-500">{pot._sectionName}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                {pot.currentBalance != null && (
-                  <div className="text-right hidden sm:block">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wide">Balance</div>
-                    <div className="text-xs font-semibold text-cyan-400 tabular-nums">{fmtFull(pot.currentBalance)}</div>
-                  </div>
-                )}
-                <div className="text-right">
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wide">Monthly</div>
-                  <div className="text-sm font-semibold text-emerald-400 tabular-nums">{fmtFull(pot._total)}</div>
-                </div>
-                <div className="text-right hidden sm:block">
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wide">Annual</div>
-                  <div className="text-xs font-semibold text-slate-300 tabular-nums">{fmtFull(pot._total * 12)}</div>
-                </div>
-                {pot._items.length > 0 && (
-                  isOpen
-                    ? <ChevronDownIcon className="w-4 h-4 text-slate-500" />
-                    : <ChevronRightIcon className="w-4 h-4 text-slate-500" />
-                )}
-              </div>
-            </button>
-
-            {isOpen && pot._items.length > 0 && (
-              <div className="bg-nb-750 border-t border-nb-600 divide-y divide-nb-700">
-                {pot._items.map(item => (
-                  <div key={item.id} className="flex items-center justify-between px-4 py-2.5 pl-10">
-                    <div className="min-w-0">
-                      <span className="text-xs text-slate-300 truncate block">{item.name}</span>
-                      {item.notes && <span className="text-[10px] text-slate-500 truncate block">{item.notes}</span>}
-                    </div>
-                    <div className="flex-shrink-0 ml-3 text-right">
-                      <div className="text-xs text-slate-300 tabular-nums">{fmtFull(item.monthly)}/mo</div>
-                      <div className="text-[10px] text-slate-500 tabular-nums">{fmtFull(item.monthly * 12)}/yr</div>
-                    </div>
-                  </div>
-                ))}
-                {pot._items.length > 1 && (
-                  <div className="flex items-center justify-between px-4 py-2 pl-10 bg-nb-800/60">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wide">Total</span>
-                    <span className="text-xs font-semibold text-slate-300 tabular-nums">{fmtFull(pot._total)}/mo</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -232,8 +154,8 @@ export default function SavingsOverview() {
   if (!data) return null
 
   const {
-    pensionContribution, isaContribution, longtermSavings, surplus,
-    savingsRate, grossIncome, totalSavings,
+    pensionContribution, isaContribution, surplus,
+    savingsRate, grossIncome, totalSavings, annualFunds,
   } = calcBudgetSummary(data)
 
   const settings = data.settings || {}
@@ -243,14 +165,12 @@ export default function SavingsOverview() {
   const { pensions } = getPensionTotals(settings)
   const pensionBalanceTotal = pensions.reduce((s, p) => s + (p.balance || 0), 0)
 
-  const monthlySavings = pensionContribution + isaContribution + longtermSavings
+  const monthlySavings = pensionContribution + isaContribution
 
-  // Donut segments — pension, ISA, long-term pots, surplus (if positive)
+  // Donut segments — pension and ISA contributions from settings only
   const donutData = [
-    pensionContribution > 0 ? { name: 'Pension',          value: pensionContribution, fill: COLOURS.pension.fill  } : null,
-    isaContribution     > 0 ? { name: 'ISA',              value: isaContribution,     fill: COLOURS.isa.fill      } : null,
-    longtermSavings     > 0 ? { name: 'Long-term Pots',   value: longtermSavings,     fill: COLOURS.longterm.fill } : null,
-    surplus             > 0 ? { name: 'Unallocated Surplus', value: surplus,           fill: COLOURS.surplus.fill  } : null,
+    pensionContribution > 0 ? { name: 'Pension', value: pensionContribution, fill: COLOURS.pension.fill } : null,
+    isaContribution     > 0 ? { name: 'ISA',     value: isaContribution,     fill: COLOURS.isa.fill     } : null,
   ].filter(Boolean)
 
   const donutTotal = donutData.reduce((s, d) => s + d.value, 0)
@@ -265,32 +185,68 @@ export default function SavingsOverview() {
       </div>
 
       {/* ── Stat strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile
-          label="Savings Rate"
-          value={`${savingsRate.toFixed(1)}%`}
-          sub={`target ${savingsRateTarget}%`}
-          accent={rateColor}
-        />
-        <StatTile
-          label="Monthly Savings"
-          value={fmt(monthlySavings)}
-          sub="excl. annual funds"
-          accent={COLOURS.longterm.fill}
-        />
-        <StatTile
-          label="ISA Balance"
-          value={settings.isaBalance > 0 ? fmt(settings.isaBalance) : '—'}
-          sub={isaContribution > 0 ? `+${fmtFull(isaContribution)}/mo` : 'no contribution set'}
-          accent={COLOURS.isa.fill}
-        />
-        <StatTile
-          label={pensions.length > 1 ? `Pensions (${pensions.length})` : 'Pension'}
-          value={pensionBalanceTotal > 0 ? fmt(pensionBalanceTotal) : '—'}
-          sub={pensionContribution > 0 ? `+${fmtFull(pensionContribution)}/mo` : 'no contribution set'}
-          accent={COLOURS.pension.fill}
-        />
-      </div>
+      {(() => {
+        const annualProjected = monthlySavings * 12
+        const retirementWealth = (settings.isaBalance || 0) + pensionBalanceTotal
+        const targetMonthly = grossIncome * (savingsRateTarget / 100)
+        const gapToTarget = targetMonthly - totalSavings
+
+        // Tooltip for savings target — breaks down what makes up the rate
+        const pensionLines = pensions.length > 1
+          ? pensions.map(p => ({ label: p.name || 'Pension', value: fmtFull(p.monthlyContribution || 0) }))
+          : (pensionContribution > 0 ? [{ label: 'Pension', value: fmtFull(pensionContribution) }] : [])
+        const savingsTargetTooltip = [
+          ...pensionLines,
+          ...(isaContribution > 0    ? [{ label: 'ISA',          value: fmtFull(isaContribution)   }] : []),
+          { label: 'Total',          value: fmtFull(totalSavings), dividerBefore: true },
+          { label: '÷ Gross income', value: fmtFull(grossIncome) },
+          { label: '= Savings rate', value: `${savingsRate.toFixed(1)}%`, highlight: savingsRate >= savingsRateTarget ? '#34d399' : '#f87171' },
+        ]
+
+        // Tooltip for annual savings — lists each annual fund group
+        const annualGroups = []
+        data.sections.forEach(sec => {
+          sec.groups.forEach(g => {
+            if (!isAnnualFundGroup(g)) return
+            const total = g.items.reduce((s, i) => s + i.monthly, 0)
+            if (total > 0) annualGroups.push({ label: stripPrefix(g.name), value: fmtFull(total) })
+          })
+        })
+        const annualSavingsTooltip = annualGroups.length > 0
+          ? [...annualGroups, { label: 'Total', value: fmtFull(annualFunds), dividerBefore: true }]
+          : null
+
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatTile
+              label="Annual projected"
+              value={fmt(annualProjected)}
+              sub="pension + ISA × 12"
+              accent={COLOURS.longterm.fill}
+            />
+            <StatTile
+              label="Retirement wealth"
+              value={retirementWealth > 0 ? fmt(retirementWealth) : '—'}
+              sub="ISA + pension balances"
+              accent={COLOURS.pension.fill}
+            />
+            <StatTile
+              label="Savings target"
+              value={`${savingsRate.toFixed(1)}% of ${savingsRateTarget}%`}
+              sub={gapToTarget > 0 ? `£${fmtFull(Math.abs(gapToTarget))}/mo short` : `£${fmtFull(Math.abs(gapToTarget))}/mo headroom`}
+              accent={gapToTarget > 0 ? '#f87171' : '#34d399'}
+              tooltip={savingsTargetTooltip}
+            />
+            <StatTile
+              label="Annual savings"
+              value={annualFunds > 0 ? `${fmt(annualFunds)}/mo` : '—'}
+              sub="set aside for annual costs"
+              accent='#f59e0b'
+              tooltip={annualSavingsTooltip}
+            />
+          </div>
+        )
+      })()}
 
       {/* ── Composition chart + legend ── */}
       <NeonCard accent={COLOURS.longterm.fill}>
@@ -322,22 +278,13 @@ export default function SavingsOverview() {
               </div>
               {surplus > 0 && (
                 <p className="text-[10px] text-slate-600 mt-3 leading-relaxed border-t border-nb-700 pt-3">
-                  Unallocated surplus of {fmtFull(surplus)}/month is counted in your savings rate but not yet assigned to a pot.
+                  {fmtFull(surplus)}/month unallocated surplus — consider increasing pension or ISA contributions to grow your savings rate.
                 </p>
               )}
             </div>
           </div>
         )}
       </NeonCard>
-
-      {/* ── Long-term pots ── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <BuildingLibraryIcon className="w-4 h-4 text-emerald-400" />
-          <h2 className="text-sm font-semibold text-slate-400">Long-term Saving Pots</h2>
-        </div>
-        <PotsAccordion budget={data} />
-      </div>
 
       {/* ── Wealth snapshot ── */}
       {(settings.isaBalance > 0 || pensionBalanceTotal > 0 || isaContribution > 0 || pensionContribution > 0) && (
@@ -377,10 +324,8 @@ export default function SavingsOverview() {
         <h2 className="text-sm font-semibold text-slate-400 mb-3">Savings Rate Breakdown</h2>
         <div className="space-y-2">
           {[
-            { label: 'Pension (pre-tax)',  value: pensionContribution, fill: COLOURS.pension.fill },
-            { label: 'ISA',               value: isaContribution,     fill: COLOURS.isa.fill     },
-            { label: 'Long-term pots',    value: longtermSavings,     fill: COLOURS.longterm.fill},
-            { label: 'Unallocated surplus', value: Math.max(0, surplus), fill: COLOURS.surplus.fill },
+            { label: 'Pension (pre-tax)', value: pensionContribution, fill: COLOURS.pension.fill },
+            { label: 'ISA',              value: isaContribution,     fill: COLOURS.isa.fill     },
           ].filter(r => r.value > 0).map(row => {
             const pct = grossIncome > 0 ? (row.value / grossIncome) * 100 : 0
             return (

@@ -200,7 +200,7 @@ function calcSurplus(data) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-nb-800 border border-nb-600 rounded-lg px-3 py-2 shadow-xl text-xs">
+    <div className="bg-nb-800 border border-nb-600 rounded-lg px-3 py-2 shadow-xl text-xs" style={{ backgroundColor: '#0d1224' }}>
       <p className="font-semibold text-slate-300 mb-1">{fmtMonth(label)}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {fmt(p.value)}</p>
