@@ -21,6 +21,55 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Registration ─────────────────────────────────────────────────────
+  if (req.body.action === 'register') {
+    const { name, email, password, securityQuestion, securityAnswer } = req.body;
+
+    if (!name || !email || !password || !securityQuestion || !securityAnswer) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const pool = getPool();
+    const normalizedEmail = email.toLowerCase().trim();
+    const passwordHash = await bcrypt.hash(password, 10);
+    const answerHash = await bcrypt.hash(securityAnswer.toLowerCase().trim(), 10);
+
+    let userId;
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO users (email, name, password_hash, is_admin)
+         VALUES ($1, $2, $3, false) RETURNING id`,
+        [normalizedEmail, name.trim(), passwordHash]
+      );
+      userId = rows[0].id;
+    } catch (err) {
+      if (err.code === '23505') {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+      }
+      return res.status(500).json({ error: 'Registration failed' });
+    }
+
+    try {
+      await pool.query(
+        `INSERT INTO security_questions (user_id, question, answer_hash)
+         VALUES ($1, $2, $3)`,
+        [userId, securityQuestion.trim(), answerHash]
+      );
+    } catch {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      return res.status(500).json({ error: 'Registration failed' });
+    }
+
+    return res.status(201).json({ ok: true });
+  }
+
+  // ── Login ─────────────────────────────────────────────────────────────
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password required' });

@@ -17,7 +17,7 @@ import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import MfaVerifyScreen from './components/MfaVerifyScreen'
-import SetPasswordScreen from './components/SetPasswordScreen'
+import RegisterScreen from './components/RegisterScreen'
 import SummaryBar from './components/SummaryBar'
 import BudgetSection from './components/BudgetSection'
 import EditModal from './components/EditModal'
@@ -584,21 +584,7 @@ function AppShell({ isAdmin, logout, name }) {
 
 export default function App() {
   const { user, loading, isAdmin, mfaPending, login, logout, completeMfa } = useAuth()
-
-  // Check for set-password / invite token in URL
-  const urlParams = new URLSearchParams(window.location.search)
-  const urlToken = urlParams.get('token')
-  const urlType = urlParams.get('type')
-
-  function handleSetPasswordDone() {
-    // Clear token params from URL and show login screen
-    window.history.replaceState({}, '', window.location.pathname)
-    window.location.reload()
-  }
-
-  if (urlToken) {
-    return <SetPasswordScreen token={urlToken} type={urlType} onDone={handleSetPasswordDone} />
-  }
+  const [showRegister, setShowRegister] = useState(false)
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
@@ -607,7 +593,11 @@ export default function App() {
   )
 
   if (mfaPending) return <MfaVerifyScreen onVerified={completeMfa} onCancel={logout} />
-  if (!user) return <LoginScreen onLogin={login} />
+
+  if (!user) {
+    if (showRegister) return <RegisterScreen onBack={() => setShowRegister(false)} />
+    return <LoginScreen onLogin={login} onRegister={() => setShowRegister(true)} />
+  }
 
   return (
     <BudgetProvider onLogout={logout}>
