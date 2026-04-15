@@ -95,7 +95,7 @@ function TotpSetup({ onComplete }) {
   async function startSetup() {
     setLoading(true); setError('');
     try {
-      const res = await fetch('/api/auth/mfa-setup-start', { method: 'POST', credentials: 'include' });
+      const res = await fetch('/api/auth/mfa-setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ step: 'start' }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start setup');
       setOtpauthUrl(data.otpauthUrl);
@@ -107,11 +107,11 @@ function TotpSetup({ onComplete }) {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await fetch('/api/auth/mfa-setup-confirm', {
+      const res = await fetch('/api/auth/mfa-setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ code: code.replace(/\s/g, '') }),
+        body: JSON.stringify({ step: 'confirm', code: code.replace(/\s/g, '') }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid code');

@@ -4,7 +4,7 @@ import {
   LightBulbIcon, CircleStackIcon, Cog6ToothIcon, UsersIcon,
   ArrowRightOnRectangleIcon, Bars3Icon,
   ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon,
-  ChevronRightIcon, BuildingLibraryIcon,
+  ChevronRightIcon, BuildingLibraryIcon, CreditCardIcon,
 } from '@heroicons/react/24/outline'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -30,6 +30,8 @@ import SettingsPanel from './components/SettingsPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingModal from './components/OnboardingModal'
 import SavingsOverview from './components/SavingsOverview'
+import TransactionsPage from './components/TransactionsPage'
+import { TransactionProvider } from './context/TransactionContext'
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)) }
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -106,6 +108,7 @@ const NAV_TABS = [
   { id: 'budget',   label: 'Budget',    Icon: BanknotesIcon },
   { id: 'charts',   label: 'Charts',    Icon: ChartBarIcon },
   { id: 'savings',  label: 'Savings',   Icon: BuildingLibraryIcon },
+  { id: 'transactions', label: 'Transactions', Icon: CreditCardIcon },
   { id: 'forecast', label: 'Forecast',  Icon: ArrowTrendingUpIcon },
   { id: 'holidays', label: 'Holidays',  Icon: PaperAirplaneIcon },
   { id: 'insights', label: 'Insights',  Icon: LightBulbIcon },
@@ -525,6 +528,11 @@ function AppShell({ isAdmin, logout, name }) {
         {tab === 'budget'   && <BudgetTab />}
         {tab === 'charts'   && <div className="max-w-5xl mx-auto px-4 py-6"><Charts budget={data} /></div>}
         {tab === 'savings'  && <SavingsOverview />}
+        {tab === 'transactions' && (
+          <TransactionProvider onLogout={logout}>
+            <TransactionsPage budget={data} />
+          </TransactionProvider>
+        )}
         {tab === 'forecast' && <ForecastCharts />}
         {tab === 'holidays' && <HolidayPlanner />}
         {tab === 'insights' && <Insights />}
