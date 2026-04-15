@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export default function AdminPanel() {
-  // Registration form state
+  // Invite form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [status, setStatus] = useState(null); // { type: 'success'|'error', message }
   const [loading, setLoading] = useState(false);
 
@@ -13,11 +12,9 @@ export default function AdminPanel() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState(null);
 
-  // Inline change-password state
-  const [changingPwId, setChangingPwId] = useState(null);
-  const [newPw, setNewPw] = useState('');
-  const [pwLoading, setPwLoading] = useState(false);
-  const [pwStatus, setPwStatus] = useState({}); // keyed by userId
+  // Per-user action state
+  const [userActionLoading, setUserActionLoading] = useState(null); // userId being actioned
+  const [userActionStatus, setUserActionStatus] = useState({}); // keyed by userId
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -37,23 +34,22 @@ export default function AdminPanel() {
     fetchUsers();
   }, [fetchUsers]);
 
-  async function handleRegister(e) {
+  async function handleInvite(e) {
     e.preventDefault();
     setStatus(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/register', {
+      const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
-      setStatus({ type: 'success', message: `User ${data.email} registered successfully.` });
+      if (!res.ok) throw new Error(data.error || 'Invite failed');
+      setStatus({ type: 'success', message: `Invite sent to ${data.email}. They'll receive an email to set their password.` });
       setName('');
       setEmail('');
-      setPassword('');
       fetchUsers();
     } catch (err) {
       setStatus({ type: 'error', message: err.message });
@@ -62,56 +58,40 @@ export default function AdminPanel() {
     }
   }
 
-  async function handleChangePw(userId) {
-    if (newPw.length < 8) {
-      setPwStatus(s => ({ ...s, [userId]: { type: 'error', message: 'Min. 8 characters' } }));
-      return;
-    }
-    setPwLoading(true);
+  async function handleUserAction(userId, action) {
+    setUserActionLoading(userId);
+    setUserActionStatus(s => { const n = { ...s }; delete n[userId]; return n; });
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ userId, newPassword: newPw }),
+        body: JSON.stringify({ userId, action }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update password');
-      setChangingPwId(null);
-      setNewPw('');
-      setPwStatus(s => ({ ...s, [userId]: { type: 'success', message: 'Password updated ✓' } }));
-      setTimeout(() => setPwStatus(s => { const n = { ...s }; delete n[userId]; return n; }), 3000);
+      if (!res.ok) throw new Error(data.error || 'Action failed');
+      const msg = action === 'resendInvite' ? 'Invite resent ✓' : 'Reset link sent ✓';
+      setUserActionStatus(s => ({ ...s, [userId]: { type: 'success', message: msg } }));
+      setTimeout(() => setUserActionStatus(s => { const n = { ...s }; delete n[userId]; return n; }), 4000);
     } catch (err) {
-      setPwStatus(s => ({ ...s, [userId]: { type: 'error', message: err.message } }));
+      setUserActionStatus(s => ({ ...s, [userId]: { type: 'error', message: err.message } }));
     } finally {
-      setPwLoading(false);
+      setUserActionLoading(null);
     }
-  }
-
-  function startChangePw(userId) {
-    setChangingPwId(userId);
-    setNewPw('');
-    setPwStatus(s => { const n = { ...s }; delete n[userId]; return n; });
-  }
-
-  function cancelChangePw(userId) {
-    setChangingPwId(null);
-    setNewPw('');
-    setPwStatus(s => { const n = { ...s }; delete n[userId]; return n; });
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
 
-      {/* ── Register new user ── */}
+      {/* ── Invite new user ── */}
       <div className="bg-nb-750 rounded-xl overflow-hidden">
         {/* Section header */}
         <div className="px-6 py-4" style={{ backgroundColor: '#1a42b0' }}>
-          <h2 className="text-base font-bold text-white">Register User</h2>
-          <p className="text-blue-200 text-sm mt-0.5">Create a new account. The user can log in immediately.</p>
+          <h2 className="text-base font-bold text-white">Invite User</h2>
+          <p className="text-blue-200 text-sm mt-0.5">Send an invite email. The user sets their own password — you never see it.</p>
         </div>
 
-        <form onSubmit={handleRegister} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleInvite} className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="reg-name" className="block text-sm font-medium text-slate-400 mb-1.5">Name</label>
@@ -139,20 +119,6 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          <div className="max-w-xs">
-            <label htmlFor="reg-password" className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
-            <input
-              id="reg-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full bg-nb-800 text-slate-300 rounded-lg px-3 py-2.5 text-sm neon-input"
-              placeholder="Min. 8 characters"
-            />
-          </div>
-
           {status && (
             <p className={`text-sm rounded-lg px-3 py-2 border ${
               status.type === 'success'
@@ -169,19 +135,18 @@ export default function AdminPanel() {
               disabled={loading}
               className="bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg px-5 py-2.5 text-sm transition-colors"
             >
-              {loading ? 'Registering…' : 'Register user'}
+              {loading ? 'Sending invite…' : 'Send invite'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* ── Registered users table ── */}
+      {/* ── Users table ── */}
       <div className="bg-nb-750 rounded-xl overflow-hidden">
-        {/* Section header */}
         <div className="px-6 py-4 bg-nb-700">
-          <h2 className="text-base font-bold text-slate-300">Registered Users</h2>
+          <h2 className="text-base font-bold text-slate-300">Users</h2>
           <p className="text-slate-500 text-sm mt-0.5">
-            Users you have invited. The admin account set via environment variables is not listed here.
+            Invited users. The admin account set via environment variables is not listed here.
           </p>
         </div>
 
@@ -195,7 +160,7 @@ export default function AdminPanel() {
             </p>
           )}
           {!usersLoading && !usersError && users.length === 0 && (
-            <p className="text-slate-500 text-sm italic py-2">No users registered yet.</p>
+            <p className="text-slate-500 text-sm italic py-2">No users invited yet.</p>
           )}
           {!usersLoading && !usersError && users.length > 0 && (
             <table className="w-full">
@@ -203,8 +168,9 @@ export default function AdminPanel() {
                 <tr className="border-b border-nb-600">
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+                  <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                   <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">2FA</th>
-                  <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Password</th>
+                  <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-nb-600">
@@ -213,65 +179,32 @@ export default function AdminPanel() {
                     <td className="py-3 pr-4 text-sm font-medium text-slate-300">{user.name}</td>
                     <td className="py-3 pr-4 text-sm text-slate-500">{user.email}</td>
                     <td className="py-3 pr-4 text-sm">
+                      {user.pending
+                        ? <span className="text-amber-400 font-medium">Pending</span>
+                        : <span className="text-emerald-400 font-medium">Active</span>}
+                    </td>
+                    <td className="py-3 pr-4 text-sm">
                       {user.mfa_enabled
                         ? <span className="text-emerald-400 font-medium">✓ On</span>
                         : <span className="text-slate-600">Off</span>}
                     </td>
                     <td className="py-3">
-                      {/* Success message shown after saving (row closed) */}
-                      {pwStatus[user.id] && changingPwId !== user.id && (
-                        <span className={`text-xs mr-3 font-medium ${
-                          pwStatus[user.id].type === 'success'
-                            ? 'text-emerald-400'
-                            : 'text-red-400'
+                      {userActionStatus[user.id] && (
+                        <span className={`text-xs mr-2 font-medium ${
+                          userActionStatus[user.id].type === 'success' ? 'text-emerald-400' : 'text-red-400'
                         }`}>
-                          {pwStatus[user.id].message}
+                          {userActionStatus[user.id].message}
                         </span>
                       )}
-
-                      {changingPwId === user.id ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <input
-                            type="password"
-                            value={newPw}
-                            onChange={e => setNewPw(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') handleChangePw(user.id);
-                              if (e.key === 'Escape') cancelChangePw(user.id);
-                            }}
-                            autoFocus
-                            placeholder="New password (8+ chars)"
-                            className="bg-nb-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm neon-input w-48"
-                          />
-                          <button
-                            onClick={() => handleChangePw(user.id)}
-                            disabled={pwLoading}
-                            className="text-xs bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
-                          >
-                            {pwLoading ? 'Saving…' : 'Confirm'}
-                          </button>
-                          <button
-                            onClick={() => cancelChangePw(user.id)}
-                            className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1.5 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          {pwStatus[user.id] && (
-                            <span className={`text-xs font-medium ${
-                              pwStatus[user.id].type === 'success'
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
-                            }`}>
-                              {pwStatus[user.id].message}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
+                      {!userActionStatus[user.id] && (
                         <button
-                          onClick={() => startChangePw(user.id)}
-                          className="text-xs text-slate-500 hover:text-slate-300 border border-nb-600 hover:border-nb-500 bg-nb-800 hover:bg-nb-700 px-3 py-1.5 rounded-lg transition-colors"
+                          onClick={() => handleUserAction(user.id, user.pending ? 'resendInvite' : 'sendReset')}
+                          disabled={userActionLoading === user.id}
+                          className="text-xs text-slate-500 hover:text-slate-300 border border-nb-600 hover:border-nb-500 bg-nb-800 hover:bg-nb-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          Change password
+                          {userActionLoading === user.id
+                            ? 'Sending…'
+                            : user.pending ? 'Resend invite' : 'Send reset link'}
                         </button>
                       )}
                     </td>

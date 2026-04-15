@@ -47,6 +47,11 @@ export default async function handler(req, res) {
 
   // Check password
   let passwordOk = false;
+  if (user && user.password_hash === null) {
+    // Invited user who hasn't set a password yet
+    await logEvent(pool, user.id, 'login_fail', ip);
+    return res.status(401).json({ error: 'Please check your email to set a password before logging in.' });
+  }
   if (user) {
     passwordOk = await bcrypt.compare(password, user.password_hash);
   } else if (

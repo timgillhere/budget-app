@@ -1,12 +1,9 @@
 import { getPool } from './_db.js';
 
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = 10;
-
 // Returns true if rate limit exceeded
-export async function checkRateLimit(key) {
+export async function checkRateLimit(key, maxAttempts = 10, windowMs = 15 * 60 * 1000) {
   const pool = getPool();
-  const windowCutoff = new Date(Date.now() - WINDOW_MS);
+  const windowCutoff = new Date(Date.now() - windowMs);
 
   const result = await pool.query(
     `INSERT INTO rate_limit_login (key, attempts, window_start)
@@ -26,5 +23,5 @@ export async function checkRateLimit(key) {
     [key, windowCutoff]
   );
 
-  return result.rows[0].attempts > MAX_ATTEMPTS;
+  return result.rows[0].attempts > maxAttempts;
 }

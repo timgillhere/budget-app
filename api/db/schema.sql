@@ -5,10 +5,13 @@ CREATE TABLE IF NOT EXISTS users (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   email         TEXT        NOT NULL UNIQUE,
   name          TEXT        NOT NULL,
-  password_hash TEXT        NOT NULL,
+  password_hash TEXT,                            -- NULL for invited users who haven't set a password yet
   is_admin      BOOLEAN     NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: make password_hash nullable for existing databases
+-- Run manually once: ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,7 +50,18 @@ CREATE TABLE IF NOT EXISTS rate_limit_login (
   window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  TEXT        NOT NULL,          -- SHA-256 hex of the raw token
+  type        TEXT        NOT NULL,          -- 'invite' or 'reset'
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user    ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id) WHERE used_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_auth_events_user  ON auth_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_hash ON password_reset_tokens(token_hash) WHERE used_at IS NULL;

@@ -9,6 +9,12 @@ export default function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Forgot password state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotDone, setForgotDone] = useState(false);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -20,6 +26,27 @@ export default function LoginScreen({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleForgot(e) {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'forgot', email: forgotEmail }),
+      });
+      setForgotDone(true);
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+  function openForgot() {
+    setForgotEmail(email); // pre-fill if user already typed their email
+    setForgotDone(false);
+    setShowForgot(true);
   }
 
   return (
@@ -92,15 +119,75 @@ export default function LoginScreen({ onLogin }) {
           </button>
 
           <p className="text-center text-xs">
-            <a
-              href={`mailto:timgillhere@gmail.com?subject=forgotten%20password&body=Email%3A%20${encodeURIComponent(email)}%0ANew%20password%3A%20`}
+            <button
+              type="button"
+              onClick={openForgot}
               className="text-slate-500 hover:text-slate-300 underline transition-colors"
             >
               Forgotten your password?
-            </a>
+            </button>
           </p>
         </form>
       </div>
+
+      {/* Forgot password overlay */}
+      {showForgot && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-nb-750 rounded-2xl border border-nb-600 shadow-2xl w-full max-w-sm p-6 space-y-4">
+            {forgotDone ? (
+              <>
+                <h2 className="text-lg font-bold text-white">Check your email</h2>
+                <p className="text-slate-400 text-sm">
+                  If an account exists for <strong className="text-slate-200">{forgotEmail}</strong>, you'll receive a password reset link shortly.
+                </p>
+                <button
+                  onClick={() => setShowForgot(false)}
+                  className="w-full bg-neuro-600 hover:bg-neuro-500 text-white font-medium rounded-lg py-2.5 text-sm transition-colors"
+                >
+                  Back to sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-white">Reset your password</h2>
+                <p className="text-slate-400 text-sm">
+                  Enter your email and we'll send you a link to reset your password.
+                </p>
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      autoFocus
+                      className={inputCls}
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgot(false)}
+                      className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 rounded-lg py-2.5 text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="flex-1 bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors"
+                    >
+                      {forgotLoading ? 'Sending…' : 'Send reset link'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
