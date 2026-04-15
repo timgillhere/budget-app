@@ -56,17 +56,16 @@ export default async function handler(req, res) {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    await pool.query(
-      `INSERT INTO password_reset_tokens (user_id, token_hash, type, expires_at)
-       VALUES ($1, $2, 'invite', NOW() + INTERVAL '7 days')`,
-      [userId, tokenHash]
-    );
-
     try {
+      await pool.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, type, expires_at)
+         VALUES ($1, $2, 'invite', NOW() + INTERVAL '7 days')`,
+        [userId, tokenHash]
+      );
       await sendInviteEmail(normalizedEmail, name.trim(), rawToken);
-    } catch {
+    } catch (err) {
       await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-      return res.status(500).json({ error: 'Failed to send invite email. Check RESEND_API_KEY and FROM_EMAIL.' });
+      return res.status(500).json({ error: `Failed to send invite: ${err.message}` });
     }
 
     return res.status(201).json({ ok: true, email: normalizedEmail });
