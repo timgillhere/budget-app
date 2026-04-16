@@ -63,9 +63,9 @@ if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
 fi
 ok "Ollama is running"
 
-# ── 5. Pull the AI model (llama3.1:8b, ~4.7 GB — first time only) ─────────────
-log "Pulling llama3.1:8b model (this may take a few minutes on first install)..."
-ollama pull llama3.1:8b
+# ── 5. Pull the AI model (llama3.2:3b, ~2 GB — first time only) ──────────────
+log "Pulling llama3.2:3b model (this may take a few minutes on first install)..."
+ollama pull llama3.2:3b
 
 # ── 6. Config file ────────────────────────────────────────────────────────────
 CONFIG_DIR="$HOME/.config/nb-transactions"
@@ -74,7 +74,7 @@ mkdir -p "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
   cat > "$CONFIG_FILE" << 'CONFIGEOF'
 {
-  "model": "llama3.1:8b",
+  "model": "llama3.2:3b",
   "accounts": ["Starling", "Monzo"],
   "ollamaUrl": "http://localhost:11434"
 }
@@ -103,6 +103,7 @@ const path = require('path')
 const os = require('os')
 const https = require('https')
 const http = require('http')
+const readline = require('readline')
 
 // ── Categories (must match app exactly) ──────────────────────────────────────
 const CATEGORIES = [
@@ -123,6 +124,15 @@ const CATEGORIES = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function die(msg) { process.stderr.write('\nError: ' + msg + '\n\n'); process.exit(1) }
 function log(msg) { process.stderr.write('  ' + msg + '\n') }
+function askUser(rl, question) {
+  return new Promise(function(resolve) { rl.question(question, resolve) })
+}
+
+function expandPath(p) {
+  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2))
+  if (p === '~') return os.homedir()
+  return p
+}
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -137,6 +147,9 @@ function parseArgs(argv) {
       'Options:',
       '  --month YYYY-MM   Override the month (default: inferred from CSV dates)',
       '  --dry-run         Print the prompt sent to the AI and exit without processing',
+      '  --append          Merge into existing ~/Downloads/transactions-YYYY-MM.json files',
+      '                    instead of overwriting them. Use when adding a second bank after',
+      '                    a previous session already saved some months.',
       '',
       'Examples:',
       '  nb-transactions ~/Downloads/starling-april.csv Starling',
@@ -149,18 +162,20 @@ function parseArgs(argv) {
   if (args.length < 2) die('Usage: nb-transactions <csv-file> <bank-name>')
   const csvPath = args[0]
   const bankLabel = args[1]
-  let month = null, dryRun = false
+  let month = null, dryRun = false, appendMode = false
   for (let i = 2; i < args.length; i++) {
     if (args[i] === '--month' && args[i + 1]) {
       month = args[++i]
       if (!/^\d{4}-\d{2}$/.test(month)) die('Invalid month "' + month + '". Use YYYY-MM, e.g. 2026-04')
     } else if (args[i] === '--dry-run') {
       dryRun = true
+    } else if (args[i] === '--append') {
+      appendMode = true
     } else {
       die('Unknown argument "' + args[i] + '". Run nb-transactions --help for usage.')
     }
   }
-  return { csvPath, bankLabel, bankKey: bankLabel.toLowerCase(), month, dryRun }
+  return { csvPath, bankLabel, bankKey: bankLabel.toLowerCase(), month, dryRun, appendMode }
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -172,6 +187,11 @@ function loadConfig() {
     if (e.code === 'ENOENT') die('Config not found. Re-run the installer script from NeuroBank.')
     die('Could not read config at ' + configPath + ': ' + e.message)
   }
+}
+
+function loadCorrections() {
+  const p = path.join(os.homedir(), '.config', 'nb-transactions', 'corrections.json')
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return [] }
 }
 
 // ── CSV parser (no deps, handles quoted fields + CRLF) ────────────────────────
@@ -331,23 +351,41 @@ function inferMonth(rows) {
 }
 
 function buildChunks(rows, size) {
-  size = size || 80
+  size = size || 40
   const chunks = []
   for (let i = 0; i < rows.length; i += size) chunks.push(rows.slice(i, i + size))
   return chunks
 }
 
+// ── Group normalised rows by YYYY-MM ─────────────────────────────────────────
+function groupByMonth(rows) {
+  const months = {}
+  for (const r of rows) {
+    const m = r.date ? r.date.slice(0, 7) : null
+    if (!m) continue
+    if (!months[m]) months[m] = []
+    months[m].push(r)
+  }
+  return months
+}
+
 // ── Prompt ────────────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = 'You are a UK personal finance assistant. Your only job is to categorise bank transactions and output structured JSON.\n\n## Output format\n\nOutput ONLY a single fenced code block tagged ```transactions-json (exactly that tag, no space). No explanation, no preamble, no text after the closing fence.\n\nThe JSON shape must be exactly:\n\n```transactions-json\n{\n  "month": "YYYY-MM",\n  "importedAt": "ISO8601",\n  "transactions": [\n    {\n      "id": "txn-TIMESTAMP-INDEX",\n      "date": "YYYY-MM-DD",\n      "description": "MERCHANT NAME",\n      "amount": -12.34,\n      "category": "Exact Category Name",\n      "account": "ACCOUNT_NAME",\n      "notes": ""\n    }\n  ]\n}\n```\n\n## Rules — follow every one exactly\n\n1. amount: always a number. Money leaving the account is NEGATIVE. Income, refunds, and transfers in are POSITIVE.\n2. date: always YYYY-MM-DD.\n3. category: must be EXACTLY one of the 39 strings in the list below. No variations.\n4. id: "txn-" + Unix timestamp in ms + "-" + row index from 0. E.g. txn-1744704600000-0\n5. account: use the account name given in the user message.\n6. Include EVERY row — do not skip any.\n7. Output the COMPLETE JSON — never truncate or add "..." placeholders.\n8. Transfers between the user\'s own accounts listed below → "Transfer".\n9. Regular salary / BACS payroll → "Income - Salary".\n10. Pension deductions → "Savings - Pension".\n11. Investment platforms (Vanguard, Hargreaves Lansdown, etc.) → "Savings - Investment".\n12. ISA contributions → "Savings - ISA".\n13. When unsure, prefer a specific category over "Other".\n\n## Canonical categories — use ONLY these exact 39 strings\n\nIncome - Salary\nIncome - Freelance\nIncome - Other\nTransfer\nHousing - Mortgage / Rent\nHousing - Council Tax\nHousing - Water\nHousing - Energy\nHousing - Broadband\nHousing - Service Charge\nHousing - Building Insurance\nHousing - Contents Insurance\nHousing - Property Costs\nTransport - Public Transport\nTransport - EV Charging\nTransport - Vehicle Insurance\nTransport - Vehicle Tax & MOT\nTransport - Vehicle Service\nGroceries\nEating Out & Takeaways\nCoffee & Drinks\nSocialising\nPersonal Spend\nHealth - Gym\nHealth - Therapy & Counselling\nHealth - Medical\nSubscriptions - Streaming\nSubscriptions - Software\nSubscriptions - Other\nPets\nGifts\nClothing\nHolidays & Travel\nSavings - Sinking Fund\nSavings - Investment\nSavings - Pension\nSavings - ISA\nSavings - Emergency Fund\nOther'
+const SYSTEM_PROMPT = 'You are a UK personal finance assistant. Your only job is to categorise bank transactions and output structured JSON.\n\n## Output format\n\nOutput ONLY a single fenced code block tagged ```transactions-json (exactly that tag, no space). No explanation, no preamble, no text after the closing fence.\n\nThe JSON shape must be exactly:\n\n```transactions-json\n{\n  "month": "YYYY-MM",\n  "importedAt": "ISO8601",\n  "transactions": [\n    {\n      "id": "txn-TIMESTAMP-INDEX",\n      "date": "YYYY-MM-DD",\n      "description": "MERCHANT NAME",\n      "amount": -12.34,\n      "category": "Exact Category Name",\n      "account": "ACCOUNT_NAME",\n      "notes": ""\n    }\n  ]\n}\n```\n\n## Rules — follow every one exactly\n\n1. amount: always a number. Money leaving the account is NEGATIVE. Income, refunds, and transfers in are POSITIVE.\n2. date: always YYYY-MM-DD.\n3. category: must be EXACTLY one of the 39 strings in the list below. No variations.\n4. id: "txn-" + Unix timestamp in ms + "-" + row index from 0. E.g. txn-1744704600000-0\n5. account: use the account name given in the user message.\n6. Include EVERY row — do not skip any.\n7. Output the COMPLETE JSON — never truncate or add "..." placeholders.\n8. Transfers between the user\'s own accounts listed below → "Transfer".\n9. Regular salary / BACS payroll → "Income - Salary".\n10. Pension deductions → "Savings - Pension".\n11. Investment platforms (Vanguard, Hargreaves Lansdown, etc.) → "Savings - Investment".\n12. ISA contributions → "Savings - ISA".\n13. "Flex" transactions (Monzo Flex credit card — descriptions often contain "flex" or "FLEX") — categorise by the actual purchase, not as a card payment. E.g. a Flex transaction at a restaurant → "Eating Out & Takeaways".\n14. When unsure, prefer a specific category over "Other".\n\n## Canonical categories — use ONLY these exact 39 strings\n\nIncome - Salary\nIncome - Freelance\nIncome - Other\nTransfer\nHousing - Mortgage / Rent\nHousing - Council Tax\nHousing - Water\nHousing - Energy\nHousing - Broadband\nHousing - Service Charge\nHousing - Building Insurance\nHousing - Contents Insurance\nHousing - Property Costs\nTransport - Public Transport\nTransport - EV Charging\nTransport - Vehicle Insurance\nTransport - Vehicle Tax & MOT\nTransport - Vehicle Service\nGroceries\nEating Out & Takeaways\nCoffee & Drinks\nSocialising\nPersonal Spend\nHealth - Gym\nHealth - Therapy & Counselling\nHealth - Medical\nSubscriptions - Streaming\nSubscriptions - Software\nSubscriptions - Other\nPets\nGifts\nClothing\nHolidays & Travel\nSavings - Sinking Fund\nSavings - Investment\nSavings - Pension\nSavings - ISA\nSavings - Emergency Fund\nOther'
 
 function buildPrompt(rows, month, bankLabel, config) {
   const accounts = (config.accounts || []).join(', ')
   const lines = ['Date\tDescription\tAmount']
   for (const r of rows) lines.push(r.date + '\t' + r.description + '\t' + r.amount)
+  const corrections = loadCorrections()
+  const correctionSection = corrections.length > 0
+    ? '\n\nLearned corrections — apply these exact mappings:\n' +
+      corrections.map(function(c) { return '- "' + c.description + '" → ' + c.to + '  (not "' + c.from + '")' }).join('\n')
+    : ''
   return 'Bank: ' + bankLabel + '\n' +
     'Account name: ' + bankLabel + '\n' +
     'Month: ' + month + '\n' +
-    'My own accounts (transfers between these use category "Transfer"): ' + accounts + '\n\n' +
+    'My own accounts (transfers between these use category "Transfer"): ' + accounts +
+    correctionSection + '\n\n' +
     'Process all ' + rows.length + ' transactions below. Use account name "' + bankLabel + '".\n\n' +
     lines.join('\n')
 }
@@ -383,7 +421,7 @@ async function callOllama(userMessage, config, chunkLabel) {
   log('Sending ' + chunkLabel + ' to Ollama (this may take 30-60s)...')
 
   const payload = JSON.stringify({
-    model: config.model || 'llama3.1:8b',
+    model: config.model || 'llama3.2:3b',
     stream: false,
     options: { num_ctx: 8192, temperature: 0 },
     messages: [
@@ -403,7 +441,7 @@ async function callOllama(userMessage, config, chunkLabel) {
   }
 
   if (res.status === 404 || (res.status !== 200 && res.body.includes('not found'))) {
-    die('Model "' + (config.model || 'llama3.1:8b') + '" not found.\nRun: ollama pull ' + (config.model || 'llama3.1:8b'))
+    die('Model "' + (config.model || 'llama3.2:3b') + '" not found.\nRun: ollama pull ' + (config.model || 'llama3.2:3b'))
   }
   if (res.status !== 200) die('Ollama returned HTTP ' + res.status + ': ' + res.body.slice(0, 200))
 
@@ -425,7 +463,7 @@ function extractJSON(responseText) {
   throw new Error('LLM did not output a transactions-json block.\nRaw response:\n' + responseText.slice(0, 400))
 }
 
-function validateOutput(json, expectedMonth) {
+function validateOutput(json) {
   if (!json || typeof json !== 'object') return 'Not a valid JSON object.'
   if (typeof json.month !== 'string' || !/^\d{4}-\d{2}$/.test(json.month)) return 'Missing or invalid "month" field.'
   if (!Array.isArray(json.transactions)) return 'Missing "transactions" array.'
@@ -445,9 +483,6 @@ function validateOutput(json, expectedMonth) {
       // Remap to Other and flag for user review in the app rather than failing
       t.notes = 'needs-review: ' + t.category
       t.category = 'Other'
-    }
-    if (expectedMonth && !t.date.startsWith(expectedMonth)) {
-      log('Warning: transaction ' + i + ' date ' + t.date + ' is outside expected month ' + expectedMonth)
     }
   }
   return null
@@ -485,77 +520,159 @@ function printSummary(result) {
   }
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-async function main() {
-  const { csvPath, bankLabel, bankKey, month: argMonth, dryRun } = parseArgs(process.argv)
-  const config = loadConfig()
-
+// ── Process a single CSV — returns { [YYYY-MM]: chunkResults[] } ─────────────
+async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config) {
   let csvText
   try { csvText = fs.readFileSync(csvPath, 'utf8') }
   catch (e) { die('File not found: ' + csvPath) }
 
-  const raw  = parseCSV(csvText)
+  const raw = parseCSV(csvText)
   if (!raw.length) die('No rows found in CSV file.')
   const rows = normaliseRows(raw, bankKey)
-  if (!rows.length) die('No valid transactions found after parsing. Try --bank generic or check the file is the correct format.')
+  if (!rows.length) die('No valid transactions found after parsing. Try bank "generic" or check the file format.')
 
-  const month  = argMonth || inferMonth(rows)
-  const chunks = buildChunks(rows)
+  const byMonth = groupByMonth(rows)
+  const months = monthFilter ? [monthFilter] : Object.keys(byMonth).sort()
 
-  log('Bank:   ' + bankLabel)
-  log('Month:  ' + month)
-  log('Rows:   ' + rows.length + (chunks.length > 1 ? ' (' + chunks.length + ' chunks)' : ''))
+  if (monthFilter && !byMonth[monthFilter]) {
+    die('No transactions for ' + monthFilter + ' in this CSV.\nMonths found: ' + Object.keys(byMonth).sort().join(', '))
+  }
+
+  log('Bank:    ' + bankLabel)
+  log('Months:  ' + months.join(', ') + '  (' + rows.length + ' rows total)')
+
+  const result = {}
+  for (const month of months) {
+    const monthRows = byMonth[month] || []
+    const chunks = buildChunks(monthRows)
+    log('')
+    log(month + ':  ' + monthRows.length + ' rows' + (chunks.length > 1 ? ' (' + chunks.length + ' chunks)' : ''))
+
+    const chunkResults = []
+    for (let i = 0; i < chunks.length; i++) {
+      const label = month + (chunks.length > 1 ? ' chunk ' + (i+1) + '/' + chunks.length : '')
+      const userMsg = buildPrompt(chunks[i], month, bankLabel, config)
+
+      let responseText
+      try { responseText = await callOllama(userMsg, config, label) }
+      catch (e) { die(e.message) }
+
+      let parsed
+      // Retry once if the LLM didn't output a parseable JSON block
+      try { parsed = extractJSON(responseText) }
+      catch (e) {
+        log('Parse failed: ' + e.message.split('\n')[0] + ' — retrying...')
+        try { responseText = await callOllama(userMsg, config, label + ' retry') }
+        catch (e2) { die(e2.message) }
+        try { parsed = extractJSON(responseText) }
+        catch (e2) { die('Retry also failed.\n' + e2.message) }
+      }
+
+      // Validate — invalid categories are remapped to Other, structural errors fail here
+      const err = validateOutput(parsed)
+      if (err) die('Validation error for ' + label + ': ' + err)
+
+      const flagged = parsed.transactions.filter(function(t) { return t.notes && t.notes.startsWith('needs-review:') }).length
+      if (flagged) log('  ✓ ' + parsed.transactions.length + ' transactions (' + flagged + ' flagged for review)')
+      else log('  ✓ ' + parsed.transactions.length + ' transactions categorised')
+      chunkResults.push(parsed)
+    }
+    result[month] = chunkResults
+  }
+
+  return result
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function main() {
+  const { csvPath, bankLabel, bankKey, month: argMonth, dryRun, appendMode } = parseArgs(process.argv)
+  const config = loadConfig()
 
   if (dryRun) {
+    let csvText
+    try { csvText = fs.readFileSync(csvPath, 'utf8') }
+    catch (e) { die('File not found: ' + csvPath) }
+    const raw = parseCSV(csvText)
+    const rows = normaliseRows(raw, bankKey)
+    const byMonth = groupByMonth(rows)
+    const months = argMonth ? [argMonth] : Object.keys(byMonth).sort()
+    const firstMonth = months[0]
+    const firstChunks = buildChunks(byMonth[firstMonth] || [])
     process.stdout.write('\n--- DRY RUN: System prompt ---\n\n' + SYSTEM_PROMPT + '\n')
-    process.stdout.write('\n--- DRY RUN: User message for chunk 1 ---\n\n' + buildPrompt(chunks[0], month, bankLabel, config) + '\n\n')
+    process.stdout.write('\n--- DRY RUN: User message for ' + firstMonth + ' chunk 1 ---\n\n' + buildPrompt(firstChunks[0] || [], firstMonth, bankLabel, config) + '\n\n')
     log('Dry run complete. No output file written.')
     return
   }
 
-  const chunkResults = []
-  for (let i = 0; i < chunks.length; i++) {
-    const label = chunks.length > 1 ? 'chunk ' + (i+1) + '/' + chunks.length : 'transactions'
-    const prompt = buildPrompt(chunks[i], month, bankLabel, config)
+  // allMonthData accumulates chunkResults per month across all bank CSVs.
+  // We save each month's file immediately after merging so progress is never lost.
+  const allMonthData = {}
+  const savedFiles = new Set()
 
-    let responseText
-    try { responseText = await callOllama(prompt, config, label) }
-    catch (e) { die(e.message) }
+  function saveMonth(month) {
+    const result = mergeChunks(allMonthData[month], month)
+    const outFile = path.join(os.homedir(), 'Downloads', 'transactions-' + month + '.json')
 
-    let parsed
-    // Retry once if the LLM didn't output a parseable JSON block
-    try { parsed = extractJSON(responseText) }
-    catch (e) {
-      log('Parse failed for ' + label + ': ' + e.message.split('\n')[0])
-      log('Retrying...')
-      try { responseText = await callOllama(prompt, config, label + ' retry') }
-      catch (e2) { die(e2.message) }
-      try { parsed = extractJSON(responseText) }
-      catch (e2) { die('Retry also failed.\n' + e2.message) }
+    // --append: if this month's file already exists and hasn't been written this session,
+    // load its transactions and combine them with the new ones
+    if (appendMode && !savedFiles.has(outFile)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(outFile, 'utf8'))
+        if (Array.isArray(existing.transactions) && existing.transactions.length) {
+          log('  → Merging with existing ' + existing.transactions.length + ' transactions for ' + month)
+          const ts = Date.now()
+          const combined = existing.transactions.concat(result.transactions)
+          combined.forEach(function(t, i) { t.id = 'txn-' + ts + '-' + i })
+          result.transactions = combined
+        }
+      } catch (e) { /* no existing file — write fresh */ }
     }
 
-    // Validate — invalid categories are remapped to Other inside validateOutput,
-    // so only structural errors (missing fields, bad dates, non-numeric amounts) can fail here
-    const err = validateOutput(parsed, month)
-    if (err) die('Unexpected validation error for ' + label + ': ' + err)
-
-    const flagged = parsed.transactions.filter(function(t) { return t.notes && t.notes.startsWith('needs-review:') }).length
-    if (flagged) log(label + ': ' + parsed.transactions.length + ' transactions (' + flagged + ' flagged for review in the app)')
-    else log(label + ': ' + parsed.transactions.length + ' transactions categorised')
-    chunkResults.push(parsed)
+    fs.writeFileSync(outFile, JSON.stringify(result, null, 2))
+    if (!savedFiles.has(outFile)) {
+      log('  → Saved: ' + outFile)
+      savedFiles.add(outFile)
+    } else {
+      log('  → Updated: ' + outFile)
+    }
   }
 
-  const result  = mergeChunks(chunkResults, month)
-  printSummary(result)
+  function mergeIntoAndSave(csvResult) {
+    for (const month of Object.keys(csvResult).sort()) {
+      if (!allMonthData[month]) allMonthData[month] = []
+      allMonthData[month] = allMonthData[month].concat(csvResult[month])
+      saveMonth(month)
+    }
+  }
 
-  const outFile = 'transactions-' + month + '-' + bankLabel + '.json'
-  fs.writeFileSync(outFile, JSON.stringify(result, null, 2))
+  mergeIntoAndSave(await processCsvFile(csvPath, bankLabel, bankKey, argMonth, config))
 
+  // Ask if the user has more bank CSVs to add
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr })
+
+  while (true) {
+    process.stderr.write('\n')
+    const ans = await askUser(rl, '  Add another bank CSV? (y/n): ')
+    if (ans.trim().toLowerCase() !== 'y') break
+
+    const nextPath = expandPath((await askUser(rl, '  CSV file path: ')).trim())
+    const nextBank = (await askUser(rl, '  Bank name (e.g. Starling, Monzo, HSBC): ')).trim()
+    if (!nextPath || !nextBank) { log('Skipping — enter both a file path and a bank name.'); continue }
+
+    mergeIntoAndSave(await processCsvFile(nextPath, nextBank, nextBank.toLowerCase(), null, config))
+  }
+
+  rl.close()
+
+  const outFiles = Array.from(savedFiles).sort()
   log('')
-  log('Output file: ' + outFile)
-  log('Import this via the Import JSON button in the NeuroBank app.')
+  if (outFiles.length > 1) {
+    log('Done. ' + outFiles.length + ' files saved — import each one separately in the app.')
+  } else {
+    log('Done. Import this file via the Import JSON button in the NeuroBank app.')
+  }
   log('')
-  process.stdout.write(outFile + '\n')
+  process.stdout.write(outFiles.join('\n') + '\n')
 }
 
 main().catch(function(e) { process.stderr.write('\nUnexpected error: ' + e.message + '\n'); process.exit(1) })
@@ -590,12 +707,15 @@ echo "  accounts (used to detect transfers between your own accounts)."
 echo ""
 echo "  ── Each month ─────────────────────────────────────────────────"
 echo ""
-echo "  1. Export a CSV from your bank"
-echo "  2. Run:"
+echo "  1. Export CSVs from each of your banks"
+echo "  2. Run (using your first bank as a starting point):"
 echo "       nb-transactions ~/Downloads/yourfile.csv Starling"
 echo ""
-echo "  3. A .json file is created in your current folder."
-echo "     Import it in the app via the Import JSON button."
+echo "  3. When prompted, enter y to add more bank CSVs one by one."
+echo "     Enter n when you have no more CSVs to add."
+echo ""
+echo "  4. A combined .json is saved to ~/Downloads/ — import it via"
+echo "     the Import JSON button in the app."
 echo ""
 echo "  Supported banks:  starling  monzo  hsbc  nationwide  halifax  barclays  revolut"
 echo ""

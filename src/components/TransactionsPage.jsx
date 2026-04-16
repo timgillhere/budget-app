@@ -5,12 +5,14 @@ import {
 import {
   ChevronLeftIcon, ChevronRightIcon, ArrowUpTrayIcon,
   ClipboardDocumentIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { useTransactions } from '../context/TransactionContext'
 import {
   TRANSACTION_CATEGORIES,
   INCOME_CATEGORIES,
   TRANSFER_CATEGORIES,
+  isTransfer,
   CATEGORY_COLOURS,
   CATEGORY_TO_BUDGET_GROUP,
 } from '../data/transactionCategories'
@@ -41,10 +43,28 @@ function currentYearMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+// ── Corrections (teach the AI via manual category fixes) ─────────────
+const CORRECTIONS_KEY = 'nb:corrections'
+
+function loadCorrections() {
+  try { return JSON.parse(localStorage.getItem(CORRECTIONS_KEY) || '[]') } catch { return [] }
+}
+
+function recordCorrection(description, from, to) {
+  const all = loadCorrections()
+  const idx = all.findIndex(c => c.description === description)
+  if (idx >= 0) { all[idx] = { description, from, to } } else { all.push({ description, from, to }) }
+  localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(all))
+}
+
 // ── Claude prompt builder ────────────────────────────────────────────
 function buildClaudePrompt(month) {
   const label = monthLabel(month)
   const catList = TRANSACTION_CATEGORIES.join('\n')
+  const corrections = loadCorrections()
+  const correctionSection = corrections.length > 0
+    ? `\n\n## Learned corrections — apply these exact mappings\n\nThe user has manually corrected these transactions before. Apply the same category when you see matching or similar descriptions:\n\n${corrections.map(c => `- "${c.description}" → ${c.to}  (not "${c.from}")`).join('\n')}`
+    : ''
   return `You are a personal finance assistant. I will give you my bank CSV data and you must categorise every transaction and output a specific JSON format for my budgeting app.
 
 ## IMPORTANT: Output format
@@ -81,7 +101,8 @@ Output ONLY a single JSON code block, tagged \`\`\`transactions-json (exactly th
 8. Transfers between my own accounts → use "Transfer".
 9. Regular salary/BACS payments → "Income - Salary".
 10. Pension deductions shown on payslip → "Savings - Pension".
-11. If you are unsure which category fits, prefer a specific one over "Other".
+11. "Flex" transactions (Monzo Flex credit card — descriptions often contain "flex" or "FLEX") — categorise by the actual purchase, not as a card payment. E.g. a Flex transaction at a restaurant → "Eating Out & Takeaways".
+12. If you are unsure which category fits, prefer a specific one over "Other".${correctionSection}
 
 ## Canonical categories (use these exact strings only)
 
@@ -357,7 +378,7 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
               <div className="space-y-2">
                 {[
                   { name: 'Ollama', desc: 'Open source AI runtime — runs the language model locally on your Mac. Widely used and auditable.' },
-                  { name: 'llama3.1:8b', desc: 'A 4.7 GB language model by Meta, downloaded once and stored on your machine. Never calls home.' },
+                  { name: 'llama3.2:3b', desc: 'A ~2 GB language model by Meta, downloaded once and stored on your machine. Never calls home.' },
                   { name: 'nb-transactions', desc: 'A small command-line script (from this repo) that reads your CSV, runs the AI, and outputs the import JSON.' },
                 ].map(item => (
                   <div key={item.name} className="flex gap-2.5 text-xs">
@@ -372,7 +393,7 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
             <div>
               <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">Requirements</div>
               <div className="flex flex-wrap gap-2">
-                {['macOS (Apple Silicon recommended)', 'Homebrew', '~6 GB free disk space', 'Node.js (installed automatically)'].map(r => (
+                {['macOS (Apple Silicon recommended)', 'Homebrew', '~3 GB free disk space', 'Node.js (installed automatically)'].map(r => (
                   <span key={r} className="px-2.5 py-1 rounded-full text-xs bg-nb-700 border border-nb-600 text-slate-400">{r}</span>
                 ))}
               </div>
@@ -430,9 +451,9 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
               <div className="space-y-3">
                 {[
                   { n: '1', text: <>Start Ollama if it isn't already running: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">ollama serve</code></> },
-                  { n: '2', text: 'Export a CSV from your bank (Starling, Monzo, HSBC, Nationwide, Halifax, Barclays, Revolut).' },
-                  { n: '3', text: <>In Terminal, run: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">nb-transactions ~/Downloads/yourfile.csv Starling</code></> },
-                  { n: '4', text: <>A <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">.json</code> file is created in your current folder — import it with the button below.</> },
+                  { n: '2', text: 'Export CSVs from each of your banks (Starling, Monzo, HSBC, Nationwide, Halifax, Barclays, Revolut).' },
+                  { n: '3', text: <>In Terminal, run with your first CSV: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">nb-transactions ~/Downloads/bank1.csv Starling</code></> },
+                  { n: '4', text: <>When prompted, enter <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">y</code> to add more bank CSVs, or <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">n</code> when done. A combined <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">.json</code> is saved to <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">~/Downloads/</code> — import it below.</> },
                 ].map(step => (
                   <div key={step.n} className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">{step.n}</div>
@@ -574,8 +595,8 @@ function ReviewBanner({ transactions, activeMonth, onSave }) {
 
 // ── Summary tiles ────────────────────────────────────────────────────
 function SummaryTiles({ transactions }) {
-  const spending = transactions.filter(t => t.amount < 0 && !TRANSFER_CATEGORIES.has(t.category))
-  const income   = transactions.filter(t => t.amount > 0 && !TRANSFER_CATEGORIES.has(t.category))
+  const spending = transactions.filter(t => t.amount < 0 && !isTransfer(t))
+  const income   = transactions.filter(t => t.amount > 0 && !isTransfer(t))
   const totalOut = spending.reduce((s, t) => s + Math.abs(t.amount), 0)
   const totalIn  = income.reduce((s, t) => s + t.amount, 0)
   const net = totalIn - totalOut
@@ -604,7 +625,7 @@ function CategoryBreakdown({ transactions }) {
   const data = useMemo(() => {
     const map = {}
     transactions.forEach(t => {
-      if (t.amount >= 0 || TRANSFER_CATEGORIES.has(t.category) || INCOME_CATEGORIES.has(t.category)) return
+      if (t.amount >= 0 || isTransfer(t) || INCOME_CATEGORIES.has(t.category)) return
       map[t.category] = (map[t.category] || 0) + Math.abs(t.amount)
     })
     return Object.entries(map)
@@ -668,7 +689,7 @@ function ActualVsBudgeted({ transactions, budget }) {
     // Sum actual spending per transaction category
     const actuals = {}
     transactions.forEach(t => {
-      if (t.amount >= 0 || TRANSFER_CATEGORIES.has(t.category)) return
+      if (t.amount >= 0 || isTransfer(t)) return
       actuals[t.category] = (actuals[t.category] || 0) + Math.abs(t.amount)
     })
 
@@ -742,8 +763,9 @@ function ActualVsBudgeted({ transactions, budget }) {
 }
 
 // ── Transaction list ─────────────────────────────────────────────────
-function TransactionList({ transactions }) {
+function TransactionList({ transactions, onUpdate, onDelete }) {
   const [filter, setFilter] = useState('all')
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   const categories = useMemo(() => {
     const seen = new Set(transactions.map(t => t.category))
@@ -759,6 +781,31 @@ function TransactionList({ transactions }) {
     [...filtered].sort((a, b) => b.date.localeCompare(a.date)),
     [filtered]
   )
+
+  function handleDelete(id) {
+    if (pendingDelete === id) {
+      onDelete(id)
+      setPendingDelete(null)
+    } else {
+      setPendingDelete(id)
+    }
+  }
+
+  function CategorySelect({ t }) {
+    const colour = CATEGORY_COLOURS[t.category] || '#94a3b8'
+    return (
+      <select
+        value={t.category}
+        onChange={e => onUpdate(t.id, { category: e.target.value })}
+        className="rounded-full text-xs font-medium px-2 py-0.5 border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-white/20 appearance-none"
+        style={{ background: colour + '22', color: colour }}
+      >
+        {TRANSACTION_CATEGORIES.map(c => (
+          <option key={c} value={c} style={{ background: '#1e293b', color: '#e2e8f0' }}>{c}</option>
+        ))}
+      </select>
+    )
+  }
 
   return (
     <NeonCard accent="#22d3ee">
@@ -784,57 +831,92 @@ function TransactionList({ transactions }) {
               <th className="pb-2 text-left font-medium">Description</th>
               <th className="pb-2 text-left font-medium">Category</th>
               <th className="pb-2 text-right font-medium w-24">Amount</th>
+              <th className="pb-2 w-16"></th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(t => (
-              <tr key={t.id} className="border-b border-nb-700/40 hover:bg-nb-700/20 transition-colors">
-                <td className="py-2 text-slate-500 font-mono">{t.date.slice(5).replace('-', '/')}</td>
-                <td className="py-2 text-slate-300 max-w-xs truncate pr-3">{t.description}</td>
-                <td className="py-2 pr-3">
-                  <span
-                    className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{
-                      background: (CATEGORY_COLOURS[t.category] || '#94a3b8') + '22',
-                      color: CATEGORY_COLOURS[t.category] || '#94a3b8',
-                    }}
-                  >
-                    {t.category}
-                  </span>
-                </td>
-                <td className={`py-2 text-right font-medium tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
-                  {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
-                </td>
-              </tr>
-            ))}
+            {sorted.map(t => {
+              const delPending = pendingDelete === t.id
+              return (
+                <tr key={t.id} className={`border-b border-nb-700/40 transition-colors ${delPending ? 'bg-red-950/20' : 'hover:bg-nb-700/20'}`}>
+                  <td className="py-2 text-slate-500 font-mono">{t.date.slice(5).replace('-', '/')}</td>
+                  <td className="py-2 text-slate-300 max-w-xs truncate pr-3">{t.description}</td>
+                  <td className="py-2 pr-3">
+                    <CategorySelect t={t} />
+                  </td>
+                  <td className={`py-2 text-right font-medium tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
+                    {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
+                  </td>
+                  <td className="py-2 text-right">
+                    {delPending ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          className="px-2 py-0.5 rounded text-xs font-medium bg-red-900/60 text-red-300 hover:bg-red-800/60 transition-colors"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setPendingDelete(null)}
+                          className="px-2 py-0.5 rounded text-xs font-medium bg-nb-700 text-slate-400 hover:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="text-slate-600 hover:text-red-400 transition-colors p-1 rounded"
+                        title="Delete transaction"
+                      >
+                        <TrashIcon className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="sm:hidden space-y-2">
-        {sorted.map(t => (
-          <div key={t.id} className="bg-nb-700/30 rounded-lg px-3 py-2.5 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-slate-300 text-sm truncate">{t.description}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-slate-500 text-xs">{t.date.slice(5).replace('-', '/')}</span>
-                <span
-                  className="px-1.5 py-0.5 rounded-full text-xs"
-                  style={{
-                    background: (CATEGORY_COLOURS[t.category] || '#94a3b8') + '22',
-                    color: CATEGORY_COLOURS[t.category] || '#94a3b8',
-                  }}
-                >
-                  {t.category}
-                </span>
+        {sorted.map(t => {
+          const delPending = pendingDelete === t.id
+          return (
+            <div key={t.id} className={`rounded-lg px-3 py-2.5 transition-colors ${delPending ? 'bg-red-950/30' : 'bg-nb-700/30'}`}>
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-300 text-sm truncate">{t.description}</div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-slate-500 text-xs">{t.date.slice(5).replace('-', '/')}</span>
+                    <CategorySelect t={t} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className={`text-sm font-semibold tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
+                    {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
+                  </div>
+                  {delPending ? (
+                    <div className="flex gap-1">
+                      <button onClick={() => handleDelete(t.id)} className="text-xs px-2 py-0.5 rounded bg-red-900/60 text-red-300">Delete</button>
+                      <button onClick={() => setPendingDelete(null)} className="text-xs px-2 py-0.5 rounded bg-nb-700 text-slate-400">Cancel</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="text-slate-600 hover:text-red-400 transition-colors p-1"
+                      title="Delete transaction"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div className={`text-sm font-semibold tabular-nums flex-shrink-0 ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
-              {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {sorted.length === 0 && (
@@ -864,6 +946,22 @@ export default function TransactionsPage({ budget }) {
     await saveTransactions(month, txns)
     setShowImport(false)
     setGuideCollapsed(true)
+  }
+
+  async function handleUpdateTransaction(id, patch) {
+    if (patch.category) {
+      const original = transactions.find(t => t.id === id)
+      if (original && original.category !== patch.category) {
+        recordCorrection(original.description, original.category, patch.category)
+      }
+    }
+    const updated = transactions.map(t => t.id === id ? { ...t, ...patch } : t)
+    await saveTransactions(activeMonth, updated)
+  }
+
+  async function handleDeleteTransaction(id) {
+    const updated = transactions.filter(t => t.id !== id)
+    await saveTransactions(activeMonth, updated)
   }
 
   const hasData = transactions !== null && transactions.length > 0
@@ -941,7 +1039,11 @@ export default function TransactionsPage({ budget }) {
           <SummaryTiles transactions={transactions} />
           <CategoryBreakdown transactions={transactions} />
           <ActualVsBudgeted transactions={transactions} budget={budget} />
-          <TransactionList transactions={transactions} />
+          <TransactionList
+            transactions={transactions}
+            onUpdate={handleUpdateTransaction}
+            onDelete={handleDeleteTransaction}
+          />
         </>
       )}
 

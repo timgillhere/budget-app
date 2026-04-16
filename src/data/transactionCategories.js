@@ -54,6 +54,15 @@ export const INCOME_CATEGORIES = new Set([
 
 export const TRANSFER_CATEGORIES = new Set(['Transfer'])
 
+// Returns true for any transaction that is an internal transfer and
+// should be excluded from spending/income totals.
+export function isTransfer(t) {
+  if (TRANSFER_CATEGORIES.has(t.category)) return true
+  // Monzo savings-pot movements: descriptions always end with " Pot"
+  if (/\bPot$/i.test((t.description || '').trim())) return true
+  return false
+}
+
 // Colour per category root — drawn from the app's neon palette
 export const CATEGORY_COLOURS = {
   'Income - Salary':                 '#34d399',
