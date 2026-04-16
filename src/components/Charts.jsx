@@ -11,9 +11,9 @@ const fmtFull = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2
 
 // ── Neon colour palette ──────────────────────────────────────────────
 const SECTION_COLOURS = {
-  starling: '#22d3ee',
-  current:  '#4f7ef7',
-  monzo:    '#a78bfa',
+  savings: '#22d3ee',
+  current: '#4f7ef7',
+  goals:   '#a78bfa',
 }
 const GROUP_COLOURS = [
   '#4f7ef7','#22d3ee','#a78bfa','#34d399','#fb923c',

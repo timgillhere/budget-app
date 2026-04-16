@@ -18,14 +18,14 @@ function buildStarterTemplate() {
         ]
       },
       {
-        id: 'starling', name: '⭐ Starling Spaces', color: '#2E75B6', bgLight: '#DBEAFE',
+        id: 'savings', name: '🏦 Savings Account', color: '#2E75B6', bgLight: '#DBEAFE',
         groups: [
           { id: 'tmpl-emergency', name: '🛡️ Emergency Fund', savingsType: 'annual', isSavings: true,  items: [{ id: 'i-emrg', name: 'Emergency fund top-up', monthly: 0, notes: '' }] },
           { id: 'tmpl-holiday',   name: '✈️ Holiday Saving',  savingsType: 'annual', isSavings: true,  items: [{ id: 'i-hol',  name: 'Holiday fund', monthly: 0, notes: '' }] },
         ]
       },
       {
-        id: 'monzo', name: '💜 Monzo Spaces', color: '#7030A0', bgLight: '#F3E8FF',
+        id: 'goals', name: '🎯 Goals & Pots', color: '#7030A0', bgLight: '#F3E8FF',
         groups: [
           { id: 'tmpl-goals', name: '🎯 Savings & Goals', savingsType: 'annual', isSavings: true, items: [{ id: 'i-goals', name: 'General savings', monthly: 0, notes: '' }] },
         ]

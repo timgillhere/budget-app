@@ -62,7 +62,7 @@ Output ONLY a single JSON code block, tagged \`\`\`transactions-json (exactly th
       "description": "SAINSBURYS SUPERSTORE",
       "amount": -62.14,
       "category": "Groceries",
-      "account": "Starling",
+      "account": "HSBC",
       "notes": ""
     }
   ]
@@ -75,7 +75,7 @@ Output ONLY a single JSON code block, tagged \`\`\`transactions-json (exactly th
 2. **date**: always YYYY-MM-DD format.
 3. **category**: must be EXACTLY one of the 39 strings listed below. No variations, no new categories.
 4. **id**: \`txn-\` followed by the current Unix timestamp in milliseconds, then \`-\`, then the row index starting at 0. Example: \`txn-1744704600000-0\`, \`txn-1744704600000-1\`.
-5. **account**: the name of the bank account (e.g. "Starling", "Monzo", "HSBC").
+5. **account**: the name of the bank account (e.g. "HSBC", "Barclays", "Nationwide").
 6. Include EVERY row from the CSV — do not skip any.
 7. Output the COMPLETE JSON — never truncate or summarise.
 8. Transfers between my own accounts → use "Transfer".
@@ -253,7 +253,7 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
             <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">1</div>
             <div>
               <div className="text-slate-300 text-sm font-medium">Export a CSV from your banking app</div>
-              <div className="text-slate-500 text-xs mt-0.5">Starling, Monzo, HSBC — any bank that lets you download a CSV of transactions.</div>
+              <div className="text-slate-500 text-xs mt-0.5">HSBC, Barclays, Nationwide — any bank that lets you download a CSV of transactions.</div>
             </div>
           </div>
 

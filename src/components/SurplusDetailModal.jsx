@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { calcBudgetSummary, isSavingsGroup, isAnnualFundGroup, stripPrefix } from '../utils/budgetCalcs'
 
-const SECTION_COLOURS = { starling: '#22d3ee', current: '#4f7ef7', monzo: '#a78bfa' }
+const SECTION_COLOURS = { savings: '#22d3ee', current: '#4f7ef7', goals: '#a78bfa' }
 const GRID_STROKE  = '#1c2844'
 const TICK_FILL    = '#475569'
 const CURSOR_FILL  = 'rgba(79, 126, 247, 0.05)'

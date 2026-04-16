@@ -88,7 +88,7 @@ function generateSnapshot(data) {
   lines.push(`2. Discuss any changes requested`)
   lines.push(`3. When done, output the COMPLETE updated data as a JSON code block tagged: \`\`\`budget-json`)
   lines.push(`Rules: preserve all IDs, new items use "item-<timestamp>", new groups use "grp-<timestamp>",`)
-  lines.push(`never change section ids (starling/current/monzo), all monthly values must be numbers.`)
+  lines.push(`never change section ids (savings/current/goals), all monthly values must be numbers.`)
   lines.push(`savingsType field: null = regular spending, "annual" = annual savings (sinking fund for periodic costs — NOT counted in savings rate). Pension and ISA contributions are tracked in settings, not as budget line items.`)
   lines.push(`Output the FULL JSON every time.`)
   lines.push(`════════════════════════════════════`, ``, `\`\`\`budget-json`)

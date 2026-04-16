@@ -92,7 +92,7 @@ export default function EditModal({ mode, initial, onSave, onClose, onDelete }) 
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && (isGroup || isSection)) handleSave() }}
                 className={inputCls}
-                placeholder={isSection ? 'e.g. Starling Spaces' : isGroup ? 'e.g. Groceries' : 'e.g. Gym Membership'}
+                placeholder={isSection ? 'e.g. Savings Account' : isGroup ? 'e.g. Groceries' : 'e.g. Gym Membership'}
               />
             </div>
 
