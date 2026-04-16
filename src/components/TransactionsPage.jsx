@@ -222,8 +222,20 @@ function ImportModal({ activeMonth, onClose, onImport }) {
   )
 }
 
+const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/timgillhere/budget-app/main/scripts/install.sh | bash'
+
 // ── How to use guide ─────────────────────────────────────────────────
 function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed, onToggle }) {
+  const [method, setMethod] = useState('local')
+  const [installCopied, setInstallCopied] = useState(false)
+
+  function copyInstall() {
+    navigator.clipboard.writeText(INSTALL_CMD).then(() => {
+      setInstallCopied(true)
+      setTimeout(() => setInstallCopied(false), 2500)
+    })
+  }
+
   if (collapsed) {
     return (
       <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3 bg-nb-800 rounded-xl border border-nb-600 text-slate-400 text-sm hover:text-slate-300 hover:bg-nb-750 transition-colors mb-6">
@@ -247,52 +259,314 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
           )}
         </div>
 
-        <div className="space-y-4">
-          {/* Step 1 */}
-          <div className="flex gap-4">
-            <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">1</div>
-            <div>
-              <div className="text-slate-300 text-sm font-medium">Export a CSV from your banking app</div>
-              <div className="text-slate-500 text-xs mt-0.5">HSBC, Barclays, Nationwide — any bank that lets you download a CSV of transactions.</div>
-            </div>
-          </div>
+        {/* Method tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setMethod('local')}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+            style={method === 'local'
+              ? { background: 'linear-gradient(135deg, #34d39920, #22d3ee18)', border: '1px solid #34d39950', color: '#34d399', boxShadow: '0 0 20px #34d39918' }
+              : { background: 'transparent', border: '1px solid #334155', color: '#64748b' }}
+          >
+            <span>🔒</span>
+            <span>Local AI</span>
+            <span
+              className="text-xs font-medium px-1.5 py-0.5 rounded-full"
+              style={method === 'local'
+                ? { background: '#34d39930', color: '#34d399' }
+                : { background: '#1e293b', color: '#475569' }}
+            >
+              private
+            </span>
+          </button>
+          <button
+            onClick={() => setMethod('cloud')}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+            style={method === 'cloud'
+              ? { background: 'linear-gradient(135deg, #4f7ef720, #22d3ee18)', border: '1px solid #4f7ef750', color: '#93c5fd', boxShadow: '0 0 20px #4f7ef718' }
+              : { background: 'transparent', border: '1px solid #334155', color: '#64748b' }}
+          >
+            <span>☁️</span>
+            <span>Cloud AI</span>
+          </button>
+        </div>
 
-          {/* Step 2 */}
-          <div className="flex gap-4">
-            <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">2</div>
-            <div className="flex-1">
-              <div className="text-slate-300 text-sm font-medium">Copy the prompt below and open Claude (or ChatGPT)</div>
-              <div className="text-slate-500 text-xs mt-0.5 mb-3">The prompt tells the AI exactly which categories to use and what JSON format to output. Paste your CSV at the bottom where it says [PASTE YOUR CSV HERE] and send.</div>
-              <div className="flex items-center gap-3">
+        {/* ── Cloud method ── */}
+        {method === 'cloud' && (
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">1</div>
+              <div>
+                <div className="text-slate-300 text-sm font-medium">Export a CSV from your banking app</div>
+                <div className="text-slate-500 text-xs mt-0.5">HSBC, Barclays, Nationwide — any bank that lets you download a CSV of transactions.</div>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">2</div>
+              <div className="flex-1">
+                <div className="text-slate-300 text-sm font-medium">Copy the prompt below and open Claude (or ChatGPT)</div>
+                <div className="text-slate-500 text-xs mt-0.5 mb-3">The prompt tells the AI exactly which categories to use and what JSON format to output. Paste your CSV at the bottom where it says [PASTE YOUR CSV HERE] and send.</div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onCopyPrompt}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${copyFlash ? 'bg-emerald-700 text-white' : 'text-white'}`}
+                    style={copyFlash ? {} : { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' }}
+                  >
+                    {copyFlash ? <CheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
+                    {copyFlash ? 'Copied!' : 'Copy Claude prompt'}
+                  </button>
+                  <span className="text-slate-500 text-xs">for {monthLabel(activeMonth)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">3</div>
+              <div className="flex-1">
+                <div className="text-slate-300 text-sm font-medium">Copy Claude's JSON response and paste it here</div>
+                <div className="text-slate-500 text-xs mt-0.5 mb-3">Claude will output a block starting with <code className="text-slate-400 bg-nb-700 px-1 rounded">```transactions-json</code> — copy the content inside those fences and click Import.</div>
                 <button
-                  onClick={onCopyPrompt}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${copyFlash ? 'bg-emerald-700 text-white' : 'text-white'}`}
-                  style={copyFlash ? {} : { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' }}
+                  onClick={onImport}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors"
                 >
-                  {copyFlash ? <CheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
-                  {copyFlash ? 'Copied!' : 'Copy Claude prompt'}
+                  <ArrowUpTrayIcon className="w-4 h-4" />
+                  Import JSON
                 </button>
-                <span className="text-slate-500 text-xs">for {monthLabel(activeMonth)}</span>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Step 3 */}
-          <div className="flex gap-4">
-            <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">3</div>
-            <div className="flex-1">
-              <div className="text-slate-300 text-sm font-medium">Copy Claude's JSON response and paste it here</div>
-              <div className="text-slate-500 text-xs mt-0.5 mb-3">Claude will output a block starting with <code className="text-slate-400 bg-nb-700 px-1 rounded">```transactions-json</code> — copy the content inside those fences and click Import.</div>
-              <button
-                onClick={onImport}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors"
-              >
-                <ArrowUpTrayIcon className="w-4 h-4" />
-                Import JSON
-              </button>
+        {/* ── Local AI method ── */}
+        {method === 'local' && (
+          <div className="space-y-5">
+
+            {/* Privacy callout */}
+            <div className="flex gap-3 px-4 py-3 rounded-lg" style={{ background: '#34d39912', border: '1px solid #34d39930' }}>
+              <span className="text-lg leading-none mt-0.5">🔒</span>
+              <div>
+                <div className="text-emerald-300 text-sm font-medium">Your bank data never leaves your computer</div>
+                <div className="text-emerald-400/60 text-xs mt-0.5">Processing happens entirely on-device using a local AI model. Nothing is sent to any server.</div>
+              </div>
             </div>
+
+            {/* What it does */}
+            <div>
+              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">What gets installed</div>
+              <div className="space-y-2">
+                {[
+                  { name: 'Ollama', desc: 'Open source AI runtime — runs the language model locally on your Mac. Widely used and auditable.' },
+                  { name: 'llama3.1:8b', desc: 'A 4.7 GB language model by Meta, downloaded once and stored on your machine. Never calls home.' },
+                  { name: 'nb-transactions', desc: 'A small command-line script (from this repo) that reads your CSV, runs the AI, and outputs the import JSON.' },
+                ].map(item => (
+                  <div key={item.name} className="flex gap-2.5 text-xs">
+                    <span className="text-slate-500 mt-0.5">▸</span>
+                    <span><span className="text-slate-200 font-medium font-mono">{item.name}</span><span className="text-slate-500"> — {item.desc}</span></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Requirements */}
+            <div>
+              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">Requirements</div>
+              <div className="flex flex-wrap gap-2">
+                {['macOS (Apple Silicon recommended)', 'Homebrew', '~6 GB free disk space', 'Node.js (installed automatically)'].map(r => (
+                  <span key={r} className="px-2.5 py-1 rounded-full text-xs bg-nb-700 border border-nb-600 text-slate-400">{r}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Warnings */}
+            <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #fbbf2430' }}>
+              <div className="px-4 py-2" style={{ background: '#fbbf2410' }}>
+                <span className="text-amber-400 text-xs font-semibold uppercase tracking-wider">Before you run this</span>
+              </div>
+              <div className="px-4 py-3 space-y-2">
+                {[
+                  'This runs a shell script downloaded from the internet. You should review it before running — the source is linked below.',
+                  'Ollama installs as a background service that listens on localhost port 11434. It is not accessible from the internet.',
+                  'The AI model (~4.7 GB) is downloaded from Meta\'s servers via Ollama on first install. Subsequent runs are offline.',
+                  'The script modifies your ~/.zshrc to add ~/.local/bin to your PATH. This is a standard, reversible change.',
+                  'To uninstall: run `brew uninstall ollama`, delete ~/.local/bin/nb-transactions and ~/.config/nb-transactions.',
+                ].map((w, i) => (
+                  <div key={i} className="flex gap-2.5 text-xs">
+                    <span className="text-amber-500/60 flex-shrink-0 mt-0.5">!</span>
+                    <span className="text-slate-400">{w}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Install command */}
+            <div>
+              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">One-time setup — paste into Terminal</div>
+              <div className="flex gap-2 items-stretch">
+                <div className="flex-1 bg-nb-900 border border-nb-600 rounded-lg px-3 py-2.5 font-mono text-xs text-slate-300 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                  {INSTALL_CMD}
+                </div>
+                <button
+                  onClick={copyInstall}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border ${installCopied ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-nb-700 border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white'}`}
+                >
+                  {installCopied ? <CheckIcon className="w-3.5 h-3.5" /> : <ClipboardDocumentIcon className="w-3.5 h-3.5" />}
+                  {installCopied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <a
+                href="https://github.com/timgillhere/budget-app/blob/main/scripts/install.sh"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors"
+              >
+                Review the script on GitHub before running →
+              </a>
+            </div>
+
+            {/* Monthly use */}
+            <div>
+              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">Each month after setup</div>
+              <div className="space-y-3">
+                {[
+                  { n: '1', text: <>Start Ollama if it isn't already running: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">ollama serve</code></> },
+                  { n: '2', text: 'Export a CSV from your bank (Starling, Monzo, HSBC, Nationwide, Halifax, Barclays, Revolut).' },
+                  { n: '3', text: <>In Terminal, run: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">nb-transactions ~/Downloads/yourfile.csv Starling</code></> },
+                  { n: '4', text: <>A <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">.json</code> file is created in your current folder — import it with the button below.</> },
+                ].map(step => (
+                  <div key={step.n} className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">{step.n}</div>
+                    <div className="text-slate-400 text-xs leading-relaxed pt-0.5">{step.text}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={onImport}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors"
+                >
+                  <ArrowUpTrayIcon className="w-4 h-4" />
+                  Import JSON
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Review banner (transactions flagged by local AI) ─────────────────
+function ReviewBanner({ transactions, activeMonth, onSave }) {
+  const flagged = useMemo(() => transactions.filter(t => t.notes?.startsWith('needs-review:')), [transactions])
+  const [selections, setSelections] = useState(() => {
+    const m = {}
+    flagged.forEach(t => { m[t.id] = '' })
+    return m
+  })
+  const [saving, setSaving] = useState(false)
+
+  if (!flagged.length) return null
+
+  const allSelected = flagged.every(t => selections[t.id])
+
+  function set(id, cat) {
+    setSelections(prev => ({ ...prev, [id]: cat }))
+  }
+
+  async function saveOne(txn) {
+    const cat = selections[txn.id]
+    if (!cat) return
+    const updated = transactions.map(t =>
+      t.id === txn.id
+        ? { ...t, category: cat, notes: '' }
+        : t
+    )
+    setSaving(true)
+    await onSave(activeMonth, updated)
+    setSaving(false)
+  }
+
+  async function saveAll() {
+    const updated = transactions.map(t => {
+      const cat = selections[t.id]
+      return (t.notes?.startsWith('needs-review:') && cat)
+        ? { ...t, category: cat, notes: '' }
+        : t
+    })
+    setSaving(true)
+    await onSave(activeMonth, updated)
+    setSaving(false)
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden mb-6" style={{ border: '1px solid #fbbf2440', boxShadow: '0 0 40px #fbbf2412' }}>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #fbbf24cc, transparent)' }} />
+      <div className="p-5" style={{ background: '#fbbf2408' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-lg leading-none">⚠️</span>
+          <div className="flex-1">
+            <h3 className="text-amber-300 font-semibold text-sm">
+              {flagged.length} transaction{flagged.length > 1 ? 's' : ''} need a category
+            </h3>
+            <p className="text-amber-400/60 text-xs mt-0.5">The AI wasn't sure about these. Pick the right category for each one.</p>
           </div>
         </div>
+
+        <div className="space-y-2 mb-4">
+          {flagged.map(t => {
+            const suggestion = t.notes.replace('needs-review: ', '')
+            const selected = selections[t.id]
+            return (
+              <div key={t.id} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-nb-800/60 rounded-lg px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-300 text-sm truncate">{t.description}</div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-slate-500 text-xs font-mono">{t.date.slice(5).replace('-', '/')}</span>
+                    <span className={`text-xs font-medium tabular-nums ${t.amount < 0 ? 'text-slate-400' : 'text-emerald-400'}`}>
+                      {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
+                    </span>
+                    <span className="text-amber-500/60 text-xs">AI suggested: {suggestion}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <select
+                    value={selected}
+                    onChange={e => set(t.id, e.target.value)}
+                    className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500/50 max-w-[180px]"
+                  >
+                    <option value="">Pick a category…</option>
+                    {TRANSACTION_CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => saveOne(t)}
+                    disabled={!selected || saving}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ background: selected ? '#fbbf2420' : undefined, border: '1px solid #fbbf2440', color: '#fbbf24' }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {flagged.length > 1 && (
+          <button
+            onClick={saveAll}
+            disabled={!allSelected || saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #fbbf2420, #f9731620)', border: '1px solid #fbbf2440', color: '#fbbf24' }}
+          >
+            <CheckIcon className="w-4 h-4" />
+            {saving ? 'Saving…' : `Save all ${flagged.length}`}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -663,6 +937,7 @@ export default function TransactionsPage({ budget }) {
       {/* Data views */}
       {!loading && hasData && (
         <>
+          <ReviewBanner transactions={transactions} activeMonth={activeMonth} onSave={saveTransactions} />
           <SummaryTiles transactions={transactions} />
           <CategoryBreakdown transactions={transactions} />
           <ActualVsBudgeted transactions={transactions} budget={budget} />
