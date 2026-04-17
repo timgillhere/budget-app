@@ -956,6 +956,7 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
   const [amountA, setAmountA] = useState('')
   const [amountB, setAmountB] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [hideTransfers, setHideTransfers] = useState(true)
 
   // ── selection / delete state ──────────────────────────────────────
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -1013,9 +1014,10 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
       if (amountOp === 'gt' && !isNaN(aVal) && abs <= aVal) return false
       if (amountOp === 'lt' && !isNaN(aVal) && abs >= aVal) return false
       if (amountOp === 'between' && !isNaN(aVal) && !isNaN(bVal) && (abs < aVal || abs > bVal)) return false
+      if (hideTransfers && isTransfer(t)) return false
       return true
     })
-  }, [transactions, search, categoryFilter, accountFilter, direction, amountOp, amountA, amountB])
+  }, [transactions, search, categoryFilter, accountFilter, direction, amountOp, amountA, amountB, hideTransfers])
 
   const sorted = useMemo(() =>
     [...filtered].sort((a, b) => b.date.localeCompare(a.date)),
@@ -1024,7 +1026,7 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 
   // Clear selection when visible set changes significantly
   const prevFilterKey = useRef('')
-  const filterKey = `${search}|${categoryFilter}|${accountFilter}|${direction}|${amountOp}|${amountA}|${amountB}`
+  const filterKey = `${search}|${categoryFilter}|${accountFilter}|${direction}|${amountOp}|${amountA}|${amountB}|${hideTransfers}`
   if (prevFilterKey.current !== filterKey) {
     prevFilterKey.current = filterKey
     if (selected.size > 0) setSelected(new Set())
@@ -1103,6 +1105,23 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
               Clear filters
             </button>
           )}
+          {/* Hide transfers toggle */}
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <span className="text-xs text-slate-500">Transfers</span>
+            <button
+              role="switch"
+              aria-checked={hideTransfers}
+              onClick={() => setHideTransfers(v => !v)}
+              className={`relative inline-flex h-4 w-7 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${
+                hideTransfers ? 'bg-nb-700 border border-nb-500' : 'border border-nb-400'
+              }`}
+              style={!hideTransfers ? { background: '#22d3ee40', borderColor: '#22d3ee' } : {}}
+            >
+              <span className={`inline-block h-3 w-3 rounded-full shadow transition-transform duration-200 mt-0.5 ${
+                hideTransfers ? 'translate-x-0.5 bg-slate-500' : 'translate-x-3.5 bg-cyan-400'
+              }`} />
+            </button>
+          </label>
           <button
             onClick={() => setFiltersOpen(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
