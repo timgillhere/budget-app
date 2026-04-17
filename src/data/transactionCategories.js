@@ -137,4 +137,6 @@ export const CATEGORY_TO_BUDGET_GROUP = {
   'Gifts':                           'Space 4: Gifts',
   'Clothing':                        '🎯 Savings & Goals',
   'Holidays & Travel':               '🎯 Savings & Goals',
+  'Health - Medical':                'Space 7: Counselling/Therapy', // TODO: Tim to confirm the right budget group for general medical spend
+  'Other':                           'Socialising & Personal Spend',  // catch-all
 }

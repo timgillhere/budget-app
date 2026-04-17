@@ -194,6 +194,102 @@ function loadCorrections() {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return [] }
 }
 
+// ── Merchant rules (pre-seeded + user custom) ─────────────────────────────────
+const PRE_SEEDED_MERCHANT_RULES = [
+  // Transfers
+  { pattern: 'FLEX REPAYMENT',           category: 'Transfer' },
+  { pattern: 'MONZO FLEX REPAYMENT',     category: 'Transfer' },
+  // Groceries
+  { pattern: 'TESCO',                    category: 'Groceries' },
+  { pattern: 'SAINSBURY',                category: 'Groceries' },
+  { pattern: 'WAITROSE',                 category: 'Groceries' },
+  { pattern: 'ASDA',                     category: 'Groceries' },
+  { pattern: 'MORRISONS',                category: 'Groceries' },
+  { pattern: 'LIDL',                     category: 'Groceries' },
+  { pattern: 'ALDI',                     category: 'Groceries' },
+  { pattern: 'M&S FOOD',                 category: 'Groceries' },
+  { pattern: 'CO-OP',                    category: 'Groceries' },
+  { pattern: 'ICELAND',                  category: 'Groceries' },
+  { pattern: 'OCADO',                    category: 'Groceries' },
+  // Coffee & Drinks
+  { pattern: 'COSTA',                    category: 'Coffee & Drinks' },
+  { pattern: 'STARBUCKS',                category: 'Coffee & Drinks' },
+  { pattern: 'CAFFE NERO',               category: 'Coffee & Drinks' },
+  { pattern: 'PRET',                     category: 'Coffee & Drinks' },
+  // Eating Out
+  { pattern: 'DELIVEROO',                category: 'Eating Out & Takeaways' },
+  { pattern: 'UBER EATS',                category: 'Eating Out & Takeaways' },
+  { pattern: 'JUST EAT',                 category: 'Eating Out & Takeaways' },
+  { pattern: 'MCDONALDS',                category: 'Eating Out & Takeaways' },
+  { pattern: 'KFC',                      category: 'Eating Out & Takeaways' },
+  { pattern: 'NANDOS',                   category: 'Eating Out & Takeaways' },
+  { pattern: 'GREGGS',                   category: 'Eating Out & Takeaways' },
+  { pattern: 'DOMINOS',                  category: 'Eating Out & Takeaways' },
+  // Transport
+  { pattern: 'TFL',                      category: 'Transport - Public Transport' },
+  { pattern: 'TRAINLINE',                category: 'Transport - Public Transport' },
+  { pattern: 'NATIONAL RAIL',            category: 'Transport - Public Transport' },
+  { pattern: 'AVANTI',                   category: 'Transport - Public Transport' },
+  { pattern: 'GWR',                      category: 'Transport - Public Transport' },
+  { pattern: 'POD POINT',                category: 'Transport - EV Charging' },
+  { pattern: 'BP PULSE',                 category: 'Transport - EV Charging' },
+  { pattern: 'OSPREY',                   category: 'Transport - EV Charging' },
+  { pattern: 'GRIDSERVE',                category: 'Transport - EV Charging' },
+  // Streaming
+  { pattern: 'NETFLIX',                  category: 'Subscriptions - Streaming' },
+  { pattern: 'SPOTIFY',                  category: 'Subscriptions - Streaming' },
+  { pattern: 'DISNEY',                   category: 'Subscriptions - Streaming' },
+  { pattern: 'AMAZON PRIME',             category: 'Subscriptions - Streaming' },
+  { pattern: 'APPLE TV',                 category: 'Subscriptions - Streaming' },
+  // Software
+  { pattern: 'ADOBE',                    category: 'Subscriptions - Software' },
+  { pattern: 'MICROSOFT 365',            category: 'Subscriptions - Software' },
+  { pattern: 'GITHUB',                   category: 'Subscriptions - Software' },
+  { pattern: 'ICLOUD',                   category: 'Subscriptions - Software' },
+  { pattern: 'CHATGPT',                  category: 'Subscriptions - Software' },
+  { pattern: 'OPENAI',                   category: 'Subscriptions - Software' },
+  { pattern: 'ANTHROPIC',                category: 'Subscriptions - Software' },
+  // Gym
+  { pattern: 'PUREGYM',                  category: 'Health - Gym' },
+  { pattern: 'THE GYM GROUP',            category: 'Health - Gym' },
+  { pattern: 'DAVID LLOYD',              category: 'Health - Gym' },
+  { pattern: 'VIRGIN ACTIVE',            category: 'Health - Gym' },
+  // Pets
+  { pattern: 'PETS AT HOME',             category: 'Pets' },
+  { pattern: 'VETS4PETS',                category: 'Pets' },
+  // Energy
+  { pattern: 'OCTOPUS ENERGY',           category: 'Housing - Energy' },
+  { pattern: 'BRITISH GAS',              category: 'Housing - Energy' },
+  { pattern: 'EDF',                      category: 'Housing - Energy' },
+  // Water
+  { pattern: 'THAMES WATER',             category: 'Housing - Water' },
+  { pattern: 'SEVERN TRENT',             category: 'Housing - Water' },
+  // Broadband
+  { pattern: 'VIRGIN MEDIA',             category: 'Housing - Broadband' },
+  { pattern: 'BT BROADBAND',             category: 'Housing - Broadband' },
+  { pattern: 'SKY BROADBAND',            category: 'Housing - Broadband' },
+]
+
+function loadMerchantRules() {
+  const rulesPath = path.join(os.homedir(), '.config', 'nb-transactions', 'merchant-rules.json')
+  try {
+    const data = JSON.parse(fs.readFileSync(rulesPath, 'utf8'))
+    return Array.isArray(data) ? data : []
+  } catch (e) {
+    if (e.code !== 'ENOENT') log('Warning: could not read merchant-rules.json: ' + e.message)
+    return []
+  }
+}
+
+function buildMerchantSection(customRules) {
+  const custom = customRules.length > 0
+    ? customRules.map(function(r) { return '- "' + r.pattern + '" \u2192 ' + r.category + '  \u2190 your custom rule' }).join('\n')
+    : ''
+  const seeded = PRE_SEEDED_MERCHANT_RULES.map(function(r) { return '- "' + r.pattern + '" \u2192 ' + r.category }).join('\n')
+  const body = [custom, seeded].filter(Boolean).join('\n')
+  return '## Known merchants \u2014 apply these exact categories\n\nWhen the transaction description contains any of the following patterns (case-insensitive), use the specified category. Do not override these with your own judgement.\n\n' + body
+}
+
 // ── CSV parser (no deps, handles quoted fields + CRLF) ────────────────────────
 function parseCSV(text) {
   const normalised = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -415,7 +511,7 @@ async function pingOllama(base) {
   }
 }
 
-async function callOllama(userMessage, config, chunkLabel) {
+async function callOllama(userMessage, config, chunkLabel, systemPrompt) {
   const base = config.ollamaUrl || 'http://localhost:11434'
   await pingOllama(base)
   log('Sending ' + chunkLabel + ' to Ollama (this may take 30-60s)...')
@@ -425,7 +521,7 @@ async function callOllama(userMessage, config, chunkLabel) {
     stream: false,
     options: { num_ctx: 8192, temperature: 0 },
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt || SYSTEM_PROMPT },
       { role: 'user',   content: userMessage },
     ],
   })
@@ -520,8 +616,8 @@ function printSummary(result) {
   }
 }
 
-// ── Process a single CSV — returns { [YYYY-MM]: chunkResults[] } ─────────────
-async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config) {
+/// ── Process a single CSV — returns { [YYYY-MM]: chunkResults[] } ─────────────
+async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config, systemPrompt) {
   let csvText
   try { csvText = fs.readFileSync(csvPath, 'utf8') }
   catch (e) { die('File not found: ' + csvPath) }
@@ -554,7 +650,7 @@ async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config) 
       const userMsg = buildPrompt(chunks[i], month, bankLabel, config)
 
       let responseText
-      try { responseText = await callOllama(userMsg, config, label) }
+      try { responseText = await callOllama(userMsg, config, label, systemPrompt) }
       catch (e) { die(e.message) }
 
       let parsed
@@ -562,7 +658,7 @@ async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config) 
       try { parsed = extractJSON(responseText) }
       catch (e) {
         log('Parse failed: ' + e.message.split('\n')[0] + ' — retrying...')
-        try { responseText = await callOllama(userMsg, config, label + ' retry') }
+        try { responseText = await callOllama(userMsg, config, label + ' retry', systemPrompt) }
         catch (e2) { die(e2.message) }
         try { parsed = extractJSON(responseText) }
         catch (e2) { die('Retry also failed.\n' + e2.message) }
@@ -587,6 +683,13 @@ async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config) 
 async function main() {
   const { csvPath, bankLabel, bankKey, month: argMonth, dryRun, appendMode } = parseArgs(process.argv)
   const config = loadConfig()
+  const customMerchantRules = loadMerchantRules()
+  const merchantSection = buildMerchantSection(customMerchantRules)
+  const fullSystemPrompt = SYSTEM_PROMPT + '\n\n' + merchantSection
+  if (customMerchantRules.length > 0) {
+    log('Loaded ' + customMerchantRules.length + ' custom merchant rule(s) from merchant-rules.json')
+  }
+  log('Using ' + PRE_SEEDED_MERCHANT_RULES.length + ' pre-seeded merchant rules')
 
   if (dryRun) {
     let csvText
@@ -598,7 +701,7 @@ async function main() {
     const months = argMonth ? [argMonth] : Object.keys(byMonth).sort()
     const firstMonth = months[0]
     const firstChunks = buildChunks(byMonth[firstMonth] || [])
-    process.stdout.write('\n--- DRY RUN: System prompt ---\n\n' + SYSTEM_PROMPT + '\n')
+    process.stdout.write('\n--- DRY RUN: System prompt ---\n\n' + fullSystemPrompt + '\n')
     process.stdout.write('\n--- DRY RUN: User message for ' + firstMonth + ' chunk 1 ---\n\n' + buildPrompt(firstChunks[0] || [], firstMonth, bankLabel, config) + '\n\n')
     log('Dry run complete. No output file written.')
     return
@@ -645,7 +748,7 @@ async function main() {
     }
   }
 
-  mergeIntoAndSave(await processCsvFile(csvPath, bankLabel, bankKey, argMonth, config))
+  mergeIntoAndSave(await processCsvFile(csvPath, bankLabel, bankKey, argMonth, config, fullSystemPrompt))
 
   // Ask if the user has more bank CSVs to add
   const rl = readline.createInterface({ input: process.stdin, output: process.stderr })
@@ -659,7 +762,7 @@ async function main() {
     const nextBank = (await askUser(rl, '  Bank name (e.g. Starling, Monzo, HSBC): ')).trim()
     if (!nextPath || !nextBank) { log('Skipping — enter both a file path and a bank name.'); continue }
 
-    mergeIntoAndSave(await processCsvFile(nextPath, nextBank, nextBank.toLowerCase(), null, config))
+    mergeIntoAndSave(await processCsvFile(nextPath, nextBank, nextBank.toLowerCase(), null, config, fullSystemPrompt))
   }
 
   rl.close()

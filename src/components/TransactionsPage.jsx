@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
   ChevronLeftIcon, ChevronRightIcon, ArrowUpTrayIcon,
   ClipboardDocumentIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
-  TrashIcon,
+  TrashIcon, PlusIcon,
 } from '@heroicons/react/24/outline'
 import { useTransactions } from '../context/TransactionContext'
 import {
@@ -16,6 +16,7 @@ import {
   CATEGORY_COLOURS,
   CATEGORY_TO_BUDGET_GROUP,
 } from '../data/transactionCategories'
+import { MERCHANT_RULES, buildMerchantRulesPromptSection } from '../data/merchantRules'
 
 // ── Formatting helpers ───────────────────────────────────────────────
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -57,14 +58,194 @@ function recordCorrection(description, from, to) {
   localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(all))
 }
 
+// ── Merchant rules (custom, stored in Blob) ───────────────────────────
+function useMerchantRules() {
+  const [rules, setRules] = useState([])
+  const [rulesLoading, setRulesLoading] = useState(true)
+  const [rulesSaving, setRulesSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/budget?resource=merchant-rules')
+      .then(r => r.json())
+      .then(data => setRules(Array.isArray(data) ? data : []))
+      .catch(() => setRules([]))
+      .finally(() => setRulesLoading(false))
+  }, [])
+
+  async function saveRules(newRules) {
+    setRulesSaving(true)
+    try {
+      await fetch('/api/budget?resource=merchant-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRules),
+      })
+      setRules(newRules)
+    } finally {
+      setRulesSaving(false)
+    }
+  }
+
+  return { rules, rulesLoading, rulesSaving, saveRules }
+}
+
+// ── Merchant Rules Manager UI ─────────────────────────────────────────
+function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRules }) {
+  const [open, setOpen] = useState(false)
+  const [showSeeded, setShowSeeded] = useState(false)
+  const [pattern, setPattern] = useState('')
+  const [category, setCategory] = useState(TRANSACTION_CATEGORIES[0])
+
+  function exportForCli() {
+    const blob = new Blob([JSON.stringify(customRules, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'merchant-rules.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function addRule() {
+    const p = pattern.trim()
+    if (!p) return
+    onSaveRules([{ pattern: p, matchType: 'contains', category }, ...customRules])
+    setPattern('')
+  }
+
+  function deleteRule(idx) {
+    onSaveRules(customRules.filter((_, i) => i !== idx))
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-nb-800 rounded-xl border border-nb-600 text-slate-400 text-sm hover:text-slate-300 hover:bg-nb-750 transition-colors mb-4"
+      >
+        <span>
+          Merchant rules
+          {!rulesLoading && (
+            <span className="ml-2 text-xs text-slate-500">
+              {customRules.length > 0 ? `${customRules.length} custom · ` : ''}{MERCHANT_RULES.length} pre-seeded
+            </span>
+          )}
+        </span>
+        <ChevronDownIcon className="w-4 h-4" />
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-nb-800 rounded-xl border border-nb-600 overflow-hidden mb-4"
+      style={{ boxShadow: '0 0 30px #22d3ee15' }}>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #22d3eecc, transparent)' }} />
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-slate-200 font-semibold text-sm">Merchant rules</h3>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Teach the AI which descriptions always map to a specific category. Custom rules override pre-seeded ones.
+            </p>
+          </div>
+          <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
+            <ChevronUpIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Add rule form */}
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={pattern}
+            onChange={e => setPattern(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addRule()}
+            placeholder='Description contains… e.g. "MONZO FLEX REPAYMENT"'
+            className="flex-1 bg-nb-900 border border-nb-500 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-nb-400 min-w-0"
+          />
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            className="bg-nb-900 border border-nb-500 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-nb-400"
+          >
+            {TRANSACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button
+            onClick={addRule}
+            disabled={!pattern.trim() || rulesSaving}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add
+          </button>
+        </div>
+
+        {/* Custom rules list */}
+        {customRules.length === 0 ? (
+          <p className="text-slate-600 text-xs mb-4 italic">No custom rules yet. Add one above.</p>
+        ) : (
+          <div className="mb-4 space-y-1">
+            {customRules.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 bg-nb-750 rounded-lg border border-nb-600">
+                <span className="flex-1 font-mono text-xs text-slate-300 truncate">"{r.pattern}"</span>
+                <span className="text-slate-500 text-xs">→</span>
+                <span className="text-xs text-slate-400 truncate max-w-36">{r.category}</span>
+                <button
+                  onClick={() => deleteRule(i)}
+                  className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors"
+                >
+                  <TrashIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pre-seeded rules toggle */}
+        <button
+          onClick={() => setShowSeeded(v => !v)}
+          className="text-slate-500 hover:text-slate-400 text-xs transition-colors mb-1"
+        >
+          {showSeeded ? '▾' : '▸'} {MERCHANT_RULES.length} pre-seeded rules (read-only)
+        </button>
+        {showSeeded && (
+          <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+            {MERCHANT_RULES.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-60">
+                <span className="flex-1 font-mono text-xs text-slate-400 truncate">"{r.pattern}"</span>
+                <span className="text-slate-600 text-xs">→</span>
+                <span className="text-xs text-slate-500 truncate max-w-36">{r.category}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer actions */}
+        {customRules.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-nb-600">
+            <button
+              onClick={exportForCli}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2"
+            >
+              Export rules for CLI (merchant-rules.json)
+            </button>
+            <span className="text-slate-700 text-xs ml-1">— copy to ~/.config/nb-transactions/</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Claude prompt builder ────────────────────────────────────────────
-function buildClaudePrompt(month) {
+function buildClaudePrompt(month, customRules = []) {
   const label = monthLabel(month)
   const catList = TRANSACTION_CATEGORIES.join('\n')
   const corrections = loadCorrections()
   const correctionSection = corrections.length > 0
     ? `\n\n## Learned corrections — apply these exact mappings\n\nThe user has manually corrected these transactions before. Apply the same category when you see matching or similar descriptions:\n\n${corrections.map(c => `- "${c.description}" → ${c.to}  (not "${c.from}")`).join('\n')}`
     : ''
+  const merchantSection = '\n\n' + buildMerchantRulesPromptSection(customRules)
   return `You are a personal finance assistant. I will give you my bank CSV data and you must categorise every transaction and output a specific JSON format for my budgeting app.
 
 ## IMPORTANT: Output format
@@ -98,11 +279,13 @@ Output ONLY a single JSON code block, tagged \`\`\`transactions-json (exactly th
 5. **account**: the name of the bank account (e.g. "HSBC", "Barclays", "Nationwide").
 6. Include EVERY row from the CSV — do not skip any.
 7. Output the COMPLETE JSON — never truncate or summarise.
-8. Transfers between my own accounts → use "Transfer".
-9. Regular salary/BACS payments → "Income - Salary".
-10. Pension deductions shown on payslip → "Savings - Pension".
-11. "Flex" transactions (Monzo Flex credit card — descriptions often contain "flex" or "FLEX") — categorise by the actual purchase, not as a card payment. E.g. a Flex transaction at a restaurant → "Eating Out & Takeaways".
-12. If you are unsure which category fits, prefer a specific one over "Other".${correctionSection}
+8. Transfers between your own accounts (Faster Payments, BACS to yourself, moving money between your own banks) → "Transfer".
+9. Monzo Flex repayment lines (description contains "Flex Repayment", "MONZO FLEX REPAYMENT", or similar) → "Transfer". These are you paying off your Flex balance, not purchases.
+10. Monzo savings pot movements (description ends with " Pot", e.g. "Holiday Pot", "Emergency Pot") → "Transfer".
+11. Monzo Flex *purchases* (actual items bought via Flex) — categorise by the actual purchase type, not as a card payment. E.g. a restaurant bought via Flex → "Eating Out & Takeaways".
+12. Regular salary/BACS payments → "Income - Salary".
+13. Pension deductions shown on payslip → "Savings - Pension".
+14. If you are unsure which category fits, prefer a specific one over "Other".${merchantSection}${correctionSection}
 
 ## Canonical categories (use these exact strings only)
 
@@ -1241,13 +1424,14 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 // ── Main page ────────────────────────────────────────────────────────
 export default function TransactionsPage({ budget }) {
   const { transactions, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
+  const { rules: merchantRules, rulesLoading, rulesSaving, saveRules } = useMerchantRules()
   const [showImport, setShowImport] = useState(false)
   const [copyFlash, setCopyFlash] = useState(false)
   const [guideCollapsed, setGuideCollapsed] = useState(false)
   const isCurrentMonth = activeMonth === currentYearMonth()
 
   function handleCopyPrompt() {
-    const prompt = buildClaudePrompt(activeMonth)
+    const prompt = buildClaudePrompt(activeMonth, merchantRules)
     navigator.clipboard.writeText(prompt).then(() => {
       setCopyFlash(true)
       setTimeout(() => setCopyFlash(false), 2500)
@@ -1334,6 +1518,14 @@ export default function TransactionsPage({ budget }) {
         copyFlash={copyFlash}
         collapsed={hasData && guideCollapsed}
         onToggle={hasData ? () => setGuideCollapsed(v => !v) : null}
+      />
+
+      {/* Merchant rules manager */}
+      <MerchantRulesManager
+        customRules={merchantRules}
+        rulesLoading={rulesLoading}
+        rulesSaving={rulesSaving}
+        onSaveRules={saveRules}
       />
 
       {/* Loading */}
