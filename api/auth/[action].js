@@ -13,22 +13,28 @@ import { getPool } from '../_db.js';
 import { encryptTotpSecret, decryptTotpSecret } from '../_crypto.js';
 import { checkRateLimit } from '../_rateLimit.js';
 
-authenticator.options = { window: 1 };
-
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  // Set inside the handler to avoid module-level crash if otplib bundles unexpectedly
+  authenticator.options = { window: 1 };
+
   const action = req.query.action;
 
-  switch (action) {
-    case 'me':                  return handleMe(req, res);
-    case 'change-password':     return handleChangePassword(req, res);
-    case 'mfa-setup':           return handleMfaSetup(req, res);
-    case 'mfa-verify':          return handleMfaVerify(req, res);
-    case 'mfa-disable':         return handleMfaDisable(req, res);
-    case 'backup-codes-regen':  return handleBackupCodesRegen(req, res);
-    case 'password-reset':      return handlePasswordReset(req, res);
-    default:                    return res.status(404).json({ error: 'Not found' });
+  try {
+    switch (action) {
+      case 'me':                  return await handleMe(req, res);
+      case 'change-password':     return await handleChangePassword(req, res);
+      case 'mfa-setup':           return await handleMfaSetup(req, res);
+      case 'mfa-verify':          return await handleMfaVerify(req, res);
+      case 'mfa-disable':         return await handleMfaDisable(req, res);
+      case 'backup-codes-regen':  return await handleBackupCodesRegen(req, res);
+      case 'password-reset':      return await handlePasswordReset(req, res);
+      default:                    return res.status(404).json({ error: 'Not found' });
+    }
+  } catch (err) {
+    console.error('[auth]', action, err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
 
