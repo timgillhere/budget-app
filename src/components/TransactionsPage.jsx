@@ -763,9 +763,12 @@ function ActualVsBudgeted({ transactions, budget }) {
 }
 
 // ── Transaction list ─────────────────────────────────────────────────
-function TransactionList({ transactions, onUpdate, onDelete }) {
+function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
   const [filter, setFilter] = useState('all')
   const [pendingDelete, setPendingDelete] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [bulkCategory, setBulkCategory] = useState('')
+  const selectAllRef = useRef(null)
 
   const categories = useMemo(() => {
     const seen = new Set(transactions.map(t => t.category))
@@ -782,6 +785,36 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
     [filtered]
   )
 
+  // Clear selection when filter changes
+  const prevFilterRef = useRef(filter)
+  if (prevFilterRef.current !== filter) {
+    prevFilterRef.current = filter
+    if (selected.size > 0) setSelected(new Set())
+  }
+
+  // Keep select-all checkbox indeterminate state in sync
+  const allSelected = sorted.length > 0 && sorted.every(t => selected.has(t.id))
+  const someSelected = !allSelected && sorted.some(t => selected.has(t.id))
+  if (selectAllRef.current) {
+    selectAllRef.current.indeterminate = someSelected
+  }
+
+  function toggleRow(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(sorted.map(t => t.id)))
+    }
+  }
+
   function handleDelete(id) {
     if (pendingDelete === id) {
       onDelete(id)
@@ -789,6 +822,13 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
     } else {
       setPendingDelete(id)
     }
+  }
+
+  async function applyBulk() {
+    if (!bulkCategory || selected.size === 0) return
+    await onBulkUpdate([...selected], { category: bulkCategory })
+    setSelected(new Set())
+    setBulkCategory('')
   }
 
   function CategorySelect({ t }) {
@@ -807,6 +847,8 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
     )
   }
 
+  const hasSelection = selected.size > 0
+
   return (
     <NeonCard accent="#22d3ee">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -822,11 +864,57 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
         </select>
       </div>
 
+      {/* Bulk action bar */}
+      {hasSelection && (
+        <div className="flex items-center gap-3 mb-3 px-3 py-2.5 rounded-lg flex-wrap"
+          style={{ background: '#4f7ef712', border: '1px solid #4f7ef740' }}>
+          <span className="text-slate-300 text-xs font-medium flex-shrink-0">
+            {selected.size} selected
+          </span>
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
+            <select
+              value={bulkCategory}
+              onChange={e => setBulkCategory(e.target.value)}
+              className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-nb-400 min-w-[180px]"
+            >
+              <option value="">Set category…</option>
+              {TRANSACTION_CATEGORIES.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <button
+              onClick={applyBulk}
+              disabled={!bulkCategory}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: bulkCategory ? 'linear-gradient(135deg, #4f7ef7, #22d3ee)' : undefined, color: 'white', border: bulkCategory ? 'none' : '1px solid #334155' }}
+            >
+              <CheckIcon className="w-3.5 h-3.5" />
+              Apply to {selected.size}
+            </button>
+          </div>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-slate-500 hover:text-slate-300 text-xs transition-colors flex-shrink-0"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Desktop table */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="text-slate-500 uppercase tracking-wide border-b border-nb-600">
+              <th className="pb-2 w-8 pr-2">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500"
+                />
+              </th>
               <th className="pb-2 text-left font-medium w-24">Date</th>
               <th className="pb-2 text-left font-medium">Description</th>
               <th className="pb-2 text-left font-medium">Category</th>
@@ -836,9 +924,23 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
           </thead>
           <tbody>
             {sorted.map(t => {
+              const isSelected = selected.has(t.id)
               const delPending = pendingDelete === t.id
               return (
-                <tr key={t.id} className={`border-b border-nb-700/40 transition-colors ${delPending ? 'bg-red-950/20' : 'hover:bg-nb-700/20'}`}>
+                <tr
+                  key={t.id}
+                  className={`border-b border-nb-700/40 transition-colors ${
+                    delPending ? 'bg-red-950/20' : isSelected ? 'bg-blue-950/20' : 'hover:bg-nb-700/20'
+                  }`}
+                >
+                  <td className="py-2 pr-2">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleRow(t.id)}
+                      className="rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500"
+                    />
+                  </td>
                   <td className="py-2 text-slate-500 font-mono">{t.date.slice(5).replace('-', '/')}</td>
                   <td className="py-2 text-slate-300 max-w-xs truncate pr-3">{t.description}</td>
                   <td className="py-2 pr-3">
@@ -883,10 +985,23 @@ function TransactionList({ transactions, onUpdate, onDelete }) {
       {/* Mobile cards */}
       <div className="sm:hidden space-y-2">
         {sorted.map(t => {
+          const isSelected = selected.has(t.id)
           const delPending = pendingDelete === t.id
           return (
-            <div key={t.id} className={`rounded-lg px-3 py-2.5 transition-colors ${delPending ? 'bg-red-950/30' : 'bg-nb-700/30'}`}>
+            <div
+              key={t.id}
+              className={`rounded-lg px-3 py-2.5 transition-colors ${
+                delPending ? 'bg-red-950/30' : isSelected ? 'bg-blue-950/20' : 'bg-nb-700/30'
+              }`}
+              style={isSelected ? { border: '1px solid #4f7ef740' } : {}}
+            >
               <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleRow(t.id)}
+                  className="mt-1 rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500 flex-shrink-0"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="text-slate-300 text-sm truncate">{t.description}</div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -961,6 +1076,20 @@ export default function TransactionsPage({ budget }) {
 
   async function handleDeleteTransaction(id) {
     const updated = transactions.filter(t => t.id !== id)
+    await saveTransactions(activeMonth, updated)
+  }
+
+  async function handleBulkUpdateTransactions(ids, patch) {
+    const idSet = new Set(ids)
+    if (patch.category) {
+      ids.forEach(id => {
+        const original = transactions.find(t => t.id === id)
+        if (original && original.category !== patch.category) {
+          recordCorrection(original.description, original.category, patch.category)
+        }
+      })
+    }
+    const updated = transactions.map(t => idSet.has(t.id) ? { ...t, ...patch } : t)
     await saveTransactions(activeMonth, updated)
   }
 
@@ -1042,6 +1171,7 @@ export default function TransactionsPage({ budget }) {
           <TransactionList
             transactions={transactions}
             onUpdate={handleUpdateTransaction}
+            onBulkUpdate={handleBulkUpdateTransactions}
             onDelete={handleDeleteTransaction}
           />
         </>
