@@ -17,6 +17,7 @@ import {
   CATEGORY_TO_BUDGET_GROUP,
 } from '../data/transactionCategories'
 import { MERCHANT_RULES, buildMerchantRulesPromptSection } from '../data/merchantRules'
+import { mergeTransactions } from '../utils/mergeTransactions'
 
 // ── Formatting helpers ───────────────────────────────────────────────
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -352,10 +353,13 @@ function ImportModal({ activeMonth, onClose, onImport }) {
   const [raw, setRaw] = useState('')
   const [parsed, setParsed] = useState(null)
   const [error, setError] = useState(null)
+  const [existingTxns, setExistingTxns] = useState(null) // null = not yet fetched
+  const [fetchingExisting, setFetchingExisting] = useState(false)
 
   function handleChange(e) {
     const val = e.target.value
     setRaw(val)
+    setExistingTxns(null)
     if (!val.trim()) { setParsed(null); setError(null); return }
     try {
       const json = JSON.parse(val.trim())
@@ -368,6 +372,28 @@ function ImportModal({ activeMonth, onClose, onImport }) {
       setError('Could not parse JSON — make sure you copy only the content inside the code fences.')
     }
   }
+
+  // Fetch existing transactions for the parsed month when a valid JSON is pasted
+  useEffect(() => {
+    if (!parsed) { setExistingTxns(null); return }
+    let cancelled = false
+    setFetchingExisting(true)
+    fetch(`/api/transactions?month=${parsed.month}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled) return
+        setExistingTxns(data?.transactions ?? [])
+      })
+      .catch(() => { if (!cancelled) setExistingTxns([]) })
+      .finally(() => { if (!cancelled) setFetchingExisting(false) })
+    return () => { cancelled = true }
+  }, [parsed])
+
+  const mergeResult = parsed && existingTxns !== null
+    ? mergeTransactions(parsed.transactions, existingTxns)
+    : null
+
+  const hasExisting = existingTxns !== null && existingTxns.length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
@@ -401,9 +427,33 @@ function ImportModal({ activeMonth, onClose, onImport }) {
           )}
 
           {parsed && !error && (
-            <div className="mt-3 bg-emerald-950/40 border border-emerald-700/50 rounded-lg px-4 py-3 text-emerald-300 text-sm flex items-center gap-2">
-              <CheckIcon className="w-4 h-4 flex-shrink-0" />
-              Found <strong>{parsed.transactions.length}</strong> transactions for <strong>{monthLabel(parsed.month)}</strong>. Ready to import.
+            <div className="mt-3 bg-emerald-950/40 border border-emerald-700/50 rounded-lg px-4 py-3 text-emerald-300 text-sm">
+              {fetchingExisting ? (
+                <span className="text-slate-400">Checking existing data…</span>
+              ) : mergeResult && hasExisting ? (
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckIcon className="w-4 h-4 flex-shrink-0" />
+                    <strong>{monthLabel(parsed.month)}</strong> already has data — smart merge available.
+                  </div>
+                  <div className="text-xs text-emerald-400/80 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {mergeResult.stats.matched > 0 && (
+                      <span>{mergeResult.stats.matched} matched <span className="text-emerald-600">(categories preserved)</span></span>
+                    )}
+                    {mergeResult.stats.added > 0 && (
+                      <span>{mergeResult.stats.added} new</span>
+                    )}
+                    {mergeResult.stats.kept > 0 && (
+                      <span>{mergeResult.stats.kept} no longer in export <span className="text-emerald-600">(will be kept)</span></span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CheckIcon className="w-4 h-4 flex-shrink-0" />
+                  Found <strong>{parsed.transactions.length}</strong> transactions for <strong>{monthLabel(parsed.month)}</strong>. Ready to import.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -412,14 +462,33 @@ function ImportModal({ activeMonth, onClose, onImport }) {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-nb-700 border border-nb-500 text-slate-300 text-sm font-medium hover:bg-nb-600 transition-colors">
             Cancel
           </button>
-          <button
-            disabled={!parsed || !!error}
-            onClick={() => onImport(parsed.month, parsed.transactions)}
-            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-nb-500 text-white hover:bg-nb-400"
-            style={parsed && !error ? { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' } : {}}
-          >
-            {parsed ? `Import ${parsed.transactions.length} transactions` : 'Import'}
-          </button>
+          {parsed && !error && mergeResult && hasExisting ? (
+            <>
+              <button
+                onClick={() => onImport(parsed.month, parsed.transactions)}
+                className="py-2.5 px-4 rounded-lg bg-nb-700 border border-nb-500 text-slate-400 text-sm font-medium hover:bg-nb-600 hover:text-slate-300 transition-colors"
+              >
+                Replace all
+              </button>
+              <button
+                disabled={fetchingExisting}
+                onClick={() => onImport(parsed.month, mergeResult.merged)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-white"
+                style={{ background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' }}
+              >
+                Smart import
+              </button>
+            </>
+          ) : (
+            <button
+              disabled={!parsed || !!error || fetchingExisting}
+              onClick={() => onImport(parsed.month, parsed.transactions)}
+              className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-nb-500 text-white hover:bg-nb-400"
+              style={parsed && !error ? { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' } : {}}
+            >
+              {parsed ? `Import ${parsed.transactions.length} transactions` : 'Import'}
+            </button>
+          )}
         </div>
       </div>
     </div>
