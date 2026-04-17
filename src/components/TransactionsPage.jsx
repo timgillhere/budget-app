@@ -764,7 +764,17 @@ function ActualVsBudgeted({ transactions, budget }) {
 
 // ── Transaction list ─────────────────────────────────────────────────
 function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
-  const [filter, setFilter] = useState('all')
+  // ── filter state ──────────────────────────────────────────────────
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [accountFilter, setAccountFilter] = useState('all')
+  const [direction, setDirection] = useState('all')   // 'all' | 'out' | 'in'
+  const [amountOp, setAmountOp] = useState('any')     // 'any' | 'gt' | 'lt' | 'between'
+  const [amountA, setAmountA] = useState('')
+  const [amountB, setAmountB] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // ── selection / delete state ──────────────────────────────────────
   const [pendingDelete, setPendingDelete] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [bulkCategory, setBulkCategory] = useState('')
@@ -775,20 +785,65 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
     return ['all', ...TRANSACTION_CATEGORIES.filter(c => seen.has(c))]
   }, [transactions])
 
-  const filtered = useMemo(() =>
-    filter === 'all' ? transactions : transactions.filter(t => t.category === filter),
-    [transactions, filter]
-  )
+  const accounts = useMemo(() => {
+    const seen = [...new Set(transactions.map(t => t.account).filter(Boolean))].sort()
+    return ['all', ...seen]
+  }, [transactions])
+
+  const activeFilterCount = [
+    search.trim() !== '',
+    categoryFilter !== 'all',
+    accountFilter !== 'all',
+    direction !== 'all',
+    amountOp !== 'any',
+  ].filter(Boolean).length
+
+  function clearFilters() {
+    setSearch('')
+    setCategoryFilter('all')
+    setAccountFilter('all')
+    setDirection('all')
+    setAmountOp('any')
+    setAmountA('')
+    setAmountB('')
+  }
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const aVal = parseFloat(amountA)
+    const bVal = parseFloat(amountB)
+    return transactions.filter(t => {
+      // search: description or amount
+      if (q) {
+        const amtStr = Math.abs(t.amount).toFixed(2)
+        if (!t.description.toLowerCase().includes(q) && !amtStr.includes(q)) return false
+      }
+      // category
+      if (categoryFilter !== 'all' && t.category !== categoryFilter) return false
+      // account
+      if (accountFilter !== 'all' && t.account !== accountFilter) return false
+      // direction
+      if (direction === 'out' && t.amount >= 0) return false
+      if (direction === 'in' && t.amount < 0) return false
+      // amount operator (works on absolute value)
+      const abs = Math.abs(t.amount)
+      if (amountOp === 'gt' && !isNaN(aVal) && abs <= aVal) return false
+      if (amountOp === 'lt' && !isNaN(aVal) && abs >= aVal) return false
+      if (amountOp === 'between' && !isNaN(aVal) && !isNaN(bVal) && (abs < aVal || abs > bVal)) return false
+      return true
+    })
+  }, [transactions, search, categoryFilter, accountFilter, direction, amountOp, amountA, amountB])
 
   const sorted = useMemo(() =>
     [...filtered].sort((a, b) => b.date.localeCompare(a.date)),
     [filtered]
   )
 
-  // Clear selection when filter changes
-  const prevFilterRef = useRef(filter)
-  if (prevFilterRef.current !== filter) {
-    prevFilterRef.current = filter
+  // Clear selection when visible set changes significantly
+  const prevFilterKey = useRef('')
+  const filterKey = `${search}|${categoryFilter}|${accountFilter}|${direction}|${amountOp}|${amountA}|${amountB}`
+  if (prevFilterKey.current !== filterKey) {
+    prevFilterKey.current = filterKey
     if (selected.size > 0) setSelected(new Set())
   }
 
@@ -851,18 +906,153 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 
   return (
     <NeonCard accent="#22d3ee">
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h3 className="text-slate-200 font-semibold text-sm">Transactions ({sorted.length})</h3>
-        <select
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-nb-400"
-        >
-          {categories.map(c => (
-            <option key={c} value={c}>{c === 'all' ? 'All categories' : c}</option>
-          ))}
-        </select>
+      {/* ── Header row ── */}
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <h3 className="text-slate-200 font-semibold text-sm">
+          Transactions
+          <span className="text-slate-500 font-normal ml-1.5">
+            {sorted.length !== transactions.length ? `${sorted.length} of ${transactions.length}` : sorted.length}
+          </span>
+        </h3>
+        <div className="flex items-center gap-2">
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2">
+              Clear filters
+            </button>
+          )}
+          <button
+            onClick={() => setFiltersOpen(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              filtersOpen || activeFilterCount > 0
+                ? 'bg-nb-600 border-nb-400 text-slate-200'
+                : 'bg-nb-700 border-nb-500 text-slate-400 hover:text-slate-200 hover:bg-nb-600'
+            }`}
+          >
+            <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: '#4f7ef740', color: '#93c5fd' }}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* ── Search bar (always visible) ── */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search description or amount…"
+          className="w-full bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-nb-400 placeholder:text-slate-600"
+        />
+        <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors text-base leading-none">✕</button>
+        )}
+      </div>
+
+      {/* ── Filter panel ── */}
+      {filtersOpen && (
+        <div className="mb-4 p-3 rounded-lg space-y-3" style={{ background: '#0d122480', border: '1px solid #1e293b' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+            {/* Category */}
+            <div>
+              <label className="block text-slate-500 text-xs mb-1 uppercase tracking-wide">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="w-full bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-nb-400"
+              >
+                {categories.map(c => (
+                  <option key={c} value={c}>{c === 'all' ? 'All categories' : c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Account */}
+            <div>
+              <label className="block text-slate-500 text-xs mb-1 uppercase tracking-wide">Account</label>
+              <select
+                value={accountFilter}
+                onChange={e => setAccountFilter(e.target.value)}
+                className="w-full bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-nb-400"
+              >
+                {accounts.map(a => (
+                  <option key={a} value={a}>{a === 'all' ? 'All accounts' : a}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Direction */}
+            <div>
+              <label className="block text-slate-500 text-xs mb-1 uppercase tracking-wide">Direction</label>
+              <div className="flex rounded-lg overflow-hidden border border-nb-500">
+                {[['all', 'All'], ['out', 'Out'], ['in', 'In']].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setDirection(val)}
+                    className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
+                      direction === val ? 'bg-nb-500 text-slate-100' : 'bg-nb-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="block text-slate-500 text-xs mb-1 uppercase tracking-wide">Amount</label>
+              <div className="flex gap-1.5">
+                <select
+                  value={amountOp}
+                  onChange={e => { setAmountOp(e.target.value); setAmountA(''); setAmountB('') }}
+                  className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-nb-400 flex-shrink-0"
+                >
+                  <option value="any">Any</option>
+                  <option value="gt">&gt; than</option>
+                  <option value="lt">&lt; than</option>
+                  <option value="between">Between</option>
+                </select>
+                {amountOp !== 'any' && (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amountA}
+                    onChange={e => setAmountA(e.target.value)}
+                    placeholder="£0.00"
+                    className="w-0 flex-1 bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-nb-400 placeholder:text-slate-600 min-w-0"
+                  />
+                )}
+                {amountOp === 'between' && (
+                  <>
+                    <span className="text-slate-500 text-xs self-center flex-shrink-0">–</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amountB}
+                      onChange={e => setAmountB(e.target.value)}
+                      placeholder="£0.00"
+                      className="w-0 flex-1 bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-nb-400 placeholder:text-slate-600 min-w-0"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Bulk action bar */}
       {hasSelection && (
@@ -1035,7 +1225,14 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
       </div>
 
       {sorted.length === 0 && (
-        <div className="text-center py-8 text-slate-600 text-sm">No transactions match this filter.</div>
+        <div className="text-center py-8 space-y-2">
+          <div className="text-slate-600 text-sm">No transactions match your filters.</div>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2">
+              Clear all filters
+            </button>
+          )}
+        </div>
       )}
     </NeonCard>
   )
