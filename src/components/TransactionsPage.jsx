@@ -124,7 +124,7 @@ function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRu
         className="w-full flex items-center justify-between px-4 py-3 bg-nb-800 rounded-xl border border-nb-600 text-slate-400 text-sm hover:text-slate-300 hover:bg-nb-750 transition-colors mb-4"
       >
         <span>
-          Merchant rules
+          Teach the AI your categories
           {!rulesLoading && (
             <span className="ml-2 text-xs text-slate-500">
               {customRules.length > 0 ? `${customRules.length} custom · ` : ''}{MERCHANT_RULES.length} pre-seeded
@@ -143,9 +143,9 @@ function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRu
       <div className="p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-slate-200 font-semibold text-sm">Merchant rules</h3>
+            <h3 className="text-slate-200 font-semibold text-sm">Teach the AI your categories</h3>
             <p className="text-slate-500 text-xs mt-0.5">
-              Teach the AI which descriptions always map to a specific category. Custom rules override pre-seeded ones.
+              Map merchant names to categories so the AI always gets them right — no more guessing "AMZN MKTP" or "SQ *COFFEE".
             </p>
           </div>
           <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
