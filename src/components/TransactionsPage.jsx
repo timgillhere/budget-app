@@ -683,6 +683,7 @@ function ReviewBanner({ transactions, activeMonth, onSave }) {
   async function saveOne(txn) {
     const cat = selections[txn.id]
     if (!cat) return
+    recordCorrection(txn.description, txn.category, cat)
     const updated = transactions.map(t =>
       t.id === txn.id
         ? { ...t, category: cat, notes: '' }
@@ -696,9 +697,11 @@ function ReviewBanner({ transactions, activeMonth, onSave }) {
   async function saveAll() {
     const updated = transactions.map(t => {
       const cat = selections[t.id]
-      return (t.notes?.startsWith('needs-review:') && cat)
-        ? { ...t, category: cat, notes: '' }
-        : t
+      if (t.notes?.startsWith('needs-review:') && cat) {
+        recordCorrection(t.description, t.category, cat)
+        return { ...t, category: cat, notes: '' }
+      }
+      return t
     })
     setSaving(true)
     await onSave(activeMonth, updated)
