@@ -63,9 +63,33 @@ if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
 fi
 ok "Ollama is running"
 
-# ── 5. Pull the AI model (llama3.2:3b, ~2 GB — first time only) ──────────────
-log "Pulling llama3.2:3b model (this may take a few minutes on first install)..."
-ollama pull llama3.2:3b
+# ── 5. Pull the AI model (qwen2.5:3b, ~2 GB — first time only) ──────────────
+# qwen2.5:3b follows instructions and strict-JSON output better than llama3.2:3b
+# at the same size/speed, which means fewer parse-failure retries.
+MODEL="qwen2.5:3b"
+if ollama list 2>/dev/null | grep -q "$MODEL"; then
+  ok "Model $MODEL already installed — skipping download"
+else
+  log "Pulling $MODEL model (~2 GB, first time only)..."
+  PULL_OK=0
+  for attempt in 1 2 3; do
+    if ollama pull "$MODEL"; then
+      PULL_OK=1
+      break
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      warn "Model download attempt $attempt failed — retrying in $((attempt * 5))s..."
+      sleep $((attempt * 5))
+    fi
+  done
+  if [ "$PULL_OK" -ne 1 ]; then
+    warn "Could not download $MODEL after 3 attempts."
+    warn "This is almost always a network/DNS issue reaching registry.ollama.ai"
+    warn "(the exact error was a lookup/timeout). Check Wi-Fi, VPN, and any firewall/DNS."
+    warn "Setup will continue — everything else is configured. When you're back online, finish with:"
+    warn "    ollama pull $MODEL"
+  fi
+fi
 
 # ── 6. Config file ────────────────────────────────────────────────────────────
 CONFIG_DIR="$HOME/.config/nb-transactions"
@@ -74,12 +98,16 @@ mkdir -p "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
   cat > "$CONFIG_FILE" << 'CONFIGEOF'
 {
-  "model": "llama3.2:3b",
+  "model": "qwen2.5:3b",
   "accounts": ["Starling", "Monzo"],
   "ollamaUrl": "http://localhost:11434"
 }
 CONFIGEOF
   log "Config created at $CONFIG_FILE"
+elif grep -q '"llama3.2:3b"' "$CONFIG_FILE"; then
+  # Migrate configs still on the old default so they don't reference an unpulled model.
+  sed -i.bak 's/"llama3.2:3b"/"qwen2.5:3b"/' "$CONFIG_FILE" && rm -f "$CONFIG_FILE.bak"
+  log "Updated model in $CONFIG_FILE: llama3.2:3b → qwen2.5:3b"
 else
   log "Config already exists — keeping your settings"
 fi
@@ -517,9 +545,11 @@ async function callOllama(userMessage, config, chunkLabel, systemPrompt) {
   log('Sending ' + chunkLabel + ' to Ollama (this may take 30-60s)...')
 
   const payload = JSON.stringify({
-    model: config.model || 'llama3.2:3b',
+    model: config.model || 'qwen2.5:3b',
     stream: false,
-    options: { num_ctx: 8192, temperature: 0 },
+    // num_ctx 4096 is ample for a single CSV chunk and roughly halves the KV cache
+    // vs 8192 — the biggest speed/memory win on a low-RAM MacBook Air.
+    options: { num_ctx: 4096, temperature: 0 },
     messages: [
       { role: 'system', content: systemPrompt || SYSTEM_PROMPT },
       { role: 'user',   content: userMessage },
@@ -537,7 +567,7 @@ async function callOllama(userMessage, config, chunkLabel, systemPrompt) {
   }
 
   if (res.status === 404 || (res.status !== 200 && res.body.includes('not found'))) {
-    die('Model "' + (config.model || 'llama3.2:3b') + '" not found.\nRun: ollama pull ' + (config.model || 'llama3.2:3b'))
+    die('Model "' + (config.model || 'qwen2.5:3b') + '" not found.\nRun: ollama pull ' + (config.model || 'qwen2.5:3b'))
   }
   if (res.status !== 200) die('Ollama returned HTTP ' + res.status + ': ' + res.body.slice(0, 200))
 
@@ -679,6 +709,507 @@ async function processCsvFile(csvPath, bankLabel, bankKey, monthFilter, config, 
   return result
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  Automatic bank sync — fetch from Starling/Monzo, categorise locally, push to app
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Config read/write (safe: does not die if missing) ─────────────────────────
+function configFilePath() {
+  return path.join(os.homedir(), '.config', 'nb-transactions', 'config.json')
+}
+function loadConfigSafe() {
+  try { return JSON.parse(fs.readFileSync(configFilePath(), 'utf8')) } catch (e) { return {} }
+}
+function saveConfigObj(obj) {
+  const p = configFilePath()
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(obj, null, 2))
+  try { fs.chmodSync(p, 0o600) } catch (e) {}
+}
+
+// Alias → path within the config object. Keeps CLI keys friendly.
+const CONFIG_ALIASES = {
+  synctoken:        ['syncToken'],
+  appurl:           ['appUrl'],
+  starlingpat:      ['starlingPat'],
+  monzoclientid:    ['monzo', 'clientId'],
+  monzoclientsecret:['monzo', 'clientSecret'],
+  model:            ['model'],
+  ollamaurl:        ['ollamaUrl'],
+}
+
+function runConfig(config) {
+  const args = process.argv.slice(3)
+  const sub = args[0]
+  if (sub === 'set') {
+    if (args.length < 3 || (args.length - 1) % 2 !== 0) {
+      die('Usage: nb-transactions config set <key> <value> [<key> <value> ...]')
+    }
+    for (let i = 1; i < args.length; i += 2) {
+      const key = args[i]
+      const val = args[i + 1]
+      const keyPath = CONFIG_ALIASES[key.toLowerCase()]
+      if (!keyPath) die('Unknown config key "' + key + '".\nKnown keys: ' + Object.keys(CONFIG_ALIASES).join(', '))
+      let node = config
+      for (let j = 0; j < keyPath.length - 1; j++) {
+        if (!node[keyPath[j]] || typeof node[keyPath[j]] !== 'object') node[keyPath[j]] = {}
+        node = node[keyPath[j]]
+      }
+      node[keyPath[keyPath.length - 1]] = val
+    }
+    saveConfigObj(config)
+    log('Config updated: ' + configFilePath())
+    return Promise.resolve()
+  }
+  // `config` / `config get` → print current config with secrets redacted
+  const red = JSON.parse(JSON.stringify(config))
+  if (red.syncToken) red.syncToken = String(red.syncToken).slice(0, 12) + '…'
+  if (red.starlingPat) red.starlingPat = '<set>'
+  if (red.monzo && red.monzo.clientSecret) red.monzo.clientSecret = '<set>'
+  if (red.monzo && red.monzo.refreshToken) red.monzo.refreshToken = '<set>'
+  process.stdout.write(JSON.stringify(red, null, 2) + '\n')
+  return Promise.resolve()
+}
+
+function requireSyncConfig(config) {
+  if (!config.appUrl) die('Set your app URL first:\n  nb-transactions config set appUrl https://your-app.example.com')
+  if (!config.syncToken) die('Set your sync token (create it in the app → Settings → Automatic Bank Sync):\n  nb-transactions config set syncToken <token>')
+  if (!config.starlingPat && !(config.monzo && config.monzo.refreshToken)) {
+    die('No banks connected yet.\n  Starling:  nb-transactions config set starlingPat <token>\n  Monzo:     nb-transactions connect-monzo')
+  }
+}
+
+// ── Authenticated calls to the app API (Bearer sync token) ────────────────────
+function apiBase(config) { return String(config.appUrl).replace(/\/$/, '') }
+
+async function apiGet(config, pathQ) {
+  const res = await httpRequest(apiBase(config) + pathQ, {
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + config.syncToken },
+  }, null)
+  if (res.status === 401) die('Sync token was rejected by the app.\nCreate a new one in Settings → Automatic Bank Sync, then:\n  nb-transactions config set syncToken <token>')
+  if (res.status < 200 || res.status >= 300) throw new Error('GET ' + pathQ + ' → HTTP ' + res.status)
+  return res.body ? JSON.parse(res.body) : null
+}
+
+async function apiPost(config, pathQ, bodyObj) {
+  const body = JSON.stringify(bodyObj)
+  const res = await httpRequest(apiBase(config) + pathQ, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + config.syncToken,
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+    },
+  }, body)
+  if (res.status === 401) die('Sync token was rejected by the app.\nCreate a new one in Settings → Automatic Bank Sync, then:\n  nb-transactions config set syncToken <token>')
+  if (res.status < 200 || res.status >= 300) throw new Error('POST ' + pathQ + ' → HTTP ' + res.status + ': ' + res.body.slice(0, 200))
+  return res.body ? JSON.parse(res.body) : null
+}
+
+// ── Fingerprint merge (ported from the app's src/utils — keep in sync) ────────
+function fingerprint(t) {
+  return t.date + '|' + t.amount + '|' + t.description + '|' + t.account
+}
+function mergeTransactions(incoming, existing) {
+  const map = new Map()
+  for (const t of existing) {
+    const fp = fingerprint(t)
+    if (!map.has(fp)) map.set(fp, [])
+    map.get(fp).push(t)
+  }
+  const merged = []
+  for (const t of incoming) {
+    const bucket = map.get(fingerprint(t))
+    if (bucket && bucket.length) {
+      const ex = bucket.shift()
+      // New import wins for everything except the user-curated category/notes.
+      merged.push(Object.assign({}, t, { category: ex.category, notes: ex.notes }))
+    } else {
+      merged.push(t)
+    }
+  }
+  // Existing transactions with no incoming match are preserved.
+  for (const bucket of map.values()) for (const ex of bucket) merged.push(ex)
+  return { merged }
+}
+
+// ── Starling client ───────────────────────────────────────────────────────────
+async function starlingApi(pat, pathQ) {
+  const res = await httpRequest('https://api.starlingbank.com' + pathQ, {
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/json', 'User-Agent': 'nb-transactions' },
+  }, null)
+  if (res.status === 401 || res.status === 403) throw new Error('token rejected (HTTP ' + res.status + ') — check scopes/expiry')
+  if (res.status < 200 || res.status >= 300) throw new Error('API HTTP ' + res.status + ': ' + res.body.slice(0, 160))
+  return JSON.parse(res.body)
+}
+
+async function fetchStarling(config, since) {
+  const pat = config.starlingPat
+  const accts = await starlingApi(pat, '/api/v2/accounts')
+  const account = (accts.accounts || [])[0]
+  if (!account) throw new Error('no accounts returned')
+  const uid = account.accountUid
+  const catUid = account.defaultCategory
+  const minTs = since.toISOString()
+  const maxTs = new Date().toISOString()
+  const feed = await starlingApi(pat,
+    '/api/v2/feed/account/' + uid + '/category/' + catUid +
+    '/transactions-between?minTransactionTimestamp=' + encodeURIComponent(minTs) +
+    '&maxTransactionTimestamp=' + encodeURIComponent(maxTs))
+
+  const rows = []
+  for (const it of (feed.feedItems || [])) {
+    if (it.status === 'DECLINED') continue
+    const minor = (it.amount && it.amount.minorUnits) || 0
+    const val = minor / 100
+    const amount = it.direction === 'OUT' ? -val : val
+    const desc = [it.counterPartyName, it.reference].filter(Boolean).join(' ').trim() || (it.spendingCategory || 'Starling')
+    const date = (it.transactionTime || '').slice(0, 10)
+    if (!date || !isFinite(amount)) continue
+    rows.push({ date: date, description: desc, amount: amount, account: 'Starling' })
+  }
+
+  const spaces = {}
+  try {
+    const sp = await starlingApi(pat, '/api/v2/account/' + uid + '/spaces')
+    for (const g of (sp.savingsGoals || [])) {
+      if (g.name != null) spaces[g.name] = ((g.totalSaved && g.totalSaved.minorUnits) || 0) / 100
+    }
+    for (const s of (sp.spendingSpaces || [])) {
+      if (s.name != null) spaces[s.name] = ((s.balance && s.balance.minorUnits) || 0) / 100
+    }
+  } catch (e) { log('  Starling spaces unavailable: ' + e.message) }
+
+  return { rows: rows, spaces: spaces }
+}
+
+// ── Monzo client (OAuth) ──────────────────────────────────────────────────────
+const MONZO_REDIRECT_URI = 'http://localhost:47000/callback'
+
+async function monzoToken(params) {
+  const body = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k])
+  }).join('&')
+  const res = await httpRequest('https://api.monzo.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
+  }, body)
+  if (res.status < 200 || res.status >= 300) throw new Error('token exchange HTTP ' + res.status + ': ' + res.body.slice(0, 200))
+  return JSON.parse(res.body)
+}
+
+async function monzoApi(accessToken, pathQ) {
+  const res = await httpRequest('https://api.monzo.com' + pathQ, {
+    method: 'GET', headers: { 'Authorization': 'Bearer ' + accessToken },
+  }, null)
+  if (res.status === 401) throw new Error('access denied — token expired, or access not yet approved in the Monzo app')
+  if (res.status < 200 || res.status >= 300) throw new Error('API HTTP ' + res.status + ': ' + res.body.slice(0, 160))
+  return JSON.parse(res.body)
+}
+
+async function fetchMonzo(config, since) {
+  // Rotate the 30-hour access token using the stored refresh token (Monzo rotates both).
+  const tok = await monzoToken({
+    grant_type: 'refresh_token',
+    client_id: config.monzo.clientId,
+    client_secret: config.monzo.clientSecret,
+    refresh_token: config.monzo.refreshToken,
+  })
+  config.monzo.accessToken = tok.access_token
+  if (tok.refresh_token) config.monzo.refreshToken = tok.refresh_token
+  saveConfigObj(config)
+  const accessToken = tok.access_token
+
+  const accts = await monzoApi(accessToken, '/accounts')
+  const accounts = (accts.accounts || []).filter(function (a) { return !a.closed })
+  if (!accounts.length) throw new Error('no open accounts')
+
+  const rows = []
+  const pots = {}
+  const sinceIso = since.toISOString()
+  for (const acct of accounts) {
+    const txnRes = await monzoApi(accessToken,
+      '/transactions?expand[]=merchant&account_id=' + encodeURIComponent(acct.id) + '&since=' + encodeURIComponent(sinceIso))
+    for (const t of (txnRes.transactions || [])) {
+      if (t.decline_reason) continue
+      if (!t.amount) continue
+      const amount = t.amount / 100   // minor units, already signed (debit negative)
+      const desc = (t.merchant && t.merchant.name) || t.description || (t.counterparty && t.counterparty.name) || 'Monzo'
+      const date = (t.created || '').slice(0, 10)
+      if (!date || !isFinite(amount)) continue
+      rows.push({ date: date, description: String(desc), amount: amount, account: 'Monzo' })
+    }
+    try {
+      const potRes = await monzoApi(accessToken, '/pots?current_account_id=' + encodeURIComponent(acct.id))
+      for (const p of (potRes.pots || [])) {
+        if (p.deleted) continue
+        if (p.name != null) pots[p.name] = (p.balance || 0) / 100
+      }
+    } catch (e) { /* pots are optional */ }
+  }
+
+  const lastAuthAt = config.monzo.lastAuthAt || null
+  const reauthDueAt = lastAuthAt ? new Date(new Date(lastAuthAt).getTime() + 90 * 86400000).toISOString() : null
+  return { rows: rows, pots: pots, lastAuthAt: lastAuthAt, reauthDueAt: reauthDueAt }
+}
+
+async function runConnectMonzo(config) {
+  if (!config.monzo || !config.monzo.clientId || !config.monzo.clientSecret) {
+    die('Monzo needs your own OAuth client first. Three steps:\n' +
+        '\n' +
+        '  1. Sign in at https://developers.monzo.com (magic link by email), then\n' +
+        '     Clients -> New OAuth Client. Name/description can be anything.\n' +
+        '\n' +
+        '  2. Set these two fields exactly:\n' +
+        '       Redirect URL:      ' + MONZO_REDIRECT_URI + '\n' +
+        '       Confidentiality:   Confidential\n' +
+        '     (Non-confidential returns no refresh token, so sync dies after ~30h,\n' +
+        '      and it cannot be changed later — you would need a new client.)\n' +
+        '\n' +
+        '  3. Open the client, copy its Client ID and Client secret, then run:\n' +
+        '       nb-transactions config set monzoClientId <client-id> monzoClientSecret <client-secret>\n' +
+        '\n' +
+        'Then run this command again.')
+  }
+  const crypto = require('crypto')
+  const cp = require('child_process')
+  const state = crypto.randomBytes(16).toString('hex')
+  const authUrl = 'https://auth.monzo.com/?client_id=' + encodeURIComponent(config.monzo.clientId) +
+    '&redirect_uri=' + encodeURIComponent(MONZO_REDIRECT_URI) +
+    '&response_type=code&state=' + state
+
+  const code = await new Promise(function (resolve, reject) {
+    const server = http.createServer(function (req, res) {
+      const u = new URL(req.url, MONZO_REDIRECT_URI)
+      if (u.pathname !== '/callback') { res.writeHead(404); res.end(); return }
+      const gotState = u.searchParams.get('state')
+      const gotCode = u.searchParams.get('code')
+      res.writeHead(200, { 'Content-Type': 'text/html' })
+      if (gotState !== state || !gotCode) {
+        res.end('<h2>Authorisation failed.</h2><p>Close this tab and run connect-monzo again.</p>')
+        server.close(); reject(new Error('state mismatch or missing code')); return
+      }
+      res.end('<h2>Monzo connected ✓</h2><p>Now open the Monzo app on your phone and approve access, then return to the terminal. You can close this tab.</p>')
+      server.close(); resolve(gotCode)
+    })
+    server.on('error', function (e) { reject(new Error('Could not start local callback server on :47000 — ' + e.message)) })
+    server.listen(47000, function () {
+      log('Opening your browser to authorise Monzo…')
+      log('If it does not open, paste this into your browser:')
+      log('  ' + authUrl)
+      try { cp.exec('open "' + authUrl + '"') } catch (e) {}
+    })
+  })
+
+  const tok = await monzoToken({
+    grant_type: 'authorization_code',
+    client_id: config.monzo.clientId,
+    client_secret: config.monzo.clientSecret,
+    redirect_uri: MONZO_REDIRECT_URI,
+    code: code,
+  })
+  if (!tok.refresh_token) log('Warning: Monzo did not return a refresh token — make sure your OAuth client is "Confidential".')
+  config.monzo.refreshToken = tok.refresh_token || config.monzo.refreshToken
+  config.monzo.accessToken = tok.access_token
+  config.monzo.lastAuthAt = new Date().toISOString()
+  saveConfigObj(config)
+  log('')
+  log('Monzo connected — one thing left, and sync will not work without it:')
+  log('')
+  log('  Open the Monzo app on your phone. There is a notification asking to')
+  log('  allow access to your data. Tap Approve.')
+  log('')
+  log('Until you do, every sync fails with "access denied". Then run:')
+  log('  nb-transactions sync')
+}
+
+// ── Categorise already-normalised rows → { [YYYY-MM]: chunkResults[] } ─────────
+async function categoriseNormalisedRows(rows, bankLabel, config, systemPrompt) {
+  const byMonth = groupByMonth(rows)
+  const result = {}
+  for (const month of Object.keys(byMonth).sort()) {
+    const chunks = buildChunks(byMonth[month])
+    const chunkResults = []
+    for (let i = 0; i < chunks.length; i++) {
+      const label = bankLabel + ' ' + month + (chunks.length > 1 ? ' chunk ' + (i + 1) + '/' + chunks.length : '')
+      const userMsg = buildPrompt(chunks[i], month, bankLabel, config)
+      let responseText = await callOllama(userMsg, config, label, systemPrompt)
+      let parsed
+      try {
+        parsed = extractJSON(responseText)
+      } catch (e) {
+        log('  Parse failed for ' + label + ' — retrying...')
+        responseText = await callOllama(userMsg, config, label + ' retry', systemPrompt)
+        parsed = extractJSON(responseText)
+      }
+      const err = validateOutput(parsed)
+      if (err) throw new Error('Validation error for ' + label + ': ' + err)
+      chunkResults.push(parsed)
+    }
+    result[month] = chunkResults
+  }
+  return result
+}
+
+// ── Map Starling Spaces / Monzo Pots → budget group "held" balances ───────────
+function stripSpacePrefix(name) {
+  return (name || '').replace(/^Space\s+\d+:\s*/i, '').trim()
+}
+async function updateHeldBalances(config, potBalances) {
+  const budget = await apiGet(config, '/api/budget')
+  if (!budget || !Array.isArray(budget.sections)) { log('  No budget found — skipping held balances.'); return 0 }
+  const potMap = config.potMap || {}
+  const byLower = {}
+  for (const name of Object.keys(potBalances)) byLower[name.toLowerCase().trim()] = potBalances[name]
+
+  let updated = 0
+  for (const sec of budget.sections) {
+    for (const g of (sec.groups || [])) {
+      let bal = null
+      const override = potMap[g.name]                                   // explicit: group name → pot/space name
+      if (override && byLower[override.toLowerCase().trim()] != null) {
+        bal = byLower[override.toLowerCase().trim()]
+      } else {
+        const disp = stripSpacePrefix(g.name).toLowerCase()             // "Space 1: Bills" → "bills"
+        if (byLower[disp] != null) bal = byLower[disp]
+        else if (byLower[String(g.name).toLowerCase().trim()] != null) bal = byLower[String(g.name).toLowerCase().trim()]
+      }
+      if (bal != null) { g.currentBalance = Math.round(bal * 100) / 100; updated++ }
+    }
+  }
+  if (updated) { await apiPost(config, '/api/budget', budget); log('  Held balances updated for ' + updated + ' space(s).') }
+  else log('  No spaces matched a budget group (name them to match, or set potMap).')
+  return updated
+}
+
+// ── The sync command ──────────────────────────────────────────────────────────
+async function runSync(config) {
+  requireSyncConfig(config)
+  const customMerchantRules = loadMerchantRules()
+  const fullSystemPrompt = SYSTEM_PROMPT + '\n\n' + buildMerchantSection(customMerchantRules)
+  const since = new Date(Date.now() - 90 * 86400000)   // rolling 90-day window; merge de-dups overlaps
+
+  const status = { syncedAt: new Date().toISOString(), banks: {}, error: null }
+  const potBalances = {}
+  const monthChunks = {}
+  function accumulate(byMonth) {
+    for (const m of Object.keys(byMonth)) {
+      if (!monthChunks[m]) monthChunks[m] = []
+      monthChunks[m] = monthChunks[m].concat(byMonth[m])
+    }
+  }
+
+  if (config.starlingPat) {
+    try {
+      log('Fetching Starling…')
+      const out = await fetchStarling(config, since)
+      log('  Starling: ' + out.rows.length + ' transactions, ' + Object.keys(out.spaces).length + ' space(s)')
+      Object.assign(potBalances, out.spaces)
+      accumulate(await categoriseNormalisedRows(out.rows, 'Starling', config, fullSystemPrompt))
+      status.banks.starling = { connected: true, count: out.rows.length }
+    } catch (e) {
+      status.banks.starling = { connected: false }
+      status.error = 'Starling: ' + e.message
+      log('  Starling error: ' + e.message)
+    }
+  }
+
+  if (config.monzo && config.monzo.refreshToken) {
+    try {
+      log('Fetching Monzo…')
+      const out = await fetchMonzo(config, since)
+      log('  Monzo: ' + out.rows.length + ' transactions, ' + Object.keys(out.pots).length + ' pot(s)')
+      Object.assign(potBalances, out.pots)
+      accumulate(await categoriseNormalisedRows(out.rows, 'Monzo', config, fullSystemPrompt))
+      status.banks.monzo = { connected: true, count: out.rows.length, lastAuthAt: out.lastAuthAt, reauthDueAt: out.reauthDueAt }
+    } catch (e) {
+      status.banks.monzo = { connected: false }
+      status.error = 'Monzo: ' + e.message
+      log('  Monzo error: ' + e.message)
+    }
+  }
+
+  const months = Object.keys(monthChunks).sort()
+  for (const month of months) {
+    const incoming = mergeChunks(monthChunks[month], month).transactions
+    let existing = []
+    try {
+      const doc = await apiGet(config, '/api/transactions?month=' + month)
+      existing = (doc && doc.transactions) || []
+    } catch (e) { log('  Could not load existing ' + month + ': ' + e.message) }
+    const merged = mergeTransactions(incoming, existing).merged
+    await apiPost(config, '/api/transactions?month=' + month, {
+      month: month, importedAt: new Date().toISOString(), transactions: merged, source: 'agent',
+    })
+    log('  ' + month + ': ' + merged.length + ' transactions saved')
+  }
+
+  if (Object.keys(potBalances).length) {
+    try { await updateHeldBalances(config, potBalances) } catch (e) { log('  Held-balance update failed: ' + e.message) }
+  }
+
+  try { await apiPost(config, '/api/budget?resource=sync-status', status) } catch (e) { log('  Could not write status: ' + e.message) }
+
+  if (status.error) { log(''); log('Sync finished with errors: ' + status.error) }
+  else { log(''); log('Sync complete — ' + months.length + ' month(s) updated.') }
+}
+
+// ── Scheduling via launchd (macOS) ────────────────────────────────────────────
+function launchAgentPath() {
+  return path.join(os.homedir(), 'Library', 'LaunchAgents', 'com.nb-transactions.sync.plist')
+}
+function syncLogPath() {
+  return path.join(os.homedir(), '.local', 'state', 'nb-transactions', 'sync.log')
+}
+
+function runSchedule(config) {
+  const cp = require('child_process')
+  const action = process.argv[3]
+  const plistPath = launchAgentPath()
+  const logPath = syncLogPath()
+  const scriptPath = process.argv[1]        // installed nb-transactions
+  const nodePath = process.execPath         // exec node directly — launchd has a minimal PATH
+
+  if (action === 'on') {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true })
+    fs.mkdirSync(path.dirname(plistPath), { recursive: true })
+    const plist =
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+      '<plist version="1.0">\n<dict>\n' +
+      '  <key>Label</key><string>com.nb-transactions.sync</string>\n' +
+      '  <key>ProgramArguments</key>\n  <array>\n' +
+      '    <string>' + nodePath + '</string>\n' +
+      '    <string>' + scriptPath + '</string>\n' +
+      '    <string>sync</string>\n' +
+      '  </array>\n' +
+      '  <key>RunAtLoad</key><true/>\n' +
+      '  <key>StartInterval</key><integer>3600</integer>\n' +
+      '  <key>StandardOutPath</key><string>' + logPath + '</string>\n' +
+      '  <key>StandardErrorPath</key><string>' + logPath + '</string>\n' +
+      '</dict>\n</plist>\n'
+    fs.writeFileSync(plistPath, plist)
+    try { cp.execSync('launchctl unload "' + plistPath + '" 2>/dev/null') } catch (e) {}
+    cp.execSync('launchctl load "' + plistPath + '"')
+    log('Automatic sync enabled — runs at login, then hourly (missed runs fire on wake).')
+    log('Logs: ' + logPath)
+    return Promise.resolve()
+  }
+
+  if (action === 'off') {
+    try { cp.execSync('launchctl unload "' + plistPath + '" 2>/dev/null') } catch (e) {}
+    try { fs.unlinkSync(plistPath) } catch (e) {}
+    log('Automatic sync disabled.')
+    return Promise.resolve()
+  }
+
+  log('Usage: nb-transactions schedule on|off')
+  log('Currently: ' + (fs.existsSync(plistPath) ? 'enabled (' + plistPath + ')' : 'disabled'))
+  return Promise.resolve()
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const { csvPath, bankLabel, bankKey, month: argMonth, dryRun, appendMode } = parseArgs(process.argv)
@@ -778,7 +1309,18 @@ async function main() {
   process.stdout.write(outFiles.join('\n') + '\n')
 }
 
-main().catch(function(e) { process.stderr.write('\nUnexpected error: ' + e.message + '\n'); process.exit(1) })
+// ── Entry point: dispatch subcommands, else fall back to the CSV import flow ──
+const SUBCOMMANDS = { sync: runSync, 'connect-monzo': runConnectMonzo, config: runConfig, schedule: runSchedule }
+;(function dispatch() {
+  const cmd = process.argv[2]
+  const fail = function (e) { process.stderr.write('\nError: ' + e.message + '\n'); process.exit(1) }
+  if (SUBCOMMANDS[cmd]) {
+    const cfg = cmd === 'config' ? loadConfigSafe() : loadConfig()
+    Promise.resolve().then(function () { return SUBCOMMANDS[cmd](cfg) }).catch(fail)
+  } else {
+    main().catch(function (e) { process.stderr.write('\nUnexpected error: ' + e.message + '\n'); process.exit(1) })
+  }
+})()
 PROCESSOREOF
 
 chmod +x "$PROCESSOR"

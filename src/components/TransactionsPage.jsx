@@ -16,8 +16,9 @@ import {
   CATEGORY_COLOURS,
   CATEGORY_TO_BUDGET_GROUP,
 } from '../data/transactionCategories'
-import { MERCHANT_RULES, buildMerchantRulesPromptSection } from '../data/merchantRules'
+import { MERCHANT_RULES } from '../data/merchantRules'
 import { mergeTransactions } from '../utils/mergeTransactions'
+import { spentByCategory } from '../utils/budgetCalcs'
 
 // ── Formatting helpers ───────────────────────────────────────────────
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -26,6 +27,19 @@ const fmtSigned = (n) => `${n >= 0 ? '+' : '−'}£${Math.abs(n).toLocaleString(
 function monthLabel(ym) {
   const [y, m] = ym.split('-')
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
+function timeAgo(iso) {
+  if (!iso) return null
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return null
+  const s = Math.max(0, Math.round((Date.now() - then) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.round(h / 24)}d ago`
 }
 
 function prevMonth(ym) {
@@ -238,64 +252,9 @@ function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRu
   )
 }
 
-// ── Claude prompt builder ────────────────────────────────────────────
-function buildClaudePrompt(month, customRules = []) {
-  const label = monthLabel(month)
-  const catList = TRANSACTION_CATEGORIES.join('\n')
-  const corrections = loadCorrections()
-  const correctionSection = corrections.length > 0
-    ? `\n\n## Learned corrections — apply these exact mappings\n\nThe user has manually corrected these transactions before. Apply the same category when you see matching or similar descriptions:\n\n${corrections.map(c => `- "${c.description}" → ${c.to}  (not "${c.from}")`).join('\n')}`
-    : ''
-  const merchantSection = '\n\n' + buildMerchantRulesPromptSection(customRules)
-  return `You are a personal finance assistant. I will give you my bank CSV data and you must categorise every transaction and output a specific JSON format for my budgeting app.
-
-## IMPORTANT: Output format
-
-Output ONLY a single JSON code block, tagged \`\`\`transactions-json (exactly that tag). No explanation before or after. The shape must be exactly:
-
-\`\`\`transactions-json
-{
-  "month": "${month}",
-  "importedAt": "${new Date().toISOString()}",
-  "transactions": [
-    {
-      "id": "txn-1744704600000-0",
-      "date": "2026-04-03",
-      "description": "SAINSBURYS SUPERSTORE",
-      "amount": -62.14,
-      "category": "Groceries",
-      "account": "HSBC",
-      "notes": ""
-    }
-  ]
-}
-\`\`\`
-
-## Rules — follow these exactly
-
-1. **amount**: always a number. Money leaving the account is NEGATIVE. Income, refunds, and transfers in are POSITIVE.
-2. **date**: always YYYY-MM-DD format.
-3. **category**: must be EXACTLY one of the 39 strings listed below. No variations, no new categories.
-4. **id**: \`txn-\` followed by the current Unix timestamp in milliseconds, then \`-\`, then the row index starting at 0. Example: \`txn-1744704600000-0\`, \`txn-1744704600000-1\`.
-5. **account**: the name of the bank account (e.g. "HSBC", "Barclays", "Nationwide").
-6. Include EVERY row from the CSV — do not skip any.
-7. Output the COMPLETE JSON — never truncate or summarise.
-8. Transfers between your own accounts (Faster Payments, BACS to yourself, moving money between your own banks) → "Transfer".
-9. Monzo Flex repayment lines (description contains "Flex Repayment", "MONZO FLEX REPAYMENT", or similar) → "Transfer". These are you paying off your Flex balance, not purchases.
-10. Monzo savings pot movements (description ends with " Pot", e.g. "Holiday Pot", "Emergency Pot") → "Transfer".
-11. Monzo Flex *purchases* (actual items bought via Flex) — categorise by the actual purchase type, not as a card payment. E.g. a restaurant bought via Flex → "Eating Out & Takeaways".
-12. Regular salary/BACS payments → "Income - Salary".
-13. Pension deductions shown on payslip → "Savings - Pension".
-14. If you are unsure which category fits, prefer a specific one over "Other".${merchantSection}${correctionSection}
-
-## Canonical categories (use these exact strings only)
-
-${catList}
-
-## My bank CSV data for ${label}
-
-[PASTE YOUR CSV HERE]`
-}
+// Note: transactions are categorized ONLY on-device (local Ollama via nb-transactions).
+// The former "copy prompt into Claude/ChatGPT" flow was removed so transaction data is
+// never sent to a third-party LLM. Import-JSON + manual entry remain as non-LLM paths.
 
 // ── Validate imported JSON ───────────────────────────────────────────
 function validateImport(json) {
@@ -409,8 +368,9 @@ function ImportModal({ activeMonth, onClose, onImport }) {
 
         <div className="px-6 py-5 flex-1 overflow-y-auto">
           <p className="text-slate-400 text-sm mb-3">
-            After sending the prompt to Claude, copy the JSON it outputs (everything inside the{' '}
-            <code className="text-slate-300 bg-nb-700 px-1 rounded">```transactions-json</code> block) and paste it below.
+            Paste the contents of the JSON file that <code className="text-slate-300 bg-nb-700 px-1 rounded">nb-transactions</code> saved
+            to <code className="text-slate-300 bg-nb-700 px-1 rounded">~/Downloads/</code> (categorized on-device). Or if you run the
+            automatic sync, transactions appear here without any manual import.
           </p>
           <textarea
             className="w-full h-48 bg-nb-900 border border-nb-500 rounded-lg px-3 py-2.5 text-slate-300 text-xs font-mono resize-none focus:outline-none focus:border-nb-400 placeholder:text-slate-600"
@@ -498,8 +458,7 @@ function ImportModal({ activeMonth, onClose, onImport }) {
 const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/timgillhere/budget-app/main/scripts/install.sh | bash'
 
 // ── How to use guide ─────────────────────────────────────────────────
-function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed, onToggle }) {
-  const [method, setMethod] = useState('local')
+function HowToGuide({ onImport, collapsed, onToggle }) {
   const [installCopied, setInstallCopied] = useState(false)
 
   function copyInstall() {
@@ -532,95 +491,15 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
           )}
         </div>
 
-        {/* Method tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setMethod('local')}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all"
-            style={method === 'local'
-              ? { background: 'linear-gradient(135deg, #34d39920, #22d3ee18)', border: '1px solid #34d39950', color: '#34d399', boxShadow: '0 0 20px #34d39918' }
-              : { background: 'transparent', border: '1px solid #334155', color: '#64748b' }}
-          >
-            <span>🔒</span>
-            <span>Local AI</span>
-            <span
-              className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-              style={method === 'local'
-                ? { background: '#34d39930', color: '#34d399' }
-                : { background: '#1e293b', color: '#475569' }}
-            >
-              private
-            </span>
-          </button>
-          <button
-            onClick={() => setMethod('cloud')}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all"
-            style={method === 'cloud'
-              ? { background: 'linear-gradient(135deg, #4f7ef720, #22d3ee18)', border: '1px solid #4f7ef750', color: '#93c5fd', boxShadow: '0 0 20px #4f7ef718' }
-              : { background: 'transparent', border: '1px solid #334155', color: '#64748b' }}
-          >
-            <span>☁️</span>
-            <span>Cloud AI</span>
-          </button>
-        </div>
-
-        {/* ── Cloud method ── */}
-        {method === 'cloud' && (
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">1</div>
-              <div>
-                <div className="text-slate-300 text-sm font-medium">Export a CSV from your banking app</div>
-                <div className="text-slate-500 text-xs mt-0.5">HSBC, Barclays, Nationwide — any bank that lets you download a CSV of transactions.</div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">2</div>
-              <div className="flex-1">
-                <div className="text-slate-300 text-sm font-medium">Copy the prompt below and open Claude (or ChatGPT)</div>
-                <div className="text-slate-500 text-xs mt-0.5 mb-3">The prompt tells the AI exactly which categories to use and what JSON format to output. Paste your CSV at the bottom where it says [PASTE YOUR CSV HERE] and send.</div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={onCopyPrompt}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${copyFlash ? 'bg-emerald-700 text-white' : 'text-white'}`}
-                    style={copyFlash ? {} : { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' }}
-                  >
-                    {copyFlash ? <CheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
-                    {copyFlash ? 'Copied!' : 'Copy Claude prompt'}
-                  </button>
-                  <span className="text-slate-500 text-xs">for {monthLabel(activeMonth)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">3</div>
-              <div className="flex-1">
-                <div className="text-slate-300 text-sm font-medium">Copy Claude's JSON response and paste it here</div>
-                <div className="text-slate-500 text-xs mt-0.5 mb-3">Claude will output a block starting with <code className="text-slate-400 bg-nb-700 px-1 rounded">```transactions-json</code> — copy the content inside those fences and click Import.</div>
-                <button
-                  onClick={onImport}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors"
-                >
-                  <ArrowUpTrayIcon className="w-4 h-4" />
-                  Import JSON
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Local AI method ── */}
-        {method === 'local' && (
-          <div className="space-y-5">
+        {/* ── Local AI (only method — transactions are never sent to a third-party LLM) ── */}
+        <div className="space-y-5">
 
             {/* Privacy callout */}
             <div className="flex gap-3 px-4 py-3 rounded-lg" style={{ background: '#34d39912', border: '1px solid #34d39930' }}>
               <span className="text-lg leading-none mt-0.5">🔒</span>
               <div>
-                <div className="text-emerald-300 text-sm font-medium">Your bank data never leaves your computer</div>
-                <div className="text-emerald-400/60 text-xs mt-0.5">Processing happens entirely on-device using a local AI model. Nothing is sent to any server.</div>
+                <div className="text-emerald-300 text-sm font-medium">Your transactions are categorized on your Mac — never sent to a third-party AI</div>
+                <div className="text-emerald-400/60 text-xs mt-0.5">A local AI model (Ollama) does the categorizing on-device. Your categorized data is then saved to your own private cloud storage, behind your login.</div>
               </div>
             </div>
 
@@ -630,7 +509,7 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
               <div className="space-y-2">
                 {[
                   { name: 'Ollama', desc: 'Open source AI runtime — runs the language model locally on your Mac. Widely used and auditable.' },
-                  { name: 'llama3.2:3b', desc: 'A ~2 GB language model by Meta, downloaded once and stored on your machine. Never calls home.' },
+                  { name: 'qwen2.5:3b', desc: 'A ~2 GB language model by Alibaba, downloaded once and stored on your machine. Never calls home.' },
                   { name: 'nb-transactions', desc: 'A small command-line script (from this repo) that reads your CSV, runs the AI, and outputs the import JSON.' },
                 ].map(item => (
                   <div key={item.name} className="flex gap-2.5 text-xs">
@@ -660,7 +539,7 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
                 {[
                   'This runs a shell script downloaded from the internet. You should review it before running — the source is linked below.',
                   'Ollama installs as a background service that listens on localhost port 11434. It is not accessible from the internet.',
-                  'The AI model (~4.7 GB) is downloaded from Meta\'s servers via Ollama on first install. Subsequent runs are offline.',
+                  'The AI model (qwen2.5:3b, ~2 GB) is downloaded from the Ollama model registry on first install. Subsequent runs are fully offline.',
                   'The script modifies your ~/.zshrc to add ~/.local/bin to your PATH. This is a standard, reversible change.',
                   'To uninstall: run `brew uninstall ollama`, delete ~/.local/bin/nb-transactions and ~/.config/nb-transactions.',
                 ].map((w, i) => (
@@ -725,7 +604,6 @@ function HowToGuide({ activeMonth, onCopyPrompt, onImport, copyFlash, collapsed,
             </div>
 
           </div>
-        )}
       </div>
     </div>
   )
@@ -942,11 +820,7 @@ function CategoryBreakdown({ transactions }) {
 function ActualVsBudgeted({ transactions, budget }) {
   const rows = useMemo(() => {
     // Sum actual spending per transaction category
-    const actuals = {}
-    transactions.forEach(t => {
-      if (t.amount >= 0 || isTransfer(t)) return
-      actuals[t.category] = (actuals[t.category] || 0) + Math.abs(t.amount)
-    })
+    const actuals = spentByCategory(transactions)
 
     // Build flat group name → monthly budget lookup
     const groupBudgets = {}
@@ -1514,20 +1388,12 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 
 // ── Main page ────────────────────────────────────────────────────────
 export default function TransactionsPage({ budget }) {
-  const { transactions, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
+  const { transactions, meta, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
+  const freshness = timeAgo(meta?.importedAt)
   const { rules: merchantRules, rulesLoading, rulesSaving, saveRules } = useMerchantRules()
   const [showImport, setShowImport] = useState(false)
-  const [copyFlash, setCopyFlash] = useState(false)
   const [guideCollapsed, setGuideCollapsed] = useState(false)
   const isCurrentMonth = activeMonth === currentYearMonth()
-
-  function handleCopyPrompt() {
-    const prompt = buildClaudePrompt(activeMonth, merchantRules)
-    navigator.clipboard.writeText(prompt).then(() => {
-      setCopyFlash(true)
-      setTimeout(() => setCopyFlash(false), 2500)
-    })
-  }
 
   async function handleImport(month, txns) {
     await saveTransactions(month, txns)
@@ -1579,9 +1445,16 @@ export default function TransactionsPage({ budget }) {
           >
             <ChevronLeftIcon className="w-4 h-4" />
           </button>
-          <h2 className="text-slate-200 font-semibold text-base sm:text-lg w-36 sm:w-44 text-center">
-            {monthLabel(activeMonth)}
-          </h2>
+          <div className="w-36 sm:w-44 text-center">
+            <h2 className="text-slate-200 font-semibold text-base sm:text-lg leading-tight">
+              {monthLabel(activeMonth)}
+            </h2>
+            {freshness && (
+              <div className="text-[11px] text-slate-500 leading-tight">
+                Updated {freshness}{meta?.source === 'agent' ? ' · auto-synced' : ''}
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setActiveMonth(nextMonth(activeMonth))}
             disabled={isCurrentMonth}
@@ -1603,10 +1476,7 @@ export default function TransactionsPage({ budget }) {
 
       {/* Guide card */}
       <HowToGuide
-        activeMonth={activeMonth}
-        onCopyPrompt={handleCopyPrompt}
         onImport={() => setShowImport(true)}
-        copyFlash={copyFlash}
         collapsed={hasData && guideCollapsed}
         onToggle={hasData ? () => setGuideCollapsed(v => !v) : null}
       />

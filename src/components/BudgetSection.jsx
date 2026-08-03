@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   PencilSquareIcon, TrashIcon, PlusIcon, BuildingLibraryIcon,
   ChevronDownIcon, ChevronRightIcon, Bars3Icon, BanknotesIcon, CalendarDaysIcon,
@@ -12,9 +12,33 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import ItemRow from './ItemRow'
 import EditModal from './EditModal'
-import { isSavingsGroup, isAnnualFundGroup, stripPrefix } from '../utils/budgetCalcs'
+import { isSavingsGroup, isAnnualFundGroup, stripPrefix, spentByGroupName } from '../utils/budgetCalcs'
+import { useTransactions } from '../context/TransactionContext'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// "Held" pill — the manually-entered pot balance for a space (cyan).
+function HeldChip({ amount }) {
+  if (amount == null) return null
+  return (
+    <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
+      {fmt(amount)} held
+    </span>
+  )
+}
+
+// "Spent this month" pill — actual spend mapped to this space from imported transactions (amber).
+function SpentChip({ amount }) {
+  if (!amount) return null
+  return (
+    <span
+      title="Spent this month (from imported transactions)"
+      className="text-xs bg-amber-950/40 text-amber-400 border border-amber-800/50 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0"
+    >
+      {fmt(amount)} spent
+    </span>
+  )
+}
 
 function Cols() {
   return (
@@ -106,6 +130,14 @@ export default function BudgetSection({
 
   const sectionTotal = section.groups.reduce((s, g) =>
     s + g.items.reduce((gs, i) => gs + i.monthly, 0), 0)
+
+  // Actual spend per space (group name), from the active month's imported transactions.
+  const { transactions } = useTransactions()
+  const spentByGroup = useMemo(() => spentByGroupName(transactions), [transactions])
+  const groupSpent = (group) => spentByGroup[group.name] || 0
+
+  // Total manually-held balance across this section's spaces.
+  const heldTotal = section.groups.reduce((s, g) => s + (g.currentBalance || 0), 0)
 
   const displayName = (name) => stripPrefix(name)
   const effectiveGroupColor = (group) => group.color || section.color
@@ -249,11 +281,8 @@ export default function BudgetSection({
                             <div className="flex items-center gap-1.5">
                               {groupIsSavings ? (groupSavingsType === 'annual' ? <CalendarDaysIcon className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" /> : <BuildingLibraryIcon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />) : <OutgoingIcon />}
                               <span className="text-[15px] text-slate-200 font-semibold truncate">{displayName(group.name)}</span>
-                              {group.currentBalance != null && (
-                                <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full tabular-nums flex-shrink-0">
-                                  {fmt(group.currentBalance)}
-                                </span>
-                              )}
+                              <HeldChip amount={group.currentBalance} />
+                              <SpentChip amount={groupSpent(group)} />
                             </div>
                             {namesDiffer && <div className="text-xs text-slate-500 truncate">{item.name}</div>}
                             <div className="text-xs text-slate-500 tabular-nums">{fmt(item.monthly * 12)}/yr</div>
@@ -281,11 +310,8 @@ export default function BudgetSection({
                             <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                             <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
                             {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
-                            {group.currentBalance != null && (
-                              <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
-                                {fmt(group.currentBalance)}
-                              </span>
-                            )}
+                            <HeldChip amount={group.currentBalance} />
+                            <SpentChip amount={groupSpent(group)} />
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className="text-sm font-semibold text-slate-400 tabular-nums neon-white mr-1">{fmt(groupTotal)}/mo</span>
@@ -354,7 +380,10 @@ export default function BudgetSection({
                 className="flex items-center justify-between px-4 py-3 bg-nb-800 border-t-2 border-nb-500 border-l-4"
                 style={{ borderLeftColor: section.color }}
               >
-                <span className="text-base font-bold" style={{ color: section.color }}>{section.name} Total</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base font-bold" style={{ color: section.color }}>{section.name} Total</span>
+                  {heldTotal > 0 && <HeldChip amount={heldTotal} />}
+                </div>
                 <div className="text-right">
                   <div className="text-base font-bold text-slate-100 tabular-nums neon-white">{fmt(sectionTotal)}</div>
                   <div className="text-xs text-slate-400 tabular-nums">{fmt(sectionTotal * 12)}/yr</div>
@@ -420,11 +449,8 @@ export default function BudgetSection({
                                 {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
                                 <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
                                 {!namesDiffer && item.notes && <NotesTooltip notes={item.notes} />}
-                                {group.currentBalance != null && (
-                                  <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full tabular-nums flex-shrink-0">
-                                    {fmt(group.currentBalance)}
-                                  </span>
-                                )}
+                                <HeldChip amount={group.currentBalance} />
+                                <SpentChip amount={groupSpent(group)} />
                               </div>
                               {namesDiffer && (
                                 <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
@@ -473,11 +499,8 @@ export default function BudgetSection({
                                 <Bars3Icon className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                                 <span className="text-sm font-semibold text-slate-200 truncate">{displayName(group.name)}</span>
                                 {groupIsSavings ? <SavingsBadge type={groupSavingsType} /> : <OutgoingIcon />}
-                                {group.currentBalance != null && (
-                                  <span className="text-xs bg-nb-600 text-cyan-400 border border-nb-500 px-1.5 py-0.5 rounded-full leading-none tabular-nums flex-shrink-0">
-                                    {fmt(group.currentBalance)}
-                                  </span>
-                                )}
+                                <HeldChip amount={group.currentBalance} />
+                                <SpentChip amount={groupSpent(group)} />
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <span className="text-sm font-semibold text-slate-400 tabular-nums neon-white mr-1">{fmt(groupTotal)}/mo</span>
@@ -530,7 +553,10 @@ export default function BudgetSection({
                       className="px-4 py-2.5 text-base font-bold border-l-4"
                       style={{ borderLeftColor: section.color, color: section.color }}
                     >
-                      {section.name} Total
+                      <div className="flex items-center gap-2">
+                        <span>{section.name} Total</span>
+                        {heldTotal > 0 && <HeldChip amount={heldTotal} />}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-base font-bold text-slate-100 text-right tabular-nums neon-white">{fmt(sectionTotal)}</td>
                     <td className="px-4 py-2.5 text-sm font-semibold text-slate-400 text-right tabular-nums">{fmt(sectionTotal * 12)}/yr</td>

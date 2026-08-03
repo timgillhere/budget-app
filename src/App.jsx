@@ -528,11 +528,7 @@ function AppShell({ isAdmin, logout, name }) {
         {tab === 'budget'   && <BudgetTab />}
         {tab === 'charts'   && <div className="max-w-5xl mx-auto px-4 py-6"><Charts budget={data} /></div>}
         {tab === 'savings'  && <SavingsOverview />}
-        {tab === 'transactions' && (
-          <TransactionProvider onLogout={logout}>
-            <TransactionsPage budget={data} />
-          </TransactionProvider>
-        )}
+        {tab === 'transactions' && <TransactionsPage budget={data} />}
         {tab === 'forecast' && <ForecastCharts />}
         {tab === 'holidays' && <HolidayPlanner />}
         {tab === 'insights' && <Insights />}
@@ -609,7 +605,9 @@ export default function App() {
 
   return (
     <BudgetProvider onLogout={logout}>
-      <AppShell isAdmin={isAdmin} logout={logout} name={user?.name} />
+      <TransactionProvider onLogout={logout}>
+        <AppShell isAdmin={isAdmin} logout={logout} name={user?.name} />
+      </TransactionProvider>
     </BudgetProvider>
   )
 }

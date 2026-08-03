@@ -1,6 +1,39 @@
+import { isTransfer, INCOME_CATEGORIES, CATEGORY_TO_BUDGET_GROUP } from '../data/transactionCategories'
+
 // Legacy group IDs treated as savings. Kept for backward-compat with old JSON that has no savingsType.
 const ANNUAL_FUND_IDS   = ['monzo-van', 'monzo-prop', 'monzo-inst']
 const LONGTERM_FUND_IDS = ['monzo-goals']
+
+/**
+ * Sums actual spend per transaction category for a month's transactions.
+ * Spend = negative amounts only; transfers are excluded. Returns positive
+ * numbers keyed by category, e.g. { Groceries: 287.4 }.
+ */
+export function spentByCategory(transactions) {
+  const out = {}
+  if (!transactions) return out
+  transactions.forEach(t => {
+    if (!t || t.amount >= 0 || isTransfer(t)) return
+    out[t.category] = (out[t.category] || 0) + Math.abs(t.amount)
+  })
+  return out
+}
+
+/**
+ * Rolls category spend up to budget group names via CATEGORY_TO_BUDGET_GROUP.
+ * Income categories and unmapped categories are dropped. Returns positive
+ * totals keyed by group name, e.g. { 'Space 6: Groceries': 287.4 }.
+ */
+export function spentByGroupName(transactions) {
+  const out = {}
+  for (const [cat, amount] of Object.entries(spentByCategory(transactions))) {
+    if (INCOME_CATEGORIES.has(cat)) continue
+    const groupName = CATEGORY_TO_BUDGET_GROUP[cat]
+    if (!groupName) continue
+    out[groupName] = (out[groupName] || 0) + amount
+  }
+  return out
+}
 
 export function stripPrefix(name) {
   return (name || '').replace(/^Space\s+\d+:\s*/i, '').trim()

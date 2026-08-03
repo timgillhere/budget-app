@@ -58,8 +58,20 @@ CREATE TABLE IF NOT EXISTS security_questions (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Long-lived bearer tokens for non-browser clients (e.g. the local bank-sync agent).
+-- Only the SHA-256 hash of the token is stored; the plaintext is shown once at creation.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   TEXT        NOT NULL UNIQUE,
+  name         TEXT        NOT NULL DEFAULT 'Bank sync',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user    ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id) WHERE used_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_auth_events_user  ON auth_events(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_security_questions_user ON security_questions(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);

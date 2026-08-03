@@ -11,6 +11,7 @@ function currentYearMonth() {
 
 export function TransactionProvider({ children, onLogout }) {
   const [transactions, setTransactions] = useState(null) // null = not loaded yet
+  const [meta, setMeta] = useState(null)                 // { importedAt, source } from the loaded month doc
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved')
   const [activeMonth, setActiveMonthState] = useState(currentYearMonth)
@@ -24,8 +25,10 @@ export function TransactionProvider({ children, onLogout }) {
       if (!r.ok) { setLoading(false); return }
       const data = await r.json()
       setTransactions(data ? (data.transactions ?? []) : null)
+      setMeta(data ? { importedAt: data.importedAt ?? null, source: data.source ?? null } : null)
     } catch {
       setTransactions(null)
+      setMeta(null)
     } finally {
       setLoading(false)
     }
@@ -53,6 +56,7 @@ export function TransactionProvider({ children, onLogout }) {
       if (r.status === 401 || r.status === 403) { onLogout(); return }
       if (!r.ok) { setSaveStatus('error'); return }
       setTransactions(txns)
+      setMeta({ importedAt: payload.importedAt, source: null })
       setActiveMonthState(yearMonth)
       setSaveStatus('saved')
     } catch {
@@ -65,7 +69,7 @@ export function TransactionProvider({ children, onLogout }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <TransactionContext.Provider value={{ transactions, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions }}>
+    <TransactionContext.Provider value={{ transactions, meta, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions }}>
       {children}
     </TransactionContext.Provider>
   )
