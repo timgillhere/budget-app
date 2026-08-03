@@ -83,6 +83,7 @@ export default function BankSyncPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [apiReady, setApiReady] = useState(null)  // null = not checked yet
+  const [apiIssue, setApiIssue] = useState(null)  // why the probe failed, when it did
 
   const load = useCallback(async () => {
     try {
@@ -90,14 +91,29 @@ export default function BankSyncPanel() {
         fetch('/api/budget?resource=sync-token', { credentials: 'include' }),
         fetch('/api/budget?resource=sync-status', { credentials: 'include' }),
       ])
+      // Probe the token route. Each failure mode needs a different fix, so name which one it is
+      // rather than reporting a generic "not ready".
       if (tRes.ok) {
-        // A deployment without the sync-token route ignores ?resource and answers with the
-        // budget blob instead. An array means the route exists; anything else means it does not.
+        // A deployment without this route ignores ?resource and answers with the budget blob
+        // instead. An array means the route exists; anything else means it does not.
         const body = await tRes.json()
-        setApiReady(Array.isArray(body))
-        if (Array.isArray(body)) setTokens(body)
+        if (Array.isArray(body)) {
+          setTokens(body); setApiReady(true); setApiIssue(null)
+        } else {
+          setApiReady(false)
+          setApiIssue({ kind: 'stale-deployment' })
+        }
       } else {
+        let detail = null
+        try { detail = (await tRes.json())?.error } catch { /* not JSON */ }
         setApiReady(false)
+        setApiIssue({
+          kind: tRes.status === 401 || tRes.status === 403 ? 'auth'
+              : tRes.status >= 500 ? 'server'
+              : 'http',
+          status: tRes.status,
+          detail,
+        })
       }
       if (sRes.ok) setStatus(await sRes.json())
     } catch {
@@ -238,8 +254,28 @@ export default function BankSyncPanel() {
               </p>
               <Cmd>vercel --prod</Cmd>
               {apiReady === false && (
-                <div className="mt-1.5 bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300">
-                  This deployment does not have the sync-token route yet. Token creation is disabled until it does.
+                <div className="mt-1.5 bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300 space-y-1.5">
+                  {apiIssue?.kind === 'stale-deployment' && (
+                    <p>This deployment does not have the sync-token route yet — it answered with your budget instead. Deploy the latest commit.</p>
+                  )}
+                  {apiIssue?.kind === 'auth' && (
+                    <p>You are not signed in (HTTP {apiIssue.status}). Sign in again, then reload this page.</p>
+                  )}
+                  {apiIssue?.kind === 'server' && (
+                    <>
+                      <p>
+                        The route is deployed but the database rejected it{apiIssue.detail ? <> — <code className="text-red-200">{apiIssue.detail}</code></> : null}.
+                        This is usually the <code className="text-red-200">api_tokens</code> table not existing yet: it ships in
+                        {' '}<code className="text-red-200">api/db/schema.sql</code>, which nothing applies automatically.
+                      </p>
+                      <p className="text-red-300/80">Apply it once against your database (every statement is IF NOT EXISTS, so re-running is safe):</p>
+                      <Cmd>psql "$DATABASE_URL" -f api/db/schema.sql</Cmd>
+                    </>
+                  )}
+                  {apiIssue?.kind === 'http' && (
+                    <p>The token route returned HTTP {apiIssue.status}{apiIssue.detail ? ` — ${apiIssue.detail}` : ''}.</p>
+                  )}
+                  <p className="text-red-300/70">Token creation stays disabled until this clears — sending it to a backend that cannot store it would overwrite your budget.</p>
                 </div>
               )}
               {apiReady === true && (
