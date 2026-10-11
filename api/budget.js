@@ -1,6 +1,8 @@
 import { list, put } from '@vercel/blob';
 import { requireAuth, requireAuthOrToken, generateSyncToken, hashSyncToken } from './_auth.js';
 import { getPool } from './_db.js';
+import { clientFromEnv, sheetsEnabledFor } from './_sheets.js';
+import { createStore } from './_sheetStore.js';
 
 // Multiplexes several resources onto one function to stay within Vercel Hobby's 12-function limit:
 //   /api/budget                          → user's budget JSON            (browser or sync token)
@@ -32,6 +34,12 @@ export default async function handler(req, res) {
   if (!spec) {
     return res.status(400).json({ error: `Unknown resource "${resource}".` });
   }
+
+  // Optional Google-Sheets backend (DATA_SOURCE=sheets, single user = SHEETS_USER_ID). Everyone else stays on Blob.
+  if (sheetsEnabledFor(user)) {
+    return handleSheets(req, res, resource || 'budget');
+  }
+
   const blobKey = `users/${user.userId}/${spec.file}`;
 
   if (req.method === 'GET') {
@@ -72,6 +80,27 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function handleSheets(req, res, resource) {
+  try {
+    const store = createStore(clientFromEnv());
+    if (req.method === 'GET') {
+      if (resource === 'merchant-rules') return res.status(200).json(await store.getMerchantRules());
+      if (resource === 'sync-status')    return res.status(200).json(await store.getSyncStatus());
+      return res.status(200).json(await store.getBudget());
+    }
+    if (req.method === 'POST') {
+      if (resource === 'merchant-rules') await store.saveMerchantRules(req.body);
+      else if (resource === 'sync-status') await store.saveSyncStatus(req.body ?? null);
+      else await store.saveBudget(req.body);
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[sheets]', err.message);
+    return res.status(err.status || 500).json({ error: err.message });
+  }
 }
 
 // Create / list / revoke long-lived bearer tokens for the local bank-sync agent.

@@ -1,0 +1,100 @@
+// Minimal Google Sheets REST client authenticated as a service account (no googleapis dependency —
+// uses the existing `jsonwebtoken` dep for the RS256 assertion). Only what the store needs.
+import jwt from 'jsonwebtoken';
+
+const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const API = 'https://sheets.googleapis.com/v4/spreadsheets';
+
+export function parseCredentials(raw) {
+  if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set.');
+  let text = raw.trim();
+  if (!text.startsWith('{')) text = Buffer.from(text, 'base64').toString('utf8'); // allow base64-encoded
+  const c = JSON.parse(text);
+  if (!c.client_email || !c.private_key) throw new Error('Service account JSON needs client_email and private_key.');
+  c.private_key = c.private_key.replace(/\\n/g, '\n');
+  return c;
+}
+
+export const quoteTab = name => `'${name.replace(/'/g, "''")}'`;
+
+export class SheetsClient {
+  constructor({ spreadsheetId, credentials, fetchImpl }) {
+    if (!spreadsheetId) throw new Error('GOOGLE_SHEET_ID is not set.');
+    this.id = spreadsheetId;
+    this.creds = credentials;
+    this.fetch = fetchImpl || globalThis.fetch;
+    this._tok = null;
+  }
+
+  async token() {
+    const now = Math.floor(Date.now() / 1000);
+    if (this._tok && this._tok.exp - 60 > now) return this._tok.value;
+    const assertion = jwt.sign(
+      { iss: this.creds.client_email, scope: SCOPE, aud: this.creds.token_uri || 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 },
+      this.creds.private_key,
+      { algorithm: 'RS256' }
+    );
+    const r = await this.fetch(this.creds.token_uri || 'https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(`Google auth failed: ${j.error_description || j.error || r.status}`);
+    this._tok = { value: j.access_token, exp: now + (j.expires_in || 3600) };
+    return this._tok.value;
+  }
+
+  async req(method, path, body, attempt = 0) {
+    const r = await this.fetch(`${API}/${this.id}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${await this.token()}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if ((r.status === 429 || r.status >= 500) && attempt < 3) {
+      await new Promise(res => setTimeout(res, 500 * 2 ** attempt));
+      return this.req(method, path, body, attempt + 1);
+    }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const e = new Error(`Sheets API ${r.status}: ${j.error?.message || 'request failed'}`);
+      e.status = r.status === 404 || r.status === 403 ? 502 : r.status;
+      throw e;
+    }
+    return j;
+  }
+
+  // ── The three primitives the store uses ──
+  async batchGet(ranges) {
+    const q = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
+    const j = await this.req('GET', `/values:batchGet?${q}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&majorDimension=ROWS`);
+    return (j.valueRanges || []).map(v => v.values || []);
+  }
+  async batchUpdate(data, input = 'RAW') {
+    if (!data.length) return;
+    await this.req('POST', '/values:batchUpdate', { valueInputOption: input, data });
+  }
+  async batchClear(ranges) {
+    if (!ranges.length) return;
+    await this.req('POST', '/values:batchClear', { ranges });
+  }
+
+  // ── Setup helpers (used by scripts/sheet-sync.mjs) ──
+  async tabs() {
+    const j = await this.req('GET', '?fields=sheets.properties(sheetId,title)');
+    return (j.sheets || []).map(s => s.properties);
+  }
+  async structure(requests) {
+    if (!requests.length) return;
+    await this.req('POST', ':batchUpdate', { requests });
+  }
+}
+
+export function clientFromEnv(env = process.env) {
+  return new SheetsClient({ spreadsheetId: env.GOOGLE_SHEET_ID, credentials: parseCredentials(env.GOOGLE_SERVICE_ACCOUNT_JSON) });
+}
+
+// Only one sheet exists, so only one app user can be backed by it. Everyone else stays on Blob.
+export function sheetsEnabledFor(user, env = process.env) {
+  return env.DATA_SOURCE === 'sheets' && !!env.SHEETS_USER_ID && String(user?.userId) === String(env.SHEETS_USER_ID);
+}

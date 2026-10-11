@@ -66,3 +66,19 @@ The frontend runs on `http://localhost:5173`. The `api/` serverless functions on
 # budgeting-app
 # budgeting-app
 # budgeting-app
+
+## Optional: Google Sheets as the data store
+
+The budget, trips, settings, net worth, transactions, merchant rules and sync status can live in a Google Sheet
+(readable/editable by hand, and by Claude) instead of Vercel Blob. Postgres (logins, MFA, sync tokens) is unchanged.
+
+1. Google Cloud: create a service account, enable the **Google Sheets API**, download its JSON key.
+2. Share the spreadsheet with the service account's `client_email` as **Editor**.
+3. Vercel env vars: `DATA_SOURCE=sheets`, `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` (raw or base64 JSON),
+   `SHEETS_USER_ID` (the app user id whose data lives in the sheet; all other users stay on Blob).
+4. `node --env-file=.env scripts/sheet-sync.mjs init` creates missing tabs/columns; `check` verifies; `push budget.json` / `pull` move JSON in/out.
+5. `npm run test:sheets` runs the round-trip tests (no network).
+
+Columns are matched by header name, so you can reorder them or add your own. Header cells that contain formulas
+(Annual, Monthly total, Progress…) are never written by the app. Unknown fields round-trip through each tab's `Extra` JSON column.
+The app saves a whole document at a time, so reload it after editing the sheet by hand.

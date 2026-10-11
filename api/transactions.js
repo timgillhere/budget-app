@@ -1,5 +1,7 @@
 import { list, put } from '@vercel/blob';
 import { requireAuthOrToken } from './_auth.js';
+import { clientFromEnv, sheetsEnabledFor } from './_sheets.js';
+import { createStore } from './_sheetStore.js';
 
 export default async function handler(req, res) {
   const user = await requireAuthOrToken(req, res);
@@ -9,6 +11,18 @@ export default async function handler(req, res) {
 
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'Missing or invalid month parameter (expected YYYY-MM)' });
+  }
+
+  if (sheetsEnabledFor(user)) {
+    try {
+      const store = createStore(clientFromEnv());
+      if (req.method === 'GET') return res.status(200).json(await store.getMonth(month));
+      if (req.method === 'POST') { await store.saveMonth(month, req.body); return res.status(200).json({ ok: true }); }
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err) {
+      console.error('[sheets]', err.message);
+      return res.status(err.status || 500).json({ error: err.message });
+    }
   }
 
   const blobKey = `users/${user.userId}/transactions/${month}.json`;

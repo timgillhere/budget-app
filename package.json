@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite --open",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:sheets": "node scripts/test-sheet-store.mjs",
+    "sheet": "node scripts/sheet-sync.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
