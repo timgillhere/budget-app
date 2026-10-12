@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBudget } from '../context/BudgetContext'
-import SecuritySettings from './SecuritySettings'
-import BankSyncPanel from './BankSyncPanel'
+import AccountSettings from './AccountSettings'
 
 // Derive age from ISO date string (YYYY-MM-DD)
 function ageFromDob(dob) {
@@ -352,16 +351,10 @@ export default function SettingsPanel({ onStartOnboarding }) {
         </button>
       </div>
 
-      {/* Bank sync section */}
-      <div className="border-t border-nb-700/40 pt-5">
-        <h2 className="text-lg font-bold text-slate-300 mb-4">Automatic Bank Sync</h2>
-        <BankSyncPanel />
-      </div>
-
       {/* Security section */}
       <div className="border-t border-nb-700/40 pt-5">
         <h2 className="text-lg font-bold text-slate-300 mb-4">Account Security</h2>
-        <SecuritySettings />
+        <AccountSettings />
       </div>
     </div>
   )

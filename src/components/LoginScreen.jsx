@@ -1,95 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-const inputCls = "w-full bg-nb-800 text-white rounded-lg px-4 py-2.5 text-sm placeholder-slate-600 neon-input";
+// Set by /api/auth/callback when sign-in doesn't complete.
+const AUTH_ERRORS = {
+  not_invited: "That Google account isn't on the list for this app. Ask the admin to add your email under Users, then try again.",
+  email_unverified: 'Google reports that email address as unverified, so it can’t be used to sign in.',
+  cancelled: 'Sign-in was cancelled.',
+  state_mismatch: 'Sign-in expired or was started in another tab. Please try again.',
+  google_error: 'Google sign-in failed. Please try again.',
+  not_configured: 'Google sign-in isn’t set up yet: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are missing from the server environment.',
+};
 
-export default function LoginScreen({ onLogin, onRegister }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+function readAuthError() {
+  const code = new URLSearchParams(window.location.search).get('auth_error');
+  return code ? AUTH_ERRORS[code] || 'Sign-in failed. Please try again.' : '';
+}
 
-  // Forgot password state
-  const [showForgot, setShowForgot] = useState(false);
-  const [forgotStep, setForgotStep] = useState(1); // 1 = enter email, 2 = answer question + set password
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotQuestion, setForgotQuestion] = useState('');
-  const [forgotAnswer, setForgotAnswer] = useState('');
-  const [forgotNewPassword, setForgotNewPassword] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotError, setForgotError] = useState('');
-  const [forgotDone, setForgotDone] = useState(false);
+export default function LoginScreen({ onLogin }) {
+  const [error] = useState(readAuthError);
+  const [redirecting, setRedirecting] = useState(false);
 
-  async function handleLogin(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await onLogin(email, password);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Drop the code from the address bar so a refresh doesn't show it again.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('auth_error')) return;
+    params.delete('auth_error');
+    const qs = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+  }, []);
 
-  async function handleForgotStep1(e) {
-    e.preventDefault();
-    setForgotError('');
-    setForgotLoading(true);
-    try {
-      const res = await fetch(`/api/auth/password-reset?email=${encodeURIComponent(forgotEmail)}`);
-      const data = await res.json();
-      if (!data.found) {
-        setForgotError('No account found with that email.');
-        return;
-      }
-      setForgotQuestion(data.question);
-      setForgotStep(2);
-    } catch {
-      setForgotError('Something went wrong. Please try again.');
-    } finally {
-      setForgotLoading(false);
-    }
-  }
-
-  async function handleForgotStep2(e) {
-    e.preventDefault();
-    setForgotError('');
-    if (forgotNewPassword.length < 8) {
-      setForgotError('New password must be at least 8 characters');
-      return;
-    }
-    setForgotLoading(true);
-    try {
-      const res = await fetch('/api/auth/password-reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, answer: forgotAnswer, newPassword: forgotNewPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-      setForgotDone(true);
-    } catch (err) {
-      setForgotError(err.message);
-    } finally {
-      setForgotLoading(false);
-    }
-  }
-
-  function openForgot() {
-    setForgotEmail(email);
-    setForgotStep(1);
-    setForgotQuestion('');
-    setForgotAnswer('');
-    setForgotNewPassword('');
-    setForgotError('');
-    setForgotDone(false);
-    setShowForgot(true);
-  }
-
-  function closeForgot() {
-    setShowForgot(false);
+  function handleLogin() {
+    setRedirecting(true);
+    onLogin();
   }
 
   return (
@@ -101,141 +42,30 @@ export default function LoginScreen({ onLogin, onRegister }) {
           <p className="text-slate-500 text-sm mt-1">Sign in to continue</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-nb-750 rounded-2xl border border-nb-600 p-6 space-y-4 shadow-2xl nb-card-glow">
-          <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
-              className={inputCls} placeholder="you@example.com" />
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Password</label>
-            <div className="relative">
-              <input type={showPassword ? 'text' : 'password'} value={password}
-                onChange={e => setPassword(e.target.value)} required
-                className={inputCls + ' pr-10'} placeholder="••••••••" />
-              <button type="button" onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-                    <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M3.28 2.22a.75.75 0 0 0-1.06 1.06l14.5 14.5a.75.75 0 1 0 1.06-1.06l-1.745-1.745a10.029 10.029 0 0 0 3.3-4.38 1.651 1.651 0 0 0 0-1.185A10.004 10.004 0 0 0 9.999 3a9.956 9.956 0 0 0-4.744 1.194L3.28 2.22ZM7.752 6.69l1.092 1.092a2.5 2.5 0 0 1 3.374 3.373l1.091 1.092a4 4 0 0 0-5.557-5.557Z" clipRule="evenodd" />
-                    <path d="m10.748 13.93 2.523 2.524a10.024 10.024 0 0 1-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 0 1 0-1.186A10.033 10.033 0 0 1 4.1 5.82l2.519 2.52a4 4 0 0 0 4.131 5.59Z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-
+        <div className="bg-nb-750 rounded-2xl border border-nb-600 p-6 space-y-4 shadow-2xl nb-card-glow">
           {error && (
             <p className="text-red-400 text-sm bg-red-900/20 border border-red-800/60 rounded-lg px-3 py-2" role="alert">
               {error}
             </p>
           )}
 
-          <button type="submit" disabled={loading}
-            className="w-full bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2.5 text-sm transition-colors mt-2">
-            {loading ? 'Signing in…' : 'Sign in'}
+          <button type="button" onClick={handleLogin} disabled={redirecting}
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 disabled:opacity-60 disabled:cursor-wait text-slate-800 font-medium rounded-lg py-2.5 text-sm transition-colors">
+            <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
+              <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
+              <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+              <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+              <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/>
+            </svg>
+            {redirecting ? 'Redirecting to Google…' : 'Sign in with Google'}
           </button>
 
-          <div className="flex justify-between text-xs pt-1">
-            <button type="button" onClick={openForgot}
-              className="text-slate-500 hover:text-slate-300 underline transition-colors">
-              Forgotten your password?
-            </button>
-            <button type="button" onClick={onRegister}
-              className="text-slate-500 hover:text-slate-300 underline transition-colors">
-              Create account
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Forgot password overlay */}
-      {showForgot && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-nb-750 rounded-2xl border border-nb-600 shadow-2xl w-full max-w-sm p-6 space-y-4">
-
-            {forgotDone ? (
-              <>
-                <h2 className="text-lg font-bold text-white">Password updated</h2>
-                <p className="text-slate-400 text-sm">Your password has been changed. Sign in with your new password.</p>
-                <button onClick={closeForgot}
-                  className="w-full bg-neuro-600 hover:bg-neuro-500 text-white font-medium rounded-lg py-2.5 text-sm transition-colors">
-                  Back to sign in
-                </button>
-              </>
-            ) : forgotStep === 1 ? (
-              <>
-                <h2 className="text-lg font-bold text-white">Forgot password?</h2>
-                <p className="text-slate-400 text-sm">Enter your email to retrieve your security question.</p>
-                <form onSubmit={handleForgotStep1} className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1.5">Email</label>
-                    <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                      required autoFocus className={inputCls} placeholder="you@example.com" />
-                  </div>
-                  {forgotError && (
-                    <p className="text-red-400 text-sm bg-red-900/20 border border-red-800/60 rounded-lg px-3 py-2">
-                      {forgotError}
-                    </p>
-                  )}
-                  <div className="flex gap-3">
-                    <button type="button" onClick={closeForgot}
-                      className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 rounded-lg py-2.5 text-sm transition-colors">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={forgotLoading}
-                      className="flex-1 bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors">
-                      {forgotLoading ? 'Looking up…' : 'Continue'}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-bold text-white">Security question</h2>
-                <form onSubmit={handleForgotStep2} className="space-y-4">
-                  <div className="bg-nb-800 rounded-lg px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-1">Your question</p>
-                    <p className="text-slate-200 text-sm">{forgotQuestion}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1.5">Answer</label>
-                    <input type="text" value={forgotAnswer} onChange={e => setForgotAnswer(e.target.value)}
-                      required autoFocus className={inputCls} placeholder="Your answer" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1.5">New password</label>
-                    <input type="password" value={forgotNewPassword} onChange={e => setForgotNewPassword(e.target.value)}
-                      required minLength={8} className={inputCls} placeholder="Min. 8 characters" />
-                  </div>
-                  {forgotError && (
-                    <p className="text-red-400 text-sm bg-red-900/20 border border-red-800/60 rounded-lg px-3 py-2">
-                      {forgotError}
-                    </p>
-                  )}
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => { setForgotStep(1); setForgotError(''); }}
-                      className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 rounded-lg py-2.5 text-sm transition-colors">
-                      Back
-                    </button>
-                    <button type="submit" disabled={forgotLoading}
-                      className="flex-1 bg-neuro-600 hover:bg-neuro-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors">
-                      {forgotLoading ? 'Saving…' : 'Reset password'}
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
+          <p className="text-xs text-slate-500 text-center leading-relaxed">
+            Only accounts the admin has added can sign in. Your Google password and 2-Step
+            Verification are handled by Google; this app never sees them.
+          </p>
         </div>
-      )}
+      </div>
     </div>
   );
 }

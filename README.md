@@ -8,29 +8,34 @@ Personal finance tracker built with React + Vite, deployed on Vercel.
 
 In the Vercel dashboard, go to your project → **Storage** → add a **Blob** store.
 
-### 2. Set environment variables
+### 2. Create a Google OAuth client
+
+Sign-in uses Google. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+
+1. **Create credentials → OAuth client ID**, application type **Web application**. (If prompted, configure the consent screen first; the `openid`, `email` and `profile` scopes are all it needs.)
+2. Under **Authorised redirect URIs** add:
+   - `https://<your-domain>/api/auth/callback` (one per domain you sign in on)
+   - `http://localhost:5173/api/auth/callback` (local dev)
+3. Copy the **Client ID** and **Client secret**.
+
+### 3. Set environment variables
 
 In the Vercel dashboard, go to your project → **Settings** → **Environment Variables** and add:
 
 | Variable | Value |
 |----------|-------|
-| `ADMIN_EMAIL` | Your admin email address |
+| `GOOGLE_CLIENT_ID` | From the OAuth client above |
+| `GOOGLE_CLIENT_SECRET` | From the OAuth client above |
+| `ADMIN_EMAIL` | The Google account email that should be admin |
 | `ADMIN_NAME` | Your first name (shown in the app header) |
-| `ADMIN_PASSWORD_HASH` | bcrypt hash of your admin password (see below) |
-| `JWT_SECRET` | A random 32-character hex string (see below) |
+| `DATABASE_URL` | Your Neon Postgres connection string |
 | `BLOB_READ_WRITE_TOKEN` | Copied from the Blob store you created above |
 
-**Generate your admin password hash:**
-```bash
-node scripts/hash-password.js yourpassword
-```
+### 4. Set up the database
 
-**Generate a JWT secret:**
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+Run `api/db/schema.sql` once against your database. If the database dates from before Google sign-in, run `api/db/migrate-to-oauth.sql` instead (after deploying). It links existing users to Google by email and deletes the old password, MFA and sync-token data.
 
-### 3. Deploy
+### 5. Deploy
 
 Push to your connected Git repo — Vercel will build and deploy automatically.
 
@@ -38,20 +43,24 @@ Push to your connected Git repo — Vercel will build and deploy automatically.
 
 ## Authentication
 
-### Logging in
+### Signing in
 
-Visit the app and sign in with your `ADMIN_EMAIL` and password.
+Click **Sign in with Google**. The first time `ADMIN_EMAIL` signs in, the admin account is created.
 
-### Registering other users (admin only)
+### Adding other users (admin only)
 
-1. Log in as admin
-2. Click the **Users** tab (only visible to admins)
-3. Enter the new user's email and password, then click **Register user**
-4. They can log in immediately — each user sees only their own budget data
+1. Sign in as admin
+2. Open the **Users** tab
+3. Enter their name and Google account email, then click **Add user**
+4. They can sign in with Google straight away. Each user sees only their own budget data.
+
+Any Google account not on the list is turned away.
 
 ### Sessions
 
-Sessions last 7 days. Refreshing the page keeps you logged in. Use the **Sign out** button in the top-right to log out.
+The session cookie (`__Host-session`) holds only a random ID. It is `HttpOnly`, `Secure` and `SameSite=Strict`, so page scripts can't read it and other sites can't send it. The database stores only a SHA-256 hash of that ID. Sessions end after 1 hour of inactivity and after 7 days at most. **Settings → Sign out on all devices** ends every session.
+
+Passwords and 2-Step Verification are handled by Google.
 
 ---
 
@@ -62,7 +71,4 @@ npm install
 npm run dev
 ```
 
-The frontend runs on `http://localhost:5173`. The `api/` serverless functions only run on Vercel — for full local API testing use `vercel dev` instead.
-# budgeting-app
-# budgeting-app
-# budgeting-app
+The frontend runs on `http://localhost:5173`. `/api` requests are proxied to the deployed app (see `vite.config.js`), so sign-in redirects back to `http://localhost:5173` — keep that redirect URI on the Google OAuth client.

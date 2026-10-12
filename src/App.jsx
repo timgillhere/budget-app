@@ -16,8 +16,6 @@ import { CSS } from '@dnd-kit/utilities'
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
-import MfaVerifyScreen from './components/MfaVerifyScreen'
-import RegisterScreen from './components/RegisterScreen'
 import SummaryBar from './components/SummaryBar'
 import BudgetSection from './components/BudgetSection'
 import EditModal from './components/EditModal'
@@ -174,7 +172,7 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
       {/* Logout */}
       <div className="px-3 py-3 border-t border-nb-700/40 flex-shrink-0">
         <button
-          onClick={logout}
+          onClick={() => logout()}
           disabled={saveStatus === 'saving'}
           title={saveStatus === 'saving' ? 'Saving your data — please wait…' : undefined}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-200 hover:bg-nb-650 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-500"
@@ -538,7 +536,7 @@ function AppShell({ isAdmin, logout, name }) {
       </div>
 
       {showOnboarding && (
-        <OnboardingModal jwtName={name} onClose={() => setShowOnboarding(false)} />
+        <OnboardingModal userName={name} onClose={() => setShowOnboarding(false)} />
       )}
 
       {importError && (
@@ -587,8 +585,7 @@ function AppShell({ isAdmin, logout, name }) {
 }
 
 export default function App() {
-  const { user, loading, isAdmin, mfaPending, login, logout, completeMfa } = useAuth()
-  const [showRegister, setShowRegister] = useState(false)
+  const { user, loading, isAdmin, login, logout } = useAuth()
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
@@ -596,12 +593,7 @@ export default function App() {
     </div>
   )
 
-  if (mfaPending) return <MfaVerifyScreen onVerified={completeMfa} onCancel={logout} />
-
-  if (!user) {
-    if (showRegister) return <RegisterScreen onBack={() => setShowRegister(false)} />
-    return <LoginScreen onLogin={login} onRegister={() => setShowRegister(true)} />
-  }
+  if (!user) return <LoginScreen onLogin={login} />
 
   return (
     <BudgetProvider onLogout={logout}>
