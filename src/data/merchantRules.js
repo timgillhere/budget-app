@@ -60,7 +60,7 @@ export const MERCHANT_RULES = [
   { pattern: 'ITSU',                     matchType: 'contains', category: 'Eating Out & Takeaways' },
 
   // ── Transport — Public Transport ───────────────────────────────────────────────
-  { pattern: 'TFL',                      matchType: 'contains', category: 'Transport - Public Transport' },
+  { pattern: 'TFL',                      matchType: 'startsWith', category: 'Transport - Public Transport' },
   { pattern: 'TF TRAVEL',                matchType: 'contains', category: 'Transport - Public Transport' },
   { pattern: 'OYSTER',                   matchType: 'contains', category: 'Transport - Public Transport' },
   { pattern: 'TRAINLINE',                matchType: 'contains', category: 'Transport - Public Transport' },
