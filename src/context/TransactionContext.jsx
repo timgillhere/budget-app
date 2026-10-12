@@ -14,21 +14,30 @@ export function TransactionProvider({ children, onLogout }) {
   const [meta, setMeta] = useState(null)                 // { importedAt, source } from the loaded month doc
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [error, setError] = useState(null)
   const [activeMonth, setActiveMonthState] = useState(currentYearMonth)
 
   const loadMonth = useCallback(async (yearMonth) => {
     setLoading(true)
     setTransactions(null)
+    setError(null)
     try {
       const r = await fetch(`/api/transactions?month=${yearMonth}`, { credentials: 'include' })
-      if (r.status === 401 || r.status === 403) { onLogout(); return }
-      if (!r.ok) { setLoading(false); return }
+      // Only 401 is a dead session. A 403 (no data store) or 5xx (sheet unreachable) has to be
+      // shown — otherwise it renders as "no transactions for this month", which isn't true.
+      if (r.status === 401) { onLogout(); return }
+      if (!r.ok) {
+        const body = await r.json().catch(() => null)
+        setError(body?.error || `Couldn't load transactions (${r.status}).`)
+        return
+      }
       const data = await r.json()
       setTransactions(data ? (data.transactions ?? []) : null)
       setMeta(data ? { importedAt: data.importedAt ?? null, source: data.source ?? null } : null)
     } catch {
       setTransactions(null)
       setMeta(null)
+      setError("Couldn't reach the server to load transactions.")
     } finally {
       setLoading(false)
     }
@@ -53,11 +62,17 @@ export function TransactionProvider({ children, onLogout }) {
         credentials: 'include',
         body: JSON.stringify(payload),
       })
-      if (r.status === 401 || r.status === 403) { onLogout(); return }
-      if (!r.ok) { setSaveStatus('error'); return }
+      if (r.status === 401) { onLogout(); return }
+      if (!r.ok) {
+        const body = await r.json().catch(() => null)
+        if (body?.error) setError(body.error)
+        setSaveStatus('error')
+        return
+      }
       setTransactions(txns)
       setMeta({ importedAt: payload.importedAt, source: null })
       setActiveMonthState(yearMonth)
+      setError(null)
       setSaveStatus('saved')
     } catch {
       setSaveStatus('error')
@@ -69,7 +84,7 @@ export function TransactionProvider({ children, onLogout }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <TransactionContext.Provider value={{ transactions, meta, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions }}>
+    <TransactionContext.Provider value={{ transactions, meta, loading, error, saveStatus, activeMonth, setActiveMonth, saveTransactions }}>
       {children}
     </TransactionContext.Provider>
   )

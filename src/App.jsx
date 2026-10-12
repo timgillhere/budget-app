@@ -355,7 +355,7 @@ function BudgetTab() {
 
 // ── Main app shell ───────────────────────────────────────────────────
 function AppShell({ isAdmin, logout, name }) {
-  const { data, loading, saveStatus, save } = useBudget()
+  const { data, loading, error, saveStatus, save } = useBudget()
   const [tab, setTab] = useState('budget')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(null)
@@ -414,6 +414,37 @@ function AppShell({ isAdmin, logout, name }) {
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-nb-900 text-slate-500">
       <div className="text-center"><img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-3 opacity-70" /><div className="text-sm">Loading...</div></div>
+    </div>
+  )
+
+  // The budget couldn't be read, but the session is fine. Everything below assumes `data` exists,
+  // so this is a stop — and it says why, rather than showing an empty budget that looks like a
+  // brand-new account and quietly starts the onboarding wizard.
+  if (error && !data) return (
+    <div className="flex items-center justify-center h-screen bg-nb-900 px-6">
+      <div className="max-w-sm text-center">
+        <img src="/logo.png" alt="" className="h-10 w-10 mx-auto mb-4 opacity-70" />
+        <h1 className="text-base font-semibold text-slate-200 mb-3">Couldn&rsquo;t load your budget</h1>
+        <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300 text-left mb-3">
+          {error}
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          Your budget is read from a Google Sheet. Your sign-in is fine &mdash; it&rsquo;s the sheet
+          connection that failed.
+        </p>
+        <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs px-3 py-1.5 rounded-lg bg-nb-700 hover:bg-nb-600 text-slate-300 transition-colors">
+            Try again
+          </button>
+          <button
+            onClick={() => logout()}
+            className="text-xs px-3 py-1.5 rounded-lg bg-nb-800 hover:bg-nb-700 text-slate-400 transition-colors">
+            Sign out
+          </button>
+        </div>
+      </div>
     </div>
   )
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { defaultBudget, emptyBudget } from '../data/defaultBudget'
+import { emptyBudget } from '../data/defaultBudget'
 
 const BudgetContext = createContext(null)
 
@@ -7,22 +7,32 @@ export function BudgetProvider({ children, onLogout }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [error, setError] = useState(null)
 
+  // Only 401 means "not signed in". A 403 means the account is signed in but has no sheet
+  // behind it, and a 5xx means the sheet itself is unreachable — both used to be treated as a
+  // logout, or as an empty budget, which made a broken data source look like a brand-new account.
   useEffect(() => {
     const controller = new AbortController()
-    fetch('/api/budget', { credentials: 'include', signal: controller.signal })
-      .then(r => {
-        if (r.status === 401 || r.status === 403) { onLogout(); return }
-        return r.json().then(raw => {
-          const merged = raw ? mergeWithDefaults(raw) : emptyBudget
-          setData(merged)
+    ;(async () => {
+      try {
+        const r = await fetch('/api/budget', { credentials: 'include', signal: controller.signal })
+        if (r.status === 401) { onLogout(); return }
+        if (!r.ok) {
+          const body = await r.json().catch(() => null)
+          setError(body?.error || `Couldn't load your budget (${r.status}).`)
           setLoading(false)
-        })
-      })
-      .catch(err => {
+          return
+        }
+        const raw = await r.json()
+        setData(raw ? mergeWithDefaults(raw) : emptyBudget)
+        setLoading(false)
+      } catch (err) {
         if (err.name === 'AbortError') return
-        setData(emptyBudget); setLoading(false)
-      })
+        setError("Couldn't reach the server to load your budget.")
+        setLoading(false)
+      }
+    })()
     return () => controller.abort()
   }, [])
 
@@ -36,8 +46,14 @@ export function BudgetProvider({ children, onLogout }) {
         credentials: 'include',
         body: JSON.stringify(updated)
       })
-      if (r.status === 401 || r.status === 403) { onLogout(); return }
-      if (!r.ok) { setSaveStatus('error'); return }
+      if (r.status === 401) { onLogout(); return }
+      if (!r.ok) {
+        const body = await r.json().catch(() => null)
+        if (body?.error) setError(body.error)
+        setSaveStatus('error')
+        return
+      }
+      setError(null)
       setSaveStatus('saved')
     } catch {
       setSaveStatus('error')
@@ -96,11 +112,11 @@ export function BudgetProvider({ children, onLogout }) {
       : hasData
 
     return migrateSavingsTypes({
-      ...defaultBudget,
+      ...emptyBudget,
       ...saved,
       settings: { ...emptyBudget.settings, ...restSettings, futureEvents, onboardingComplete },
-      holidays: saved.holidays || defaultBudget.holidays,
-      netWorth: { ...defaultBudget.netWorth, ...(saved.netWorth || {}) }
+      holidays: saved.holidays || emptyBudget.holidays,
+      netWorth: { ...emptyBudget.netWorth, ...(saved.netWorth || {}) }
     })
   }
 
@@ -120,7 +136,7 @@ export function BudgetProvider({ children, onLogout }) {
   }, [data])
 
   return (
-    <BudgetContext.Provider value={{ data, save, loading, saveStatus, getHolidayContribution }}>
+    <BudgetContext.Provider value={{ data, save, loading, error, saveStatus, getHolidayContribution }}>
       {children}
     </BudgetContext.Provider>
   )

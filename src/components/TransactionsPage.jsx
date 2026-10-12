@@ -73,7 +73,7 @@ function recordCorrection(description, from, to) {
   localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(all))
 }
 
-// ── Merchant rules (custom, stored in Blob) ───────────────────────────
+// ── Merchant rules (custom, stored in the Google Sheet) ───────────────
 function useMerchantRules() {
   const [rules, setRules] = useState([])
   const [rulesLoading, setRulesLoading] = useState(true)
@@ -1388,7 +1388,7 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 
 // ── Main page ────────────────────────────────────────────────────────
 export default function TransactionsPage({ budget }) {
-  const { transactions, meta, loading, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
+  const { transactions, meta, loading, error, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
   const freshness = timeAgo(meta?.importedAt)
   const { rules: merchantRules, rulesLoading, rulesSaving, saveRules } = useMerchantRules()
   const [showImport, setShowImport] = useState(false)
@@ -1502,8 +1502,19 @@ export default function TransactionsPage({ budget }) {
         <div className="text-center text-red-400 text-xs mb-4">Failed to save. Please try again.</div>
       )}
 
+      {/* Couldn't load — distinct from "this month is empty", which is what it used to look like */}
+      {!loading && error && !hasData && (
+        <div className="text-center py-16">
+          <div className="text-4xl mb-4">⚠️</div>
+          <div className="text-slate-400 text-base font-medium mb-2">Couldn&rsquo;t load transactions</div>
+          <div className="max-w-sm mx-auto bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300 text-left">
+            {error}
+          </div>
+        </div>
+      )}
+
       {/* Empty state */}
-      {!loading && !hasData && (
+      {!loading && !error && !hasData && (
         <div className="text-center py-16">
           <div className="text-4xl mb-4">💳</div>
           <div className="text-slate-400 text-base font-medium mb-1">No transactions for {monthLabel(activeMonth)}</div>

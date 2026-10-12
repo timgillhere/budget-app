@@ -68,7 +68,16 @@ export class SheetsClient {
     }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const e = new Error(`Sheets API ${r.status}: ${j.error?.message || 'request failed'}`);
+      // 403 and 404 are the two failures that actually happen, and Google's wording for them
+      // ("The caller does not have permission") never says which knob to turn. Name it.
+      const detail = j.error?.message || 'request failed';
+      const e = new Error(
+        r.status === 403
+          ? `This service account can't open the spreadsheet. Share it with ${this.creds.client_email} as Editor. (${detail})`
+          : r.status === 404
+            ? `No spreadsheet with id ${this.id} — check GOOGLE_SHEET_ID. (${detail})`
+            : `Sheets API ${r.status}: ${detail}`
+      );
       e.status = r.status === 404 || r.status === 403 ? 502 : r.status;
       throw e;
     }
