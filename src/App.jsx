@@ -37,7 +37,7 @@ const NAV_TABS = [
 ]
 
 // ── Sidebar contents ─────────────────────────────────────────────────
-function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, onClose }) {
+function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) {
   const now = new Date()
   const weekday  = now.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()
   const dayMonth = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }).toUpperCase()
@@ -55,11 +55,8 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
       <div className="mx-2 mb-4 flex-shrink-0">
         <div className="bg-nb-750 rounded-xl border border-nb-600 p-4"
           style={{ boxShadow: '0 0 30px rgba(79, 126, 247, 0.1)' }}>
-          <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-1">
+          <p className="text-xs font-bold text-slate-300 tracking-widest">
             {weekday}, {dayMonth}
-          </p>
-          <p className="text-xl font-extrabold text-white leading-snug">
-            Welcome back,<br />{firstName || 'there'}!
           </p>
           <div className="mt-3">
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
@@ -226,7 +223,7 @@ function AppShell({ isAdmin, logout, name }) {
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-nb-700/40 z-40 overflow-y-auto">
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          firstName={firstName} logout={logout} saveStatus={saveStatus}
+          logout={logout} saveStatus={saveStatus}
           onClose={() => {}}
         />
       </aside>
@@ -238,7 +235,7 @@ function AppShell({ isAdmin, logout, name }) {
       <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-nb-700/40 flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          firstName={firstName} logout={logout} saveStatus={saveStatus}
+          logout={logout} saveStatus={saveStatus}
           onClose={() => setSidebarOpen(false)}
         />
       </aside>
