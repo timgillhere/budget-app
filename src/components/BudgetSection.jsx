@@ -4,9 +4,8 @@ import { stripPrefix } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-// The "current" section is shown as "Free Spend" (display only — the sheet is untouched).
-export const sectionLabel = (section) =>
-  section.id === 'current' ? section.name.replace(/current account/i, 'Free Spend') : section.name
+// The Current Account section is folded into the Income box on the Budget page.
+export const isCurrentAccount = (section) => section.id === 'current' || /current account/i.test(section.name)
 
 // Yearly figure: calendar icon + amount, instead of a "/yr" suffix.
 export function Yearly({ monthly, className = 'text-slate-500' }) {
@@ -31,6 +30,37 @@ function Row({ name, note, monthly, className = '', nameClass = '', amountClass 
         <Yearly monthly={monthly} />
       </div>
     </div>
+  )
+}
+
+// Group rows (group + indented items), shared by section cards and the Income box.
+export function GroupRows({ section }) {
+  return (
+    <>
+      {section.groups.map(group => {
+        const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
+        return (
+          <li key={group.id} className="px-4 sm:px-5 py-3.5 border-l-4" style={{ borderLeftColor: group.color || section.color }}>
+            <Row
+              name={stripPrefix(group.name)} monthly={groupTotal}
+              nameClass="text-base font-semibold text-slate-100" amountClass="text-base font-semibold text-slate-100"
+            />
+            {group.items.length > 0 && (
+              <ul className="mt-2.5 pl-3 border-l border-nb-600 space-y-2">
+                {group.items.map(item => (
+                  <li key={item.id}>
+                    <Row
+                      name={item.name} note={item.notes} monthly={item.monthly}
+                      nameClass="text-sm text-slate-300" amountClass="text-sm text-slate-300"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        )
+      })}
+    </>
   )
 }
 
@@ -61,29 +91,7 @@ export default function BudgetSection({ section }) {
 
       {!collapsed && (
         <ul className="divide-y divide-nb-600">
-          {section.groups.map(group => {
-            const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
-            return (
-              <li key={group.id} className="px-4 sm:px-5 py-3.5 border-l-4" style={{ borderLeftColor: group.color || section.color }}>
-                <Row
-                  name={stripPrefix(group.name)} monthly={groupTotal}
-                  nameClass="text-base font-semibold text-slate-100" amountClass="text-base font-semibold text-slate-100"
-                />
-                {group.items.length > 0 && (
-                  <ul className="mt-2.5 pl-3 border-l border-nb-600 space-y-2">
-                    {group.items.map(item => (
-                      <li key={item.id}>
-                        <Row
-                          name={item.name} note={item.notes} monthly={item.monthly}
-                          nameClass="text-sm text-slate-300" amountClass="text-sm text-slate-300"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            )
-          })}
+          <GroupRows section={section} />
         </ul>
       )}
     </section>

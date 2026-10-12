@@ -9,7 +9,7 @@ import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import SummaryBar from './components/SummaryBar'
-import BudgetSection, { Yearly } from './components/BudgetSection'
+import BudgetSection, { Yearly, GroupRows, isCurrentAccount } from './components/BudgetSection'
 import Charts from './components/Charts'
 import ForecastCharts from './components/ForecastCharts'
 import HolidayPlanner from './components/HolidayPlanner'
@@ -112,14 +112,12 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
 function BudgetTab() {
   const { data } = useBudget()
   const totalIncome = data.income.items.reduce((s, i) => s + i.monthly, 0)
-  // Free Spend (the 'current' section) leads the page, above Income.
-  const freeSpend = data.sections.find(s => s.id === 'current')
-  const otherSections = data.sections.filter(s => s.id !== 'current')
+  // The Current Account section is shown inside the Income box.
+  const currentAccount = data.sections.find(isCurrentAccount)
+  const otherSections = data.sections.filter(s => !isCurrentAccount(s))
 
   return (
     <main className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
-      {freeSpend && <BudgetSection section={freeSpend} />}
-
       {/* Income */}
       <section className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600">
@@ -142,6 +140,7 @@ function BudgetTab() {
               </div>
             </li>
           ))}
+          {currentAccount && <GroupRows section={currentAccount} />}
         </ul>
       </section>
 
