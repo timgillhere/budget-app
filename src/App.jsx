@@ -1,24 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   BanknotesIcon, ChartBarIcon, ArrowTrendingUpIcon, PaperAirplaneIcon,
   LightBulbIcon, CircleStackIcon, Cog6ToothIcon, UsersIcon,
   ArrowRightOnRectangleIcon, Bars3Icon,
-  ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon,
-  ChevronRightIcon, BuildingLibraryIcon, CreditCardIcon,
+  BuildingLibraryIcon, CreditCardIcon,
 } from '@heroicons/react/24/outline'
-import {
-  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
-} from '@dnd-kit/core'
-import {
-  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import SummaryBar from './components/SummaryBar'
 import BudgetSection from './components/BudgetSection'
-import EditModal from './components/EditModal'
 import Charts from './components/Charts'
 import ForecastCharts from './components/ForecastCharts'
 import HolidayPlanner from './components/HolidayPlanner'
@@ -31,75 +22,8 @@ import SavingsOverview from './components/SavingsOverview'
 import TransactionsPage from './components/TransactionsPage'
 import { TransactionProvider } from './context/TransactionContext'
 
-function deepClone(obj) { return JSON.parse(JSON.stringify(obj)) }
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-function findGroup(budget, sectionId, groupId) {
-  return budget.sections.find(s => s.id === sectionId)?.groups.find(g => g.id === groupId)
-}
-
-import { calcBudgetSummary, getPensionTotals } from './utils/budgetCalcs'
-
-function generateSnapshot(data) {
-  const budget = data
-  const { totalIncome, totalExpenses, surplus, savingsRate, pensionContribution, isaContribution, annualFunds } = calcBudgetSummary(budget)
-  const { pensions } = getPensionTotals(budget.settings)
-  const savingsRateFmt = savingsRate.toFixed(1)
-  const lines = [
-    `=== BUDGET SNAPSHOT ===`, `Generated: ${new Date().toLocaleString('en-GB')}`, ``,
-    `── INCOME ──`,
-    ...budget.income.items.map(i => `  ${i.name}: ${fmt(i.monthly)}/month${i.notes ? ' — ' + i.notes : ''}`),
-    `  TOTAL: ${fmt(totalIncome)}/month`, ``
-  ]
-  budget.sections.forEach(section => {
-    const sectionTotal = section.groups.reduce((s, g) => s + g.items.reduce((gs, i) => gs + i.monthly, 0), 0)
-    lines.push(`── ${section.name.toUpperCase()} — ${fmt(sectionTotal)}/month ──`)
-    section.groups.forEach(group => {
-      const groupTotal = group.items.reduce((s, i) => s + i.monthly, 0)
-      const typeTag = group.savingsType === 'annual' ? ' [Annual Savings]' : ''
-      lines.push(`  ${group.name}${typeTag} [${fmt(groupTotal)}/month]`)
-      group.items.forEach(item => {
-        const itemTypeTag = item.savingsType === 'annual' ? ' [Annual Savings]' : ''
-        lines.push(`    • ${item.name}${itemTypeTag}: ${fmt(item.monthly)}/month${item.notes ? ' — ' + item.notes : ''}`)
-      })
-    })
-    lines.push(`  Section total: ${fmt(sectionTotal)}/month`); lines.push(``)
-  })
-  const futureEvents = budget.settings?.futureEvents || []
-  if (futureEvents.length > 0) {
-    lines.push(`── KNOWN FUTURE EVENTS ──`)
-    futureEvents.forEach(ev => {
-      const d = ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'no date'
-      lines.push(`  ${ev.icon || '📅'} ${ev.label}: ${d} — ${ev.monthlyImpact > 0 ? '+' : ''}£${ev.monthlyImpact}/month`)
-    })
-    lines.push(``)
-  }
-  lines.push(`── SUMMARY ──`)
-  lines.push(`  Take-home income: ${fmt(totalIncome)}/month | Total outgoings: ${fmt(totalExpenses)}/month | Surplus: ${fmt(surplus)}/month`)
-  if (pensions.length > 1) {
-    lines.push(`  Pensions: ${pensions.map(p => `${p.name || 'Pension'}: ${fmt(p.balance || 0)} balance · ${fmt(p.monthlyContribution || 0)}/mo`).join(' | ')}`)
-  }
-  lines.push(`  Savings (in rate): Pension ${fmt(pensionContribution)}/mo (pre-tax) + ISA ${fmt(isaContribution)}/mo | Annual savings (not in rate): ${fmt(annualFunds)}/mo | Unallocated surplus: ${fmt(surplus)}/mo | True savings rate: ${savingsRateFmt}% of gross income`)
-  lines.push(``, `════════════════════════════════════`, `INSTRUCTIONS FOR CLAUDE`, `════════════════════════════════════`)
-  lines.push(`You are a UK personal financial advisor. The full data is in the JSON block below.`)
-  lines.push(`1. Acknowledge current state (surplus, savings rate, key observations)`)
-  lines.push(`2. Discuss any changes requested`)
-  lines.push(`3. When done, output the COMPLETE updated data as a JSON code block tagged: \`\`\`budget-json`)
-  lines.push(`Rules: preserve all IDs, new items use "item-<timestamp>", new groups use "grp-<timestamp>",`)
-  lines.push(`never change section ids (savings/current/goals), all monthly values must be numbers.`)
-  lines.push(`savingsType field: null = regular spending, "annual" = annual savings (sinking fund for periodic costs — NOT counted in savings rate). Pension and ISA contributions are tracked in settings, not as budget line items.`)
-  lines.push(`Output the FULL JSON every time.`)
-  lines.push(`════════════════════════════════════`, ``, `\`\`\`budget-json`)
-  lines.push(JSON.stringify(data, null, 2)); lines.push(`\`\`\``)
-  return lines.join('\n')
-}
-
-function validateBudget(data) {
-  if (!data || typeof data !== 'object') return 'Not a valid JSON object'
-  if (!data.income || !Array.isArray(data.income.items)) return 'Missing income.items'
-  if (!Array.isArray(data.sections)) return 'Missing sections'
-  return null
-}
+const fmt0 = (n) => `£${Math.round(n).toLocaleString('en-GB')}`
 
 // ── Sidebar nav items ────────────────────────────────────────────────
 const NAV_TABS = [
@@ -185,184 +109,54 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
   )
 }
 
-// Sortable wrapper for section-level reordering — passes drag handle listeners down
-function SortableSectionItem({ id, children }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      {...attributes}
-    >
-      {children(listeners)}
-    </div>
-  )
-}
-
-// ── Budget tab ───────────────────────────────────────────────────────
+// ── Budget tab (read-only) ───────────────────────────────────────────
 function BudgetTab() {
-  const { data, save } = useBudget()
-  const [incomeModal, setIncomeModal] = useState(null)
-
-  const addItem    = (sectionId, groupId, item) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items.push({ ...item, id: `item-${Date.now()}` }); save(u) }
-  const editItem   = (sectionId, groupId, itemId, item) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); const idx = g.items.findIndex(i => i.id === itemId); g.items[idx] = { ...item, id: itemId }; save(u) }
-  const deleteItem = (sectionId, groupId, itemId) => { const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.items = g.items.filter(i => i.id !== itemId); save(u) }
-  const addGroup   = (sectionId, { name, savingsType, isSavings, color }) => { const u = deepClone(data); const grp = { id: `grp-${Date.now()}`, name, savingsType: savingsType ?? null, isSavings: !!isSavings, items: [] }; if (color) grp.color = color; u.sections.find(s => s.id === sectionId).groups.push(grp); save(u) }
-  const editGroup  = (sectionId, groupId, { name, savingsType, isSavings, currentBalance, color }) => {
-    const u = deepClone(data); const g = findGroup(u, sectionId, groupId); g.name = name; g.savingsType = savingsType ?? null; g.isSavings = !!isSavings
-    if (currentBalance != null) g.currentBalance = currentBalance; else delete g.currentBalance
-    if (color) g.color = color; else delete g.color
-    save(u)
-  }
-  const deleteGroup = (sectionId, groupId) => { const u = deepClone(data); const sec = u.sections.find(s => s.id === sectionId); sec.groups = sec.groups.filter(g => g.id !== groupId); save(u) }
-  const reorderGroups = (sectionId, newGroupsArray) => { const u = deepClone(data); u.sections.find(s => s.id === sectionId).groups = newGroupsArray; save(u) }
-  const reorderItems = (sectionId, groupId, newItemsArray) => { const u = deepClone(data); findGroup(u, sectionId, groupId).items = newItemsArray; save(u) }
-  const reorderSections = (newSections) => { const u = deepClone(data); u.sections = newSections; save(u) }
-  const editSection = (sectionId, { name, color }) => { const u = deepClone(data); const s = u.sections.find(s => s.id === sectionId); s.name = name; if (color) s.color = color; save(u) }
-
-  const sectionSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-  )
-  const handleSectionDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return
-    const oldIdx = data.sections.findIndex(s => s.id === active.id)
-    const newIdx = data.sections.findIndex(s => s.id === over.id)
-    reorderSections(arrayMove([...data.sections], oldIdx, newIdx))
-  }
-  const handleIncomeModalSave = (item) => {
-    const u = deepClone(data)
-    if (incomeModal.mode === 'add-item') u.income.items.push({ ...item, id: `inc-${Date.now()}` })
-    else { const idx = u.income.items.findIndex(i => i.id === incomeModal.item.id); u.income.items[idx] = { ...item, id: incomeModal.item.id } }
-    save(u); setIncomeModal(null)
-  }
-  const deleteIncomeItem = (id) => { const u = deepClone(data); u.income.items = u.income.items.filter(i => i.id !== id); save(u) }
-
+  const { data } = useBudget()
   const totalIncome = data.income.items.reduce((s, i) => s + i.monthly, 0)
 
   return (
-    <>
-      <main className="w-full max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
-        {/* Income */}
-        <div className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 bg-emerald-900/40 border-b border-nb-600">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-emerald-300 font-bold">Income</span>
-              <span className="text-emerald-400/70 text-sm">{fmt(totalIncome)}/month</span>
-            </div>
-            <button onClick={() => setIncomeModal({ mode: 'add-item' })} className="text-emerald-400/70 hover:text-emerald-300 text-xs border border-emerald-700/50 hover:border-emerald-600 px-2 py-1 rounded transition-colors">+ Add</button>
+    <main className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      {/* Income */}
+      <section className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600">
+          <div>
+            <div className="text-emerald-300 font-bold text-lg">Income</div>
+            <div className="text-emerald-400/70 text-xs">{fmt0(totalIncome * 12)}/yr</div>
           </div>
-          {/* Mobile: tap-row-to-edit list */}
-          <ul className="sm:hidden divide-y divide-nb-700">
-            {data.income.items.map(item => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => setIncomeModal({ mode: 'edit-item', item })}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-4 min-h-[56px] text-left active:bg-nb-700 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[15px] text-slate-200 truncate">{item.name}</div>
-                    <div className="text-xs text-slate-500 tabular-nums">{fmt(item.monthly * 12)}/yr</div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-base font-bold text-emerald-400 tabular-nums">{fmt(item.monthly)}</span>
-                    <ChevronRightIcon className="w-4 h-4 text-slate-600" />
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {/* Desktop: full table */}
-          <div className="hidden sm:block">
-            <table className="w-full table-fixed">
-              <colgroup><col style={{ width: '55%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '11%' }} /></colgroup>
-              <thead><tr className="text-xs text-slate-500 border-b border-nb-600">
-                <th className="px-4 py-2 text-left font-medium">Source</th>
-                <th className="px-4 py-2 text-right font-medium">Monthly</th>
-                <th className="px-4 py-2 text-right font-medium">Annual</th>
-                <th className="px-4 py-2"></th>
-              </tr></thead>
-              <tbody>
-                {data.income.items.map(item => (
-                  <tr key={item.id} className="group hover:bg-nb-700 transition-colors">
-                    <td className="px-4 py-2 text-sm text-slate-400">
-                      <div className="relative inline-flex items-center gap-1.5">
-                        <span className="truncate">{item.name}</span>
-                        {item.notes && (
-                          <span className="relative flex-shrink-0 group/tip">
-                            <span className="text-slate-600 hover:text-slate-400 cursor-default text-xs">ℹ</span>
-                            <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-nb-800 text-slate-200 text-xs rounded-lg px-3 py-2 w-56 leading-relaxed z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity shadow-lg border border-nb-600 whitespace-normal">{item.notes}</span>
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 text-sm font-bold text-emerald-400 text-right tabular-nums">{fmt(item.monthly)}</td>
-                    <td className="px-4 py-2 text-sm text-slate-500 text-right tabular-nums">{fmt(item.monthly * 12)}</td>
-                    <td className="px-4 py-2 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setIncomeModal({ mode: 'edit-item', item })} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700">Edit</button>
-                        <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) deleteIncomeItem(item.id) }} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-700">Del</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="text-emerald-300 font-bold text-xl tabular-nums">
+            {fmt(totalIncome)}<span className="text-emerald-400/70 text-sm font-medium">/mo</span>
           </div>
         </div>
+        <ul className="divide-y divide-nb-600">
+          {data.income.items.map(item => (
+            <li key={item.id} className="flex items-start justify-between gap-4 px-4 sm:px-5 py-3.5">
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-semibold text-slate-100">{item.name}</div>
+                {item.notes && <div className="text-xs text-slate-500 mt-1 leading-relaxed">{item.notes}</div>}
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-lg font-semibold text-emerald-400 tabular-nums">{fmt(item.monthly)}</div>
+                <div className="text-xs text-slate-500 tabular-nums">{fmt0(item.monthly * 12)}/yr</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-        <DndContext sensors={sectionSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-          <SortableContext items={data.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
-            {data.sections.map(section => (
-              <SortableSectionItem key={section.id} id={section.id}>
-                {(dragHandleListeners) => (
-                  <BudgetSection section={section}
-                    dragHandleListeners={dragHandleListeners}
-                    onEditSection={(data) => editSection(section.id, data)}
-                    onAddItem={(groupId, item) => addItem(section.id, groupId, item)}
-                    onEditItem={(groupId, itemId, item) => editItem(section.id, groupId, itemId, item)}
-                    onDeleteItem={(groupId, itemId) => deleteItem(section.id, groupId, itemId)}
-                    onAddGroup={(grp) => addGroup(section.id, grp)}
-                    onEditGroup={(groupId, grp) => editGroup(section.id, groupId, grp)}
-                    onDeleteGroup={(groupId) => deleteGroup(section.id, groupId)}
-                    onReorderGroups={(newArr) => reorderGroups(section.id, newArr)}
-                    onReorderItems={(groupId, newArr) => reorderItems(section.id, groupId, newArr)}
-                  />
-                )}
-              </SortableSectionItem>
-            ))}
-          </SortableContext>
-        </DndContext>
-        <p className="text-center text-xs text-slate-600 pb-4">Changes saved automatically</p>
-      </main>
-
-      {incomeModal && (
-        <EditModal
-          mode={incomeModal.mode}
-          initial={incomeModal.item}
-          onSave={handleIncomeModalSave}
-          onClose={() => setIncomeModal(null)}
-          onDelete={incomeModal.mode === 'edit-item' ? () => { deleteIncomeItem(incomeModal.item.id); setIncomeModal(null) } : undefined}
-        />
-      )}
-
-    </>
+      {data.sections.map(section => (
+        <BudgetSection key={section.id} section={section} totalIncome={totalIncome} />
+      ))}
+    </main>
   )
 }
 
-
 // ── Main app shell ───────────────────────────────────────────────────
 function AppShell({ isAdmin, logout, name }) {
-  const { data, loading, error, saveStatus, save } = useBudget()
+  const { data, loading, error, saveStatus } = useBudget()
   const [tab, setTab] = useState('budget')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(null)
   const [scrolled, setScrolled] = useState(false)
-  const [copyFlash, setCopyFlash] = useState(false)
-  const [importPreview, setImportPreview] = useState(null)
-  const [importError, setImportError] = useState(null)
 
   useEffect(() => {
     if (data && showOnboarding === null) setShowOnboarding(!data?.settings?.onboardingComplete)
@@ -382,31 +176,6 @@ function AppShell({ isAdmin, logout, name }) {
   }, [])
 
 
-
-  const exportJSON = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `budget-${new Date().toISOString().slice(0, 10)}.json`; a.click()
-    URL.revokeObjectURL(url)
-  }
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generateSnapshot(data)).then(() => { setCopyFlash(true); setTimeout(() => setCopyFlash(false), 2500) })
-  }
-  const handleFileChange = (e) => {
-    setImportError(null); const file = e.target.files[0]; if (!file) return; e.target.value = ''
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result)
-        const err = validateBudget(parsed); if (err) { setImportError(`Invalid file: ${err}`); return }
-        const totalIncome = parsed.income.items.reduce((s, i) => s + i.monthly, 0)
-        const totalExpenses = parsed.sections.reduce((s, sec) => s + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)
-        setImportPreview({ data: parsed, totalIncome, totalExpenses, surplus: totalIncome - totalExpenses })
-      } catch { setImportError("Couldn't parse file") }
-    }
-    reader.readAsText(file)
-  }
 
   // Close sidebar on tab change (mobile)
   const handleTabChange = (newTab) => { setTab(newTab); setSidebarOpen(false); window.scrollTo(0, 0) }
@@ -500,55 +269,6 @@ function AppShell({ isAdmin, logout, name }) {
             </span>
           </header>
 
-          {/* Global action bar — all pages, mobile + desktop */}
-          <div className="bg-nb-800 border-b border-nb-600 px-3 sm:px-6 py-1.5 flex justify-end gap-2">
-
-            {/* Import from JSON */}
-            <div className="relative group/tip">
-              <label className="cursor-pointer px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500 transition-colors flex items-center gap-1.5">
-                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Import from JSON</span><span className="sm:hidden">Import</span>
-                <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
-              </label>
-              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-nb-600" />
-                Import a budget JSON file — e.g. after making changes with an AI, or restoring a backup
-              </span>
-            </div>
-
-            {/* Export JSON */}
-            <div className="relative group/tip">
-              <button onClick={exportJSON} className="px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white transition-colors border border-nb-500 flex items-center gap-1.5">
-                <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Export JSON</span><span className="sm:hidden">Export</span>
-              </button>
-              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-nb-600" />
-                Download your budget as a JSON file for backup, or to share with an AI that supports file uploads
-              </span>
-            </div>
-
-            {/* Copy for Claude */}
-            <div className="relative group/tip">
-              <button onClick={copyToClipboard} className={`px-3.5 py-2 sm:py-1.5 min-h-11 sm:min-h-0 rounded-lg text-sm sm:text-xs font-medium transition-all flex items-center gap-1.5 ${copyFlash ? 'bg-emerald-700 text-white' : 'bg-nb-600 text-slate-300 hover:bg-nb-500 hover:text-white border border-nb-500'}`}>
-                <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{copyFlash ? 'Copied!' : 'Copy for Claude'}</span><span className="sm:hidden">{copyFlash ? '✓' : 'Claude'}</span>
-              </button>
-              <span className="pointer-events-none absolute top-full right-0 mt-2 w-72 rounded-lg bg-nb-700 border border-nb-600 px-3 py-2 text-xs text-slate-300 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity z-50">
-                <span className="absolute bottom-full right-4 border-4 border-transparent border-b-nb-600" />
-                <span className="block font-semibold text-slate-200 mb-1.5">AI budget workflow</span>
-                <ol className="space-y-1 list-decimal list-inside text-slate-400">
-                  <li>Click to copy your budget + AI instructions</li>
-                  <li>Paste into Claude, ChatGPT, or any LLM</li>
-                  <li>Chat about your budget and ask for changes</li>
-                  <li>The AI outputs an updated <code className="font-mono bg-nb-800 px-0.5 rounded">budget-json</code> block</li>
-                  <li>Save that as a .json file, then use Import</li>
-                </ol>
-              </span>
-            </div>
-
-          </div>
-
           {/* Summary bar — budget, charts, savings tabs */}
           {(tab === 'budget' || tab === 'charts' || tab === 'savings') && <SummaryBar budget={data} compact={scrolled} />}
         </div>
@@ -570,47 +290,6 @@ function AppShell({ isAdmin, logout, name }) {
         <OnboardingModal userName={name} onClose={() => setShowOnboarding(false)} />
       )}
 
-      {importError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-900 border border-red-700 text-red-200 text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50 max-w-md">
-          <span>{importError}</span>
-          <button onClick={() => setImportError(null)} className="font-bold text-xl">&times;</button>
-        </div>
-      )}
-
-      {importPreview && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-nb-750 rounded-xl border border-nb-600 shadow-2xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold mb-1 text-slate-100">Import Budget from Claude</h2>
-            <p className="text-sm text-slate-500 mb-4">This will <strong className="text-slate-300">replace your current budget</strong> with the imported data.</p>
-            <div className="bg-nb-800 border border-nb-600 rounded-lg p-4 mb-5 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">Monthly income</span><span className="font-bold text-emerald-400">{fmt(importPreview.totalIncome)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Monthly expenses</span><span className="font-bold text-slate-200">{fmt(importPreview.totalExpenses)}</span></div>
-              <div className="flex justify-between border-t border-nb-600 pt-2">
-                <span className="text-slate-400 font-medium">Monthly surplus</span>
-                <span className={`font-bold ${importPreview.surplus >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(importPreview.surplus)}</span>
-              </div>
-              {(() => {
-                const events = importPreview.data?.settings?.futureEvents || []
-                return events.length > 0 ? (
-                  <div className="border-t border-nb-600 pt-2 space-y-1">
-                    <span className="text-slate-500">Known future events</span>
-                    {events.map((ev, i) => (
-                      <div key={i} className="flex justify-between pl-2">
-                        <span className="text-slate-400">{ev.icon || '📅'} {ev.label}</span>
-                        <span className={`font-medium ${ev.monthlyImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{ev.monthlyImpact >= 0 ? '+' : ''}£{ev.monthlyImpact}/mo</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null
-              })()}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setImportPreview(null)} className="flex-1 border border-nb-500 text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg text-sm transition-colors">Cancel</button>
-              <button onClick={() => { save(importPreview.data); setImportPreview(null) }} className="flex-1 bg-neuro-600 hover:bg-neuro-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Import & Replace</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
