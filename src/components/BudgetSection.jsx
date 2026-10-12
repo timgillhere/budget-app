@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDownIcon, ChevronRightIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { stripPrefix } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -7,19 +7,15 @@ const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, ma
 // The Current Account section is folded into the Income box on the Budget page.
 export const isCurrentAccount = (section) => section.id === 'current' || /current account/i.test(section.name)
 
-// Yearly figure: calendar icon + amount, instead of a "/yr" suffix.
-export function Yearly({ monthly, className = 'text-slate-500' }) {
+// Monthly figure; hovering (or tapping) shows the yearly total.
+export function Monthly({ amount, className = '' }) {
   return (
-    <div className={`flex items-center justify-end gap-1 text-xs tabular-nums ${className}`}>
-      <span className="relative group/tip inline-flex outline-none" tabIndex={0} aria-label="Yearly total: monthly amount × 12">
-        <CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
-        <span className="pointer-events-none absolute bottom-full right-0 mb-2 w-44 rounded-lg bg-nb-800 border border-nb-600 px-3 py-2 text-xs font-normal text-slate-200 leading-snug shadow-xl opacity-0 group-hover/tip:opacity-100 group-focus/tip:opacity-100 transition-opacity duration-150 z-50 text-left">
-          Yearly total
-          <span className="block text-slate-400">The monthly amount × 12</span>
-        </span>
+    <span className="relative group/tip inline-block outline-none cursor-default" tabIndex={0}>
+      <span className={`tabular-nums ${className}`}>{fmt(amount)}</span>
+      <span className="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-lg bg-nb-800 border border-nb-600 px-3 py-2 text-xs font-normal text-slate-200 shadow-xl opacity-0 group-hover/tip:opacity-100 group-focus/tip:opacity-100 transition-opacity duration-150 z-50">
+        <span className="text-slate-400">Per year: </span>{fmt(amount * 12)}
       </span>
-      <span>{fmt(monthly * 12)}</span>
-    </div>
+    </span>
   )
 }
 
@@ -32,8 +28,7 @@ function Row({ name, note, monthly, className = '', nameClass = '', amountClass 
         {note && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{note}</div>}
       </div>
       <div className="text-right flex-shrink-0">
-        <div className={`tabular-nums ${amountClass}`}>{fmt(monthly)}</div>
-        <Yearly monthly={monthly} />
+        <Monthly amount={monthly} className={amountClass} />
       </div>
     </div>
   )
@@ -89,8 +84,7 @@ export default function BudgetSection({ section }) {
           <div className="text-white font-bold text-lg truncate">{section.name}</div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-white font-bold text-lg tabular-nums">{fmt(sectionTotal)}</div>
-          <Yearly monthly={sectionTotal} className="text-white/70" />
+          <Monthly amount={sectionTotal} className="text-white font-bold text-lg" />
         </div>
         {collapsed ? <ChevronRightIcon className="w-5 h-5 text-white/80 flex-shrink-0" /> : <ChevronDownIcon className="w-5 h-5 text-white/80 flex-shrink-0" />}
       </button>

@@ -9,7 +9,7 @@ import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import SummaryBar from './components/SummaryBar'
-import BudgetSection, { Yearly, GroupRows, isCurrentAccount } from './components/BudgetSection'
+import BudgetSection, { Monthly, GroupRows, isCurrentAccount } from './components/BudgetSection'
 import Charts from './components/Charts'
 import ForecastCharts from './components/ForecastCharts'
 import HolidayPlanner from './components/HolidayPlanner'
@@ -22,7 +22,6 @@ import SavingsOverview from './components/SavingsOverview'
 import TransactionsPage from './components/TransactionsPage'
 import { TransactionProvider } from './context/TransactionContext'
 
-const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // ── Sidebar nav items ────────────────────────────────────────────────
 const NAV_TABS = [
@@ -123,8 +122,7 @@ function BudgetTab() {
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600 rounded-t-xl">
           <div className="text-emerald-300 font-bold text-lg">Income</div>
           <div className="text-right">
-            <div className="text-emerald-300 font-bold text-lg tabular-nums">{fmt(totalIncome)}</div>
-            <Yearly monthly={totalIncome} className="text-emerald-400/70" />
+            <Monthly amount={totalIncome} className="text-emerald-300 font-bold text-lg" />
           </div>
         </div>
         <ul className="divide-y divide-nb-600">
@@ -135,8 +133,7 @@ function BudgetTab() {
                 {item.notes && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.notes}</div>}
               </div>
               <div className="text-right flex-shrink-0">
-                <div className="text-base font-semibold text-slate-100 tabular-nums">{fmt(item.monthly)}</div>
-                <Yearly monthly={item.monthly} />
+                <Monthly amount={item.monthly} className="text-base font-semibold text-slate-100" />
               </div>
             </li>
           ))}
