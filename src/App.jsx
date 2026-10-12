@@ -45,13 +45,13 @@ function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) 
   return (
     <div className="flex flex-col h-full">
       {/* Logo — same height as the summary header so the two lines meet */}
-      <div className="h-[88px] px-4 flex items-center gap-2.5 flex-shrink-0 border-b border-slate-600">
+      <div className="h-[88px] px-4 flex items-center gap-2.5 flex-shrink-0 border-b border-white/[0.06]">
         <img src="/logo.png" className="h-9 w-9 rounded-xl" alt="" />
         <span className="text-slate-200 font-bold text-lg">Nudget</span>
       </div>
 
       {/* Date + save status */}
-      <div className="px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0 border-b border-slate-600">
+      <div className="px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0 border-b border-white/[0.06]">
         <span className="text-xs font-bold text-slate-300 tracking-widest">{shortDate}</span>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
           saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
@@ -81,7 +81,7 @@ function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) 
       </nav>
 
       {/* Logout */}
-      <div className="px-3 py-3 border-t border-slate-600 flex-shrink-0">
+      <div className="px-3 py-3 border-t border-white/[0.06] flex-shrink-0">
         <button
           onClick={() => logout()}
           disabled={saveStatus === 'saving'}
@@ -212,7 +212,7 @@ function AppShell({ isAdmin, logout, name }) {
     <div className="nb-grid-bg min-h-svh bg-nb-900">
 
       {/* ── Desktop sidebar (fixed left) ─────────────── */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-slate-600 z-40 overflow-y-auto">
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-white/[0.06] z-40 overflow-y-auto">
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
           logout={logout} saveStatus={saveStatus}
@@ -224,7 +224,7 @@ function AppShell({ isAdmin, logout, name }) {
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-slate-600 flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-white/[0.06] flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
           logout={logout} saveStatus={saveStatus}
@@ -238,7 +238,7 @@ function AppShell({ isAdmin, logout, name }) {
         {/* Sticky header block: mobile nav + action bar + summary */}
         <div className="sticky top-0 z-30">
           {/* Mobile header */}
-          <header className="lg:hidden bg-nb-800/95 backdrop-blur border-b border-slate-600 px-4 flex items-center gap-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
+          <header className="lg:hidden bg-nb-800/95 backdrop-blur border-b border-white/[0.06] px-4 flex items-center gap-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
             <button
               onClick={() => setSidebarOpen(true)}
               className="text-slate-400 hover:text-white p-2.5 -ml-1 min-w-11 min-h-11 rounded-lg hover:bg-nb-700 transition-colors flex-shrink-0 flex items-center justify-center"

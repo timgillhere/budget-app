@@ -128,8 +128,8 @@ export default function SummaryBar({ budget, compact = false }) {
       )}
 
       {/* ── Desktop ── */}
-      <div className="hidden sm:flex items-center h-[88px] bg-nb-800 border-b border-slate-600 px-6">
-        <div className="w-full max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-7 divide-x divide-slate-600">
+      <div className="hidden sm:flex items-center h-[88px] bg-nb-800 border-b border-white/[0.06] px-6">
+        <div className="w-full max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-7">
           <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-emerald-400 neon-green" compact={false} tooltip={incomeTooltip} />
           <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-slate-200 neon-white" compact={false} tooltip={expensesTooltip} />
           <SurplusTile
