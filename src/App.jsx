@@ -9,7 +9,7 @@ import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import SummaryBar from './components/SummaryBar'
-import BudgetSection from './components/BudgetSection'
+import BudgetSection, { Yearly } from './components/BudgetSection'
 import Charts from './components/Charts'
 import ForecastCharts from './components/ForecastCharts'
 import HolidayPlanner from './components/HolidayPlanner'
@@ -112,18 +112,21 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
 function BudgetTab() {
   const { data } = useBudget()
   const totalIncome = data.income.items.reduce((s, i) => s + i.monthly, 0)
-  // Free Spend (the 'current' section) always leads.
-  const sections = [...data.sections].sort((a, b) => (b.id === 'current') - (a.id === 'current'))
+  // Free Spend (the 'current' section) leads the page, above Income.
+  const freeSpend = data.sections.find(s => s.id === 'current')
+  const otherSections = data.sections.filter(s => s.id !== 'current')
 
   return (
     <main className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      {freeSpend && <BudgetSection section={freeSpend} />}
+
       {/* Income */}
       <section className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600">
           <div className="text-emerald-300 font-bold text-lg">Income</div>
           <div className="text-right">
             <div className="text-emerald-300 font-bold text-lg tabular-nums">{fmt(totalIncome)}</div>
-            <div className="text-emerald-400/70 text-xs tabular-nums">{fmt(totalIncome * 12)}/yr</div>
+            <Yearly monthly={totalIncome} className="text-emerald-400/70" />
           </div>
         </div>
         <ul className="divide-y divide-nb-600">
@@ -135,14 +138,14 @@ function BudgetTab() {
               </div>
               <div className="text-right flex-shrink-0">
                 <div className="text-base font-semibold text-slate-100 tabular-nums">{fmt(item.monthly)}</div>
-                <div className="text-xs text-slate-500 tabular-nums">{fmt(item.monthly * 12)}/yr</div>
+                <Yearly monthly={item.monthly} />
               </div>
             </li>
           ))}
         </ul>
       </section>
 
-      {sections.map(section => (
+      {otherSections.map(section => (
         <BudgetSection key={section.id} section={section} />
       ))}
     </main>

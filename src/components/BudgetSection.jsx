@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, ChevronRightIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
 import { stripPrefix } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -7,6 +7,16 @@ const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, ma
 // The "current" section is shown as "Free Spend" (display only — the sheet is untouched).
 export const sectionLabel = (section) =>
   section.id === 'current' ? section.name.replace(/current account/i, 'Free Spend') : section.name
+
+// Yearly figure: calendar icon + amount, instead of a "/yr" suffix.
+export function Yearly({ monthly, className = 'text-slate-500' }) {
+  return (
+    <div className={`flex items-center justify-end gap-1 text-xs tabular-nums ${className}`} title="Per year">
+      <CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
+      <span>{fmt(monthly * 12)}</span>
+    </div>
+  )
+}
 
 // Every row is the same shape: name (+ optional note) on the left, monthly over yearly on the right.
 function Row({ name, note, monthly, className = '', nameClass = '', amountClass = '' }) {
@@ -18,7 +28,7 @@ function Row({ name, note, monthly, className = '', nameClass = '', amountClass 
       </div>
       <div className="text-right flex-shrink-0">
         <div className={`tabular-nums ${amountClass}`}>{fmt(monthly)}</div>
-        <div className="text-xs text-slate-500 tabular-nums">{fmt(monthly * 12)}/yr</div>
+        <Yearly monthly={monthly} />
       </div>
     </div>
   )
@@ -44,7 +54,7 @@ export default function BudgetSection({ section }) {
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-white font-bold text-lg tabular-nums">{fmt(sectionTotal)}</div>
-          <div className="text-white/70 text-xs tabular-nums">{fmt(sectionTotal * 12)}/yr</div>
+          <Yearly monthly={sectionTotal} className="text-white/70" />
         </div>
         {collapsed ? <ChevronRightIcon className="w-5 h-5 text-white/80 flex-shrink-0" /> : <ChevronDownIcon className="w-5 h-5 text-white/80 flex-shrink-0" />}
       </button>
