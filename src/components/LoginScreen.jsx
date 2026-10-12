@@ -37,8 +37,8 @@ export default function LoginScreen({ onLogin }) {
     <div className="min-h-screen bg-nb-900 nb-grid-bg flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="Tim's Budget" className="h-16 w-16 mx-auto mb-3 opacity-90" />
-          <h1 className="text-2xl font-bold text-white">Tim's Budget</h1>
+          <img src="/logo.png" alt="Nudget" className="h-16 w-16 mx-auto mb-3 opacity-90" />
+          <h1 className="text-2xl font-bold text-white">Nudget</h1>
           <p className="text-slate-500 text-sm mt-1">Sign in to continue</p>
         </div>
 

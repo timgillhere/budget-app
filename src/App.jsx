@@ -47,7 +47,7 @@ function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) 
       {/* Logo — same height as the summary header so the two lines meet */}
       <div className="h-[88px] px-4 flex items-center gap-2.5 flex-shrink-0 border-b border-slate-600">
         <img src="/logo.png" className="h-9 w-9 rounded-xl" alt="" />
-        <span className="text-slate-200 font-bold text-lg">Tim's Budget</span>
+        <span className="text-slate-200 font-bold text-lg">Nudget</span>
       </div>
 
       {/* Date + save status */}
@@ -247,7 +247,7 @@ function AppShell({ isAdmin, logout, name }) {
             </button>
             <img src="/logo.png" alt="" className="h-6 w-6 flex-shrink-0" />
             <span className="text-slate-300 font-bold text-sm truncate">
-              {firstName ? `${firstName}'s Budget` : 'Budget'}
+              Nudget
             </span>
             <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${
               saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
