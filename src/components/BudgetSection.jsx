@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, ChevronRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import { stripPrefix } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -19,13 +19,28 @@ export function Monthly({ amount, className = '' }) {
   )
 }
 
+// Info icon next to a name; hovering (or tapping) shows its description.
+export function NoteTip({ note }) {
+  if (!note) return null
+  return (
+    <span className="relative group/tip inline-flex align-middle outline-none cursor-default" tabIndex={0} aria-label={note}>
+      <InformationCircleIcon className="w-4 h-4 text-slate-500 group-hover/tip:text-slate-300 group-focus/tip:text-slate-300 transition-colors" />
+      <span className="pointer-events-none absolute top-full left-0 mt-1.5 w-60 whitespace-normal rounded-lg bg-nb-800 border border-nb-600 px-3 py-2 text-xs font-normal text-slate-200 leading-relaxed shadow-xl opacity-0 group-hover/tip:opacity-100 group-focus/tip:opacity-100 transition-opacity duration-150 z-50">
+        {note}
+      </span>
+    </span>
+  )
+}
+
 // Every row is the same shape: name (+ optional note) on the left, monthly over yearly on the right.
 function Row({ name, note, monthly, className = '', nameClass = '', amountClass = '' }) {
   return (
     <div className={`flex items-start justify-between gap-4 ${className}`}>
       <div className="min-w-0 flex-1">
-        <div className={nameClass}>{name}</div>
-        {note && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{note}</div>}
+        <div className={`${nameClass} flex items-center gap-1.5`}>
+          <span>{name}</span>
+          <NoteTip note={note} />
+        </div>
       </div>
       <div className="text-right flex-shrink-0">
         <Monthly amount={monthly} className={amountClass} />

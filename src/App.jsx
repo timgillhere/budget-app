@@ -9,7 +9,7 @@ import { BudgetProvider, useBudget } from './context/BudgetContext'
 import { useAuth } from './hooks/useAuth'
 import LoginScreen from './components/LoginScreen'
 import SummaryBar from './components/SummaryBar'
-import BudgetSection, { Monthly, GroupRows, isCurrentAccount } from './components/BudgetSection'
+import BudgetSection, { Monthly, NoteTip, GroupRows, isCurrentAccount } from './components/BudgetSection'
 import Charts from './components/Charts'
 import ForecastCharts from './components/ForecastCharts'
 import HolidayPlanner from './components/HolidayPlanner'
@@ -129,8 +129,10 @@ function BudgetTab() {
           {data.income.items.map(item => (
             <li key={item.id} className="flex items-start justify-between gap-4 px-4 sm:px-5 py-3.5">
               <div className="min-w-0 flex-1">
-                <div className="text-base font-semibold text-slate-100">{item.name}</div>
-                {item.notes && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.notes}</div>}
+                <div className="text-base font-semibold text-slate-100 flex items-center gap-1.5">
+                  <span>{item.name}</span>
+                  <NoteTip note={item.notes} />
+                </div>
               </div>
               <div className="text-right flex-shrink-0">
                 <Monthly amount={item.monthly} className="text-base font-semibold text-slate-100" />
