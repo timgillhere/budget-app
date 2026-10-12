@@ -359,14 +359,14 @@ const STEPS = [
 ]
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function OnboardingModal({ jwtName, onClose }) {
+export default function OnboardingModal({ userName, onClose }) {
   const { data, save } = useBudget()
 
   const [step, setStep] = useState(0)
 
   // Form state
   const [form, setForm] = useState({
-    name: jwtName || '',
+    name: userName || '',
     dob: '',
     currentAge: 30,
     retirementAge: 66,
@@ -500,7 +500,7 @@ export default function OnboardingModal({ jwtName, onClose }) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {step === 0 && <StepWelcome name={form.name || jwtName} />}
+          {step === 0 && <StepWelcome name={form.name || userName} />}
           {step === 1 && <StepAboutYou form={form} setForm={setForm} />}
           {step === 2 && <StepIncome incomeItems={incomeItems} setIncomeItems={setIncomeItems} />}
           {step === 3 && <StepSavings form={form} setForm={setForm} />}

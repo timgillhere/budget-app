@@ -1,8 +1,8 @@
 import { list, put } from '@vercel/blob';
-import { requireAuthOrToken } from './_auth.js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req, res) {
-  const user = await requireAuthOrToken(req, res);
+  const user = await requireAuth(req, res);
   if (!user) return;
 
   const { month } = req.query;

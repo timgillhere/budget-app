@@ -1,38 +1,22 @@
 -- Run this once against your Neon Postgres database.
 -- Safe to run multiple times (uses IF NOT EXISTS).
+-- Upgrading a database created before Google sign-in? Run migrate-to-oauth.sql instead.
 
 CREATE TABLE IF NOT EXISTS users (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         TEXT        NOT NULL UNIQUE,
-  name          TEXT        NOT NULL,
-  password_hash TEXT,                            -- NULL for invited users who haven't set a password yet
-  is_admin      BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Migration: make password_hash nullable for existing databases
--- Run manually once: ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
-
-CREATE TABLE IF NOT EXISTS sessions (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at  TIMESTAMPTZ NOT NULL,
+  email       TEXT        NOT NULL UNIQUE,              -- lowercase; matched against the Google account on first sign-in
+  name        TEXT        NOT NULL,
+  google_sub  TEXT        UNIQUE,                       -- Google's stable account ID; NULL until the user first signs in
+  is_admin    BOOLEAN     NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS totp_credentials (
-  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-  encrypted_secret TEXT        NOT NULL,
-  enabled          BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS backup_codes (
+-- The session cookie holds a random token; only its SHA-256 hash is stored here.
+CREATE TABLE IF NOT EXISTS sessions (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  code_hash   TEXT        NOT NULL,
-  used_at     TIMESTAMPTZ,
+  token_hash  TEXT        NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -44,34 +28,6 @@ CREATE TABLE IF NOT EXISTS auth_events (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS rate_limit_login (
-  key          TEXT        PRIMARY KEY,
-  attempts     INT         NOT NULL DEFAULT 0,
-  window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS security_questions (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-  question    TEXT        NOT NULL,
-  answer_hash TEXT        NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Long-lived bearer tokens for non-browser clients (e.g. the local bank-sync agent).
--- Only the SHA-256 hash of the token is stored; the plaintext is shown once at creation.
-CREATE TABLE IF NOT EXISTS api_tokens (
-  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash   TEXT        NOT NULL UNIQUE,
-  name         TEXT        NOT NULL DEFAULT 'Bank sync',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_used_at TIMESTAMPTZ
-);
-
 CREATE INDEX IF NOT EXISTS idx_sessions_user    ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id) WHERE used_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_auth_events_user  ON auth_events(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_security_questions_user ON security_questions(user_id);
-CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_events_user ON auth_events(user_id, created_at DESC);

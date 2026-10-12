@@ -1,39 +1,49 @@
-import bcrypt from 'bcryptjs';
 import { requireAdmin } from '../_auth.js';
 import { getPool } from '../_db.js';
 
+// GET    — list users
+// POST   — add a user { email, name } — they can then sign in with the Google account for that email
+// DELETE — ?id=<userId> — remove a user and end their sessions (their budget data in Blob is kept)
 export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'PATCH') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   const admin = await requireAdmin(req, res);
   if (!admin) return;
 
   const pool = getPool();
 
-  // GET — list all users
   if (req.method === 'GET') {
     const { rows } = await pool.query(
-      `SELECT u.id, u.name, u.email,
-              (t.id IS NOT NULL AND t.enabled) AS mfa_enabled
-       FROM users u
-       LEFT JOIN totp_credentials t ON t.user_id = u.id
-       ORDER BY u.created_at`
+      `SELECT id, name, email, is_admin, (google_sub IS NOT NULL) AS has_signed_in
+       FROM users ORDER BY created_at`
     );
     return res.status(200).json(rows);
   }
 
-  // PATCH — admin emergency password override
-  const { userId, newPassword } = req.body;
-  if (!userId || !newPassword) return res.status(400).json({ error: 'userId and newPassword required' });
-  if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (req.method === 'POST') {
+    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : '';
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
+    if (!name) return res.status(400).json({ error: 'Enter a name' });
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO users (email, name, is_admin) VALUES ($1, $2, false)
+         RETURNING id, name, email, is_admin, false AS has_signed_in`,
+        [email, name]
+      );
+      return res.status(201).json(rows[0]);
+    } catch (err) {
+      if (err.code === '23505') return res.status(409).json({ error: 'That email is already a user' });
+      return res.status(500).json({ error: 'Failed to add user' });
+    }
+  }
 
-  const { rowCount } = await pool.query(
-    'UPDATE users SET password_hash = $1 WHERE id = $2',
-    [await bcrypt.hash(newPassword, 10), userId]
-  );
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Missing user id' });
+    if (id === admin.userId) return res.status(400).json({ error: "You can't remove yourself" });
+    const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    return res.status(200).json({ ok: true });
+  }
 
-  if (rowCount === 0) return res.status(404).json({ error: 'User not found' });
-  return res.status(200).json({ ok: true });
+  return res.status(405).json({ error: 'Method not allowed' });
 }
