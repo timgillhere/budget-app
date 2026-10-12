@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import AccountSettings from './AccountSettings'
 import DataSourcePanel from './DataSourcePanel'
@@ -14,352 +13,101 @@ function ageFromDob(dob) {
   return age
 }
 
-// Numeric field — allows clearing, stores as number in parent, uses text display
-function NumField({ label, value, onChange, prefix, suffix, note, pct }) {
-  const [raw, setRaw] = useState(value == null || value === 0 ? '' : String(value))
+const money = (n) => (n == null || n === '' ? '—' : `£${Number(n).toLocaleString('en-GB')}`)
+const pct = (n) => (n == null || n === '' ? '—' : `${n}%`)
+const date = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
+const text = (v) => (v == null || v === '' ? '—' : String(v))
 
-  useEffect(() => {
-    // Sync external value change only if not actively editing (raw is non-empty number)
-    const parsed = parseFloat(raw)
-    if (!isNaN(parsed) && parsed !== value) {
-      setRaw(value == null ? '' : String(value))
-    }
-    if (raw === '' && value != null && value !== 0) {
-      setRaw(String(value))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
-
-  const handleChange = (e) => {
-    const v = e.target.value
-    // Allow: empty, digits, single decimal point, minus at start
-    if (v === '' || /^-?\d*\.?\d*$/.test(v)) {
-      setRaw(v)
-      const parsed = parseFloat(v)
-      onChange(isNaN(parsed) ? 0 : parsed)
-    }
-  }
-
+function Item({ label, value }) {
   return (
-    <div>
-      <label className="block text-xs font-medium text-slate-400 mb-1">{label}</label>
-      <div className="relative">
-        {prefix && <span className="absolute left-3 top-2 text-slate-500 text-sm">{prefix}</span>}
-        <input
-          type="text"
-          inputMode={pct ? 'decimal' : 'decimal'}
-          value={raw}
-          onChange={handleChange}
-          className={`w-full rounded-lg py-2 text-sm text-slate-300 neon-input ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
-        />
-        {suffix && <span className="absolute right-3 top-2 text-slate-500 text-sm">{suffix}</span>}
-      </div>
-      {note && <p className="text-xs text-slate-500 mt-0.5">{note}</p>}
+    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-white/[0.06] last:border-0">
+      <span className="text-sm text-slate-400">{label}</span>
+      <span className="text-sm font-medium text-slate-200 tabular-nums text-right">{value}</span>
     </div>
   )
 }
 
-// Currency field — formats with commas on blur, shows raw on focus
-function CurrencyField({ label, value, onChange, note }) {
-  const [focused, setFocused] = useState(false)
-  const [raw, setRaw] = useState(value == null ? '' : String(value))
-
-  useEffect(() => {
-    if (!focused) {
-      setRaw(value == null ? '' : String(value))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
-
-  const handleChange = (e) => {
-    const v = e.target.value.replace(/,/g, '')
-    if (v === '' || /^\d*\.?\d*$/.test(v)) {
-      setRaw(v)
-      const parsed = parseFloat(v)
-      onChange(isNaN(parsed) ? 0 : parsed)
-    }
-  }
-
-  const displayValue = focused
-    ? raw
-    : (value ? Number(value).toLocaleString('en-GB') : '')
-
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-400 mb-1">{label}</label>
-      <div className="relative">
-        <span className="absolute left-3 top-2 text-slate-500 text-sm">£</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={displayValue}
-          onChange={handleChange}
-          onFocus={() => { setFocused(true); setRaw(value == null ? '' : String(value)) }}
-          onBlur={() => setFocused(false)}
-          className="w-full rounded-lg py-2 text-sm text-slate-300 neon-input pl-7 pr-3"
-        />
-      </div>
-      {note && <p className="text-xs text-slate-500 mt-0.5">{note}</p>}
-    </div>
-  )
-}
-
-// Plain text / date field (no numeric handling needed)
-function Field({ label, value, onChange, type = 'text', prefix, suffix, note }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-400 mb-1">{label}</label>
-      <div className="relative">
-        {prefix && <span className="absolute left-3 top-2 text-slate-500 text-sm">{prefix}</span>}
-        <input
-          type={type}
-          value={value ?? ''}
-          onChange={e => onChange(e.target.value)}
-          className={`w-full rounded-lg py-2 text-sm text-slate-300 neon-input ${prefix ? 'pl-7' : 'px-3'} ${suffix ? 'pr-10' : 'pr-3'}`}
-        />
-        {suffix && <span className="absolute right-3 top-2 text-slate-500 text-sm">{suffix}</span>}
-      </div>
-      {note && <p className="text-xs text-slate-500 mt-0.5">{note}</p>}
-    </div>
-  )
-}
-
-function Section({ title, children }) {
+function Section({ title, children, empty }) {
   return (
     <div className="bg-nb-750 rounded-xl p-5">
-      <h3 className="text-sm font-semibold text-slate-300 mb-4">{title}</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
+      <h3 className="text-sm font-semibold text-slate-300 mb-2">{title}</h3>
+      {children}
+      {empty && <p className="text-xs text-slate-500">{empty}</p>}
     </div>
   )
 }
 
-export default function SettingsPanel({ onStartOnboarding }) {
-  const { data, save, saveStatus } = useBudget()
-  const [local, setLocal] = useState(data?.settings || {})
-  const [goals, setGoals] = useState(data?.settings?.goals || [])
-  const [events, setEvents] = useState(data?.settings?.futureEvents || [])
-  const [pensions, setPensions] = useState(data?.settings?.pensions || [])
-  const [dirty, setDirty] = useState(false)
-
-  const set = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
-  const setN = (key, val) => { setLocal(s => ({ ...s, [key]: val })); setDirty(true) }
-
-  const handleDobChange = (dob) => {
-    const age = ageFromDob(dob)
-    setLocal(s => ({ ...s, dob, currentAge: age ?? s.currentAge }))
-    setDirty(true)
-  }
-
-  const setGoal = (id, field, val) => {
-    setGoals(gs => gs.map(g => g.id === id ? { ...g, [field]: field === 'target' || field === 'current' || field === 'monthly' ? parseFloat(val) || 0 : val } : g))
-    setDirty(true)
-  }
-  const addGoal = () => {
-    setGoals(gs => [...gs, { id: `g-${Date.now()}`, name: 'New Goal', target: 0, current: 0, monthly: 0, icon: '🎯' }])
-    setDirty(true)
-  }
-  const deleteGoal = (id) => { setGoals(gs => gs.filter(g => g.id !== id)); setDirty(true) }
-
-  const setEvent = (id, field, val) => {
-    setEvents(evs => evs.map(e => e.id === id ? { ...e, [field]: field === 'monthlyImpact' ? parseFloat(val) || 0 : val } : e))
-    setDirty(true)
-  }
-  const addEvent = () => {
-    setEvents(evs => [...evs, { id: `evt-${Date.now()}`, label: '', date: '', monthlyImpact: 0, icon: '📅' }])
-    setDirty(true)
-  }
-  const deleteEvent = (id) => { setEvents(evs => evs.filter(e => e.id !== id)); setDirty(true) }
-
-  const addPension = () => {
-    setPensions(ps => [...ps, { id: `p-${Date.now()}`, name: '', balance: 0, monthlyContribution: 0 }])
-    setDirty(true)
-  }
-  const deletePension = (id) => { setPensions(ps => ps.filter(p => p.id !== id)); setDirty(true) }
-  const setPension = (id, field, val) => {
-    setPensions(ps => ps.map(p => p.id === id
-      ? { ...p, [field]: field === 'name' ? val : parseFloat(val) || 0 }
-      : p
-    ))
-    setDirty(true)
-  }
-
-  const handleSave = () => {
-    save({ ...data, settings: { ...local, goals, futureEvents: events, pensions } })
-    setDirty(false)
-  }
-
-  const computedAge = ageFromDob(local.dob)
+export default function SettingsPanel() {
+  const { data } = useBudget()
+  const s = data?.settings || {}
+  const goals = s.goals || []
+  const events = s.futureEvents || []
+  const pensions = s.pensions || []
+  const age = ageFromDob(s.dob)
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <div className="flex items-center justify-between">
+      <div>
         <h2 className="text-lg font-bold text-slate-300">Settings & Financial Assumptions</h2>
-        <button onClick={handleSave} disabled={!dirty}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-neuro-600 hover:bg-neuro-500 text-white' : 'bg-nb-700 text-slate-500 cursor-default'}`}>
-          {saveStatus === 'saving' ? 'Saving…' : dirty ? 'Save Changes' : 'Saved ✓'}
-        </button>
+        <p className="text-xs text-slate-500 mt-0.5">Read-only — these values come from your Google Sheet.</p>
       </div>
 
       <Section title="Personal">
-        <Field label="Your name" value={local.name} onChange={v => set('name', v)} />
-        <div>
-          <Field label="Date of birth" value={local.dob} onChange={handleDobChange} type="date" />
-          {computedAge != null && (
-            <p className="text-xs text-slate-500 mt-0.5">Age: {computedAge}</p>
-          )}
-        </div>
-        <NumField label="Target retirement age" value={local.retirementAge} onChange={v => setN('retirementAge', v)} />
-        <NumField label="State pension age" value={local.statePensionAge} onChange={v => setN('statePensionAge', v)} />
-        <CurrencyField label="State pension (weekly)" value={local.statePensionWeekly} onChange={v => setN('statePensionWeekly', v)} />
+        <Item label="Name" value={text(s.name)} />
+        <Item label="Date of birth" value={date(s.dob)} />
+        {age != null && <Item label="Age" value={age} />}
+        <Item label="Target retirement age" value={text(s.retirementAge)} />
+        <Item label="State pension age" value={text(s.statePensionAge)} />
+        <Item label="State pension (weekly)" value={money(s.statePensionWeekly)} />
       </Section>
 
-      <Section title="Account Balances (update monthly)">
-        <CurrencyField label="ISA balance" value={local.isaBalance} onChange={v => setN('isaBalance', v)} note="Update each month after login" />
-        <CurrencyField label="ISA monthly contribution" value={local.isaMonthlyContribution} onChange={v => setN('isaMonthlyContribution', v)} />
-        <CurrencyField label="Buffer / emergency fund" value={local.bufferBalance} onChange={v => setN('bufferBalance', v)} />
+      <Section title="Account Balances">
+        <Item label="ISA balance" value={money(s.isaBalance)} />
+        <Item label="ISA monthly contribution" value={money(s.isaMonthlyContribution)} />
+        <Item label="Buffer / emergency fund" value={money(s.bufferBalance)} />
       </Section>
 
-      {/* Pensions */}
-      <div className="bg-nb-750 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-300">Pensions</h3>
-          <button onClick={addPension} className="text-xs text-neuro-400 hover:text-neuro-300 border border-nb-500 hover:border-nb-400 px-2 py-1 rounded-lg">+ Add pension</button>
-        </div>
-        <p className="text-xs text-slate-500 mb-3">Add each pension separately — name, current balance, and total monthly contribution including employer.</p>
-        <div className="space-y-3">
-          {pensions.map(p => (
-            <div key={p.id} className="flex flex-col sm:flex-row gap-2 p-3 bg-nb-800 rounded-lg border border-nb-600">
-              <input
-                value={p.name}
-                onChange={e => setPension(p.id, 'name', e.target.value)}
-                placeholder="e.g. Workplace Pension"
-                className="flex-1 min-w-0 bg-nb-700 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
-              />
-              <div className="flex gap-2 items-center">
-                <div className="relative w-32 flex-shrink-0">
-                  <span className="absolute left-2 top-2 text-slate-500 text-sm">£</span>
-                  <input
-                    type="number" min="0" step="1"
-                    value={p.balance || ''}
-                    onChange={e => setPension(p.id, 'balance', e.target.value)}
-                    placeholder="Balance"
-                    className="w-full bg-nb-700 border border-nb-600 rounded pl-6 pr-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
-                  />
-                </div>
-                <div className="relative w-28 flex-shrink-0">
-                  <span className="absolute left-2 top-2 text-slate-500 text-sm">£</span>
-                  <input
-                    type="number" min="0" step="1"
-                    value={p.monthlyContribution || ''}
-                    onChange={e => setPension(p.id, 'monthlyContribution', e.target.value)}
-                    placeholder="/month"
-                    className="w-full bg-nb-700 border border-nb-600 rounded pl-6 pr-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40"
-                  />
-                </div>
-                <button onClick={() => deletePension(p.id)} className="text-red-500 hover:text-red-400 text-lg leading-none flex-shrink-0 px-1">✕</button>
-              </div>
-            </div>
-          ))}
-          {pensions.length === 0 && <p className="text-xs text-slate-500">No pensions added yet.</p>}
-        </div>
-        <p className="text-xs text-slate-600 mt-3">Name · Current balance · Monthly contribution (incl. employer)</p>
-      </div>
+      <Section title="Pensions" empty={pensions.length === 0 ? 'No pensions.' : null}>
+        {pensions.map(p => (
+          <Item key={p.id} label={p.name || 'Pension'} value={`${money(p.balance)} · ${money(p.monthlyContribution)}/mo`} />
+        ))}
+      </Section>
 
       <Section title="Property & Mortgage">
-        <CurrencyField label="Property value" value={local.propertyValue} onChange={v => setN('propertyValue', v)} />
-        <CurrencyField label="Mortgage balance" value={local.mortgageBalance} onChange={v => setN('mortgageBalance', v)} />
-        <NumField label="Mortgage rate" value={local.mortgageRate} onChange={v => setN('mortgageRate', v)} suffix="%" />
-        <CurrencyField label="Monthly payment" value={local.mortgageMonthlyPayment} onChange={v => setN('mortgageMonthlyPayment', v)} />
-        <Field label="Fixed rate end date" value={local.mortgageEndDate} onChange={v => set('mortgageEndDate', v)} type="date" />
-        <NumField label="Rate after remortgage (estimate)" value={local.mortgageRateAfterRemortgage} onChange={v => setN('mortgageRateAfterRemortgage', v)} suffix="%" />
+        <Item label="Property value" value={money(s.propertyValue)} />
+        <Item label="Mortgage balance" value={money(s.mortgageBalance)} />
+        <Item label="Mortgage rate" value={pct(s.mortgageRate)} />
+        <Item label="Monthly payment" value={money(s.mortgageMonthlyPayment)} />
+        <Item label="Fixed rate end date" value={date(s.mortgageEndDate)} />
+        <Item label="Rate after remortgage (estimate)" value={pct(s.mortgageRateAfterRemortgage)} />
       </Section>
 
-      {/* Known Future Events */}
-      <div className="bg-nb-750 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-300">Known Future Events</h3>
-          <button onClick={addEvent} className="text-xs text-neuro-400 hover:text-neuro-300 border border-nb-500 hover:border-nb-400 px-2 py-1 rounded-lg">+ Add event</button>
-        </div>
-        <p className="text-xs text-slate-500 mb-3">Events affecting your monthly surplus — expense endings, pay rises, etc. Positive = money freed/gained.</p>
-        <div className="space-y-2">
-          {events.map(ev => (
-            <div key={ev.id} className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <input value={ev.icon} onChange={e => setEvent(ev.id, 'icon', e.target.value)}
-                  className="w-10 flex-shrink-0 bg-nb-800 border border-nb-600 rounded px-1 py-1.5 text-sm text-center text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" />
-                <input value={ev.label} onChange={e => setEvent(ev.id, 'label', e.target.value)}
-                  className="flex-1 min-w-0 bg-nb-800 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" placeholder="Event name" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="date" value={ev.date} onChange={e => setEvent(ev.id, 'date', e.target.value)}
-                  className="flex-1 sm:w-36 bg-nb-800 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" />
-                <div className="relative w-28 flex-shrink-0">
-                  <span className="absolute left-2 top-2 text-slate-500 text-sm">£</span>
-                  <input type="number" value={ev.monthlyImpact} onChange={e => setEvent(ev.id, 'monthlyImpact', e.target.value)}
-                    className="w-full bg-nb-800 border border-nb-600 rounded pl-6 pr-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" placeholder="/mo" />
-                </div>
-                <button onClick={() => deleteEvent(ev.id)} className="text-red-500 hover:text-red-400 text-lg leading-none flex-shrink-0">✕</button>
-              </div>
-            </div>
-          ))}
-          {events.length === 0 && <p className="text-xs text-slate-500">No events yet — add some above</p>}
-        </div>
-        <p className="text-xs text-slate-600 mt-3">Icon · Event name · Date it takes effect · Monthly impact (£/mo, positive = money freed)</p>
-      </div>
+      <Section title="Known Future Events" empty={events.length === 0 ? 'No events.' : null}>
+        {events.map(ev => (
+          <Item key={ev.id} label={`${ev.icon || '📅'} ${ev.label || 'Event'} · ${date(ev.date)}`}
+            value={`${ev.monthlyImpact > 0 ? '+' : ''}${money(ev.monthlyImpact)}/mo`} />
+        ))}
+      </Section>
 
       <Section title="Forecast Assumptions">
-        <NumField label="Savings rate target" value={local.savingsRateTarget ?? 10} onChange={v => setN('savingsRateTarget', v)} suffix="%" note="Used for gauge colour thresholds" />
-        <NumField label="Investment growth rate (real)" value={local.investmentGrowthRatePct} onChange={v => setN('investmentGrowthRatePct', v)} suffix="%" note="After inflation. Default 5% is standard." />
-        <NumField label="Property growth rate (annual)" value={local.propertyGrowthRatePct} onChange={v => setN('propertyGrowthRatePct', v)} suffix="%" />
-        <NumField label="Inflation assumption" value={local.inflationPct} onChange={v => setN('inflationPct', v)} suffix="%" />
+        <Item label="Savings rate target" value={pct(s.savingsRateTarget ?? 10)} />
+        <Item label="Investment growth rate (real)" value={pct(s.investmentGrowthRatePct)} />
+        <Item label="Property growth rate (annual)" value={pct(s.propertyGrowthRatePct)} />
+        <Item label="Inflation assumption" value={pct(s.inflationPct)} />
       </Section>
 
-      {/* Goals */}
-      <div className="bg-nb-750 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-300">Savings Goals</h3>
-          <button onClick={addGoal} className="text-xs text-neuro-400 hover:text-neuro-300 border border-nb-500 hover:border-nb-400 px-2 py-1 rounded-lg">+ Add goal</button>
-        </div>
-        <div className="space-y-2">
-          {goals.map(g => (
-            <div key={g.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-              <input value={g.icon} onChange={e => setGoal(g.id, 'icon', e.target.value)}
-                className="w-10 flex-shrink-0 bg-nb-800 border border-nb-600 rounded px-1 py-1.5 text-sm text-center text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" />
-              <input value={g.name} onChange={e => setGoal(g.id, 'name', e.target.value)}
-                className="flex-1 min-w-[8rem] bg-nb-800 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" placeholder="Goal name" />
-              <input type="number" value={g.target} onChange={e => setGoal(g.id, 'target', e.target.value)}
-                className="w-24 bg-nb-800 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" placeholder="Target £" />
-              <input type="number" value={g.current} onChange={e => setGoal(g.id, 'current', e.target.value)}
-                className="w-24 bg-nb-800 border border-nb-600 rounded px-2 py-1.5 text-sm text-slate-300 text-right focus:outline-none focus:border-neuro-500 focus:ring-1 focus:ring-neuro-500/40" placeholder="Current £" />
-              <button onClick={() => deleteGoal(g.id)} className="text-red-500 hover:text-red-400 text-lg leading-none flex-shrink-0">✕</button>
-            </div>
-          ))}
-          {goals.length === 0 && <p className="text-xs text-slate-500">No goals yet — add some above</p>}
-        </div>
-        <p className="text-xs text-slate-600 mt-3">Icon · Name · Target · Current balance · (monthly auto-pulled from budget)</p>
-      </div>
+      <Section title="Savings Goals" empty={goals.length === 0 ? 'No goals.' : null}>
+        {goals.map(g => (
+          <Item key={g.id} label={`${g.icon || '🎯'} ${g.name}`} value={`${money(g.current)} of ${money(g.target)}`} />
+        ))}
+      </Section>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        {onStartOnboarding && (
-          <button onClick={onStartOnboarding}
-            className="text-xs text-slate-500 hover:text-slate-300 border border-nb-600 px-4 py-2 rounded-lg hover:bg-nb-700 transition-colors">
-            ↩ Re-run setup wizard
-          </button>
-        )}
-        <button onClick={handleSave} disabled={!dirty}
-          className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${dirty ? 'bg-neuro-600 hover:bg-neuro-500 text-white' : 'bg-nb-700 text-slate-500 cursor-default'}`}>
-          {dirty ? 'Save All Settings' : 'All saved ✓'}
-        </button>
-      </div>
-
-      {/* Security section */}
-      {/* Data source section */}
-      <div className="border-t border-nb-700/40 pt-5">
+      <div className="border-t border-white/[0.06] pt-5">
         <h2 className="text-lg font-bold text-slate-300 mb-4">Where Your Data Lives</h2>
         <DataSourcePanel />
       </div>
 
-      <div className="border-t border-nb-700/40 pt-5">
+      <div className="border-t border-white/[0.06] pt-5">
         <h2 className="text-lg font-bold text-slate-300 mb-4">Account Security</h2>
         <AccountSettings />
       </div>

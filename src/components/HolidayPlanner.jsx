@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { useBudget } from '../context/BudgetContext'
-import TripModal from './TripModal'
 
 const fmt = (n) => `£${(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 0 })}`
 
@@ -15,7 +13,7 @@ function days(dep, ret) {
   return Math.round((new Date(ret) - new Date(dep)) / 86400000)
 }
 
-function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
+function TripCard({ trip, monthlyContrib }) {
   const total = trip.totalBudget || 0
   const actual = Object.values(trip.budget).reduce((s, b) => s + (b.actual || 0), 0)
   const progress = total > 0 ? Math.min(100, (actual / total) * 100) : 0
@@ -70,10 +68,6 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
               Book by {bookByDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' })} — {daysToBookBy} days
             </div>
           )}
-        </div>
-        <div className="flex gap-2">
-          <button onClick={onEdit} className="text-xs text-neuro-400 hover:text-neuro-300 px-2 py-1 rounded hover:bg-nb-700">Edit</button>
-          <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-nb-700">Delete</button>
         </div>
       </div>
 
@@ -160,89 +154,11 @@ function TripCard({ trip, monthlyContrib, onEdit, onDelete }) {
 }
 
 export default function HolidayPlanner() {
-  const { data, save, getHolidayContribution } = useBudget()
-  const [modal, setModal] = useState(null) // null | 'add' | trip (for edit)
-  const [copyFlash, setCopyFlash] = useState(false)
-  const [importError, setImportError] = useState(null)
-  const [importPreview, setImportPreview] = useState(null)
+  const { data, getHolidayContribution } = useBudget()
 
   const monthlyContrib = getHolidayContribution()
   const trips = data?.holidays?.trips || []
   const totalBudgeted = trips.reduce((s, t) => s + (t.totalBudget || 0), 0)
-
-  const saveTrips = (updatedTrips) => {
-    save({ ...data, holidays: { ...data.holidays, trips: updatedTrips } })
-  }
-
-  const addTrip = (trip) => {
-    saveTrips([...trips, { ...trip, id: `trip-${Date.now()}` }])
-    setModal(null)
-  }
-
-  const editTrip = (trip) => {
-    saveTrips(trips.map(t => t.id === trip.id ? trip : t))
-    setModal(null)
-  }
-
-  const deleteTrip = (id) => {
-    if (window.confirm('Delete this trip?')) saveTrips(trips.filter(t => t.id !== id))
-  }
-
-  // Export / Import (holidays-specific)
-  const copyForClaude = () => {
-    const text = `=== HOLIDAY PLANNER SNAPSHOT ===
-Generated: ${new Date().toLocaleString('en-GB')}
-
-Monthly contribution: £${monthlyContrib}/month (auto-pulled from budget)
-Total trips budgeted: £${totalBudgeted.toLocaleString('en-GB')}
-
-TRIPS:
-${trips.map(t => `
-• ${t.destination} (${t.status})
-  Dates: ${t.departureDate || '—'} → ${t.returnDate || '—'}
-  Budget: Flights £${t.budget.flights.budgeted} | Accommodation £${t.budget.accommodation.budgeted} | On-ground £${t.budget.onGround.budgeted} | Total £${t.totalBudget}
-  Notes: ${t.notes || '—'}
-`).join('')}
-
-════════════════════════════════════
-INSTRUCTIONS FOR CLAUDE
-════════════════════════════════════
-You are a travel and financial advisor. The holiday data is in the JSON below.
-Discuss changes to trips, budgets, and destinations.
-When done, output the complete updated holidays object inside a code block tagged: \`\`\`holidays-json
-Preserve existing trip IDs. New trips use id format "trip-<timestamp>".
-════════════════════════════════════
-
-\`\`\`holidays-json
-${JSON.stringify(data.holidays, null, 2)}
-\`\`\``
-    navigator.clipboard.writeText(text).then(() => {
-      setCopyFlash(true); setTimeout(() => setCopyFlash(false), 2500)
-    })
-  }
-
-  const handleFileChange = (e) => {
-    setImportError(null)
-    const file = e.target.files[0]; if (!file) return
-    e.target.value = ''
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result)
-        if (!parsed.trips || !Array.isArray(parsed.trips)) {
-          setImportError('Invalid file — expected a holidays object with a trips array')
-          return
-        }
-        setImportPreview(parsed)
-      } catch { setImportError("Couldn't parse file") }
-    }
-    reader.readAsText(file)
-  }
-
-  const confirmImport = () => {
-    save({ ...data, holidays: importPreview })
-    setImportPreview(null)
-  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
@@ -255,27 +171,12 @@ ${JSON.stringify(data.holidays, null, 2)}
             <span className="font-semibold text-slate-300"> £{totalBudgeted.toLocaleString('en-GB')} total budgeted across {trips.length} trip{trips.length !== 1 ? 's' : ''}</span>
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <label className="cursor-pointer px-3 py-2 rounded-lg text-xs font-medium bg-neuro-600 text-white hover:bg-neuro-500">
-            Import
-            <input type="file" accept=".json" className="hidden" onChange={handleFileChange} />
-          </label>
-          <button onClick={copyForClaude}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${copyFlash ? 'bg-nb-700 text-slate-300 border border-nb-500' : 'bg-nb-700 text-slate-300 hover:bg-nb-600 border border-nb-500'}`}>
-            {copyFlash ? 'Copied!' : 'Copy for Claude'}
-          </button>
-          <button onClick={() => setModal('add')}
-            className="px-3 py-2 rounded-lg text-xs font-medium bg-nb-700 text-slate-300 hover:bg-nb-600 border border-nb-500">
-            + Add Trip
-          </button>
-        </div>
       </div>
 
       {/* Trip cards */}
       {trips.length === 0 ? (
         <div className="bg-nb-750 rounded-xl p-12 text-center text-slate-500">
-          <p className="text-sm">No trips yet — add one to get started</p>
-          <button onClick={() => setModal('add')} className="mt-4 text-neuro-400 text-sm hover:underline">+ Add your first trip</button>
+          <p className="text-sm">No trips planned</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -284,36 +185,8 @@ ${JSON.stringify(data.holidays, null, 2)}
               key={trip.id}
               trip={trip}
               monthlyContrib={monthlyContrib}
-              onEdit={() => setModal(trip)}
-              onDelete={() => deleteTrip(trip.id)}
             />
           ))}
-        </div>
-      )}
-
-      {/* Modals */}
-      {modal === 'add' && <TripModal onSave={addTrip} onClose={() => setModal(null)} />}
-      {modal && modal !== 'add' && (
-        <TripModal initial={modal} onSave={editTrip} onClose={() => setModal(null)} />
-      )}
-
-      {importError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-900 border border-red-700 text-red-200 text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50">
-          <span>{importError}</span>
-          <button onClick={() => setImportError(null)} className="font-bold text-lg">&times;</button>
-        </div>
-      )}
-
-      {importPreview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-nb-750 rounded-xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold text-slate-300 mb-2">Import Holiday Data</h2>
-            <p className="text-sm text-slate-400 mb-4">This will replace your current trip list with <strong className="text-slate-300">{importPreview.trips?.length} trip(s)</strong>.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setImportPreview(null)} className="flex-1 border border-nb-600 text-slate-400 px-4 py-2 rounded-lg text-sm hover:bg-nb-700">Cancel</button>
-              <button onClick={confirmImport} className="flex-1 bg-neuro-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-neuro-500">Import</button>
-            </div>
-          </div>
         </div>
       )}
     </div>

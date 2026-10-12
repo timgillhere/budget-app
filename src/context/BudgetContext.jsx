@@ -6,7 +6,6 @@ const BudgetContext = createContext(null)
 export function BudgetProvider({ children, onLogout }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState('saved')
   const [error, setError] = useState(null)
 
   // Only 401 means "not signed in". A 403 means the account is signed in but has no sheet
@@ -34,30 +33,6 @@ export function BudgetProvider({ children, onLogout }) {
       }
     })()
     return () => controller.abort()
-  }, [])
-
-  const save = useCallback(async (updated) => {
-    setData(updated)
-    setSaveStatus('saving')
-    try {
-      const r = await fetch('/api/budget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(updated)
-      })
-      if (r.status === 401) { onLogout(); return }
-      if (!r.ok) {
-        const body = await r.json().catch(() => null)
-        if (body?.error) setError(body.error)
-        setSaveStatus('error')
-        return
-      }
-      setError(null)
-      setSaveStatus('saved')
-    } catch {
-      setSaveStatus('error')
-    }
   }, [])
 
   // One-time migration: add savingsType where only legacy isSavings boolean exists
@@ -136,7 +111,7 @@ export function BudgetProvider({ children, onLogout }) {
   }, [data])
 
   return (
-    <BudgetContext.Provider value={{ data, save, loading, error, saveStatus, getHolidayContribution }}>
+    <BudgetContext.Provider value={{ data, loading, error, getHolidayContribution }}>
       {children}
     </BudgetContext.Provider>
   )

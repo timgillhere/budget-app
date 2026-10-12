@@ -16,8 +16,9 @@ export default async function handler(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  // An unrecognised resource must never fall through to the budget document — a POST would
-  // overwrite the user's budget with whatever that other resource's payload happened to be.
+  // The app is read-only: only GET is served, and the sheet connection itself is read-only.
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
   const name = resource == null ? 'budget' : resource;
   if (!RESOURCES.has(name)) {
     return res.status(400).json({ error: `Unknown resource "${resource}".` });
@@ -30,23 +31,12 @@ export default async function handler(req, res) {
     const store = createStore(client);
 
     if (name === 'data-source') {
-      if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
       const { ok, problems } = await store.check();
       return res.status(200).json({ kind: 'google-sheet', ok, problems, spreadsheetId: client.id, url: sheetUrl(client.id) });
     }
 
-    if (req.method === 'GET') {
-      if (name === 'merchant-rules') return res.status(200).json(await store.getMerchantRules());
-      return res.status(200).json(await store.getBudget());
-    }
-
-    if (req.method === 'POST') {
-      if (name === 'merchant-rules') await store.saveMerchantRules(req.body);
-      else await store.saveBudget(req.body);
-      return res.status(200).json({ ok: true });
-    }
-
-    return res.status(405).json({ error: 'Method not allowed' });
+    if (name === 'merchant-rules') return res.status(200).json(await store.getMerchantRules());
+    return res.status(200).json(await store.getBudget());
   } catch (err) {
     console.error('[sheets]', err.message);
     return res.status(err.status || 500).json({ error: err.message });

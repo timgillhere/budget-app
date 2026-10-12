@@ -1,4 +1,4 @@
-// Browser → local Ollama categoriser. Transaction text only ever goes to localhost.
+// Local Ollama categoriser. Transaction text only ever goes to the Ollama URL (localhost by default).
 import { TRANSACTION_CATEGORIES } from '../data/transactionCategories.js'
 
 export const DEFAULT_OLLAMA_URL = 'http://localhost:11434'
@@ -25,7 +25,7 @@ export async function checkOllama({ url, model } = getOllamaConfig(), signal) {
     res = await fetch(`${url}/api/tags`, { signal })
   } catch (e) {
     if (e.name === 'AbortError') throw e
-    return { status: 'unreachable', message: 'Ollama isn’t reachable. Start it with `ollama serve`, and make sure OLLAMA_ORIGINS allows this site (re-run scripts/install.sh). Use Chrome or Firefox — Safari blocks calls to localhost.' }
+    return { status: 'unreachable', message: 'Ollama isn’t reachable. Start it with `ollama serve`.' }
   }
   if (!res.ok) return { status: 'unreachable', message: `Ollama answered with HTTP ${res.status}.` }
   const { models = [] } = await res.json().catch(() => ({}))

@@ -13,7 +13,6 @@ export function TransactionProvider({ children, onLogout }) {
   const [transactions, setTransactions] = useState(null) // null = not loaded yet
   const [meta, setMeta] = useState(null)                 // { importedAt, source } from the loaded month doc
   const [loading, setLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState('saved')
   const [error, setError] = useState(null)
   const [activeMonth, setActiveMonthState] = useState(currentYearMonth)
 
@@ -48,43 +47,12 @@ export function TransactionProvider({ children, onLogout }) {
     loadMonth(yearMonth)
   }, [loadMonth])
 
-  const saveTransactions = useCallback(async (yearMonth, txns) => {
-    setSaveStatus('saving')
-    try {
-      const payload = {
-        month: yearMonth,
-        importedAt: new Date().toISOString(),
-        transactions: txns,
-      }
-      const r = await fetch(`/api/transactions?month=${yearMonth}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      })
-      if (r.status === 401) { onLogout(); return }
-      if (!r.ok) {
-        const body = await r.json().catch(() => null)
-        if (body?.error) setError(body.error)
-        setSaveStatus('error')
-        return
-      }
-      setTransactions(txns)
-      setMeta({ importedAt: payload.importedAt, source: null })
-      setActiveMonthState(yearMonth)
-      setError(null)
-      setSaveStatus('saved')
-    } catch {
-      setSaveStatus('error')
-    }
-  }, [onLogout])
-
   useEffect(() => {
     loadMonth(activeMonth)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <TransactionContext.Provider value={{ transactions, meta, loading, error, saveStatus, activeMonth, setActiveMonth, saveTransactions }}>
+    <TransactionContext.Provider value={{ transactions, meta, loading, error, activeMonth, setActiveMonth }}>
       {children}
     </TransactionContext.Provider>
   )

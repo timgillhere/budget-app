@@ -1,5 +1,5 @@
 // Turns the positioned text items pdf.js extracts from a bank-statement PDF into transaction rows.
-// Pure and DOM-free so it can be unit-tested in Node (scripts/test-statement-import.mjs).
+// Pure (no DOM, no pdf.js) so it can be unit-tested in Node; scripts/import-statement.mjs feeds it the pdf.js items (scripts/test-statement-import.mjs).
 //
 // Layout it understands (the Starling-style statement): a header line with DATE / TYPE / TRANSACTION /
 // IN / OUT / END OF DAY ACCOUNT BALANCE, an OPENING BALANCE line, then one line per transaction whose
@@ -104,22 +104,4 @@ export function extractRows(items) {
   const closingBalance = [...rows].reverse().find(r => r.balance !== null)?.balance ?? null
   const months = [...new Set(rows.map(r => r.date.slice(0, 7)))].sort()
   return { rows, openingBalance, closingBalance, months, month: months[0] }
-}
-
-// Reads a PDF File in the browser and returns the positioned text items extractRows() wants.
-// pdf.js runs locally — the file is never uploaded anywhere.
-export async function readPdfItems(file) {
-  const pdfjs = await import('pdfjs-dist/build/pdf.mjs')
-  const worker = await import('pdfjs-dist/build/pdf.worker.mjs?url')
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
-  const items = []
-  for (let p = 1; p <= doc.numPages; p++) {
-    const content = await (await doc.getPage(p)).getTextContent()
-    for (const it of content.items) {
-      if (typeof it.str !== 'string') continue
-      items.push({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width, page: p })
-    }
-  }
-  return items
 }
