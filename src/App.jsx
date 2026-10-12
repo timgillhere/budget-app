@@ -23,7 +23,6 @@ import TransactionsPage from './components/TransactionsPage'
 import { TransactionProvider } from './context/TransactionContext'
 
 const fmt = (n) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const fmt0 = (n) => `£${Math.round(n).toLocaleString('en-GB')}`
 
 // ── Sidebar nav items ────────────────────────────────────────────────
 const NAV_TABS = [
@@ -113,18 +112,18 @@ function SidebarContents({ tab, setTab, isAdmin, firstName, logout, saveStatus, 
 function BudgetTab() {
   const { data } = useBudget()
   const totalIncome = data.income.items.reduce((s, i) => s + i.monthly, 0)
+  // Free Spend (the 'current' section) always leads.
+  const sections = [...data.sections].sort((a, b) => (b.id === 'current') - (a.id === 'current'))
 
   return (
     <main className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
       {/* Income */}
       <section className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600">
-          <div>
-            <div className="text-emerald-300 font-bold text-lg">Income</div>
-            <div className="text-emerald-400/70 text-xs">{fmt0(totalIncome * 12)}/yr</div>
-          </div>
-          <div className="text-emerald-300 font-bold text-xl tabular-nums">
-            {fmt(totalIncome)}<span className="text-emerald-400/70 text-sm font-medium">/mo</span>
+          <div className="text-emerald-300 font-bold text-lg">Income</div>
+          <div className="text-right">
+            <div className="text-emerald-300 font-bold text-lg tabular-nums">{fmt(totalIncome)}</div>
+            <div className="text-emerald-400/70 text-xs tabular-nums">{fmt(totalIncome * 12)}/yr</div>
           </div>
         </div>
         <ul className="divide-y divide-nb-600">
@@ -132,19 +131,19 @@ function BudgetTab() {
             <li key={item.id} className="flex items-start justify-between gap-4 px-4 sm:px-5 py-3.5">
               <div className="min-w-0 flex-1">
                 <div className="text-base font-semibold text-slate-100">{item.name}</div>
-                {item.notes && <div className="text-xs text-slate-500 mt-1 leading-relaxed">{item.notes}</div>}
+                {item.notes && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.notes}</div>}
               </div>
               <div className="text-right flex-shrink-0">
-                <div className="text-lg font-semibold text-emerald-400 tabular-nums">{fmt(item.monthly)}</div>
-                <div className="text-xs text-slate-500 tabular-nums">{fmt0(item.monthly * 12)}/yr</div>
+                <div className="text-base font-semibold text-slate-100 tabular-nums">{fmt(item.monthly)}</div>
+                <div className="text-xs text-slate-500 tabular-nums">{fmt(item.monthly * 12)}/yr</div>
               </div>
             </li>
           ))}
         </ul>
       </section>
 
-      {data.sections.map(section => (
-        <BudgetSection key={section.id} section={section} totalIncome={totalIncome} />
+      {sections.map(section => (
+        <BudgetSection key={section.id} section={section} />
       ))}
     </main>
   )
