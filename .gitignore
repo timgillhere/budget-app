@@ -25,3 +25,4 @@ budget.json
 .vercel
 .env*.local
 .claude/
+.env*
