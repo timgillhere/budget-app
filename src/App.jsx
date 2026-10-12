@@ -119,8 +119,8 @@ function BudgetTab() {
   return (
     <main className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
       {/* Income */}
-      <section className="bg-nb-750 rounded-xl border border-nb-600 overflow-hidden" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600">
+      <section className="bg-nb-750 rounded-xl border border-nb-600" style={{ boxShadow: '0 0 30px rgba(52,211,153,0.08)' }}>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 bg-emerald-900/40 border-b border-nb-600 rounded-t-xl">
           <div className="text-emerald-300 font-bold text-lg">Income</div>
           <div className="text-right">
             <div className="text-emerald-300 font-bold text-lg tabular-nums">{fmt(totalIncome)}</div>

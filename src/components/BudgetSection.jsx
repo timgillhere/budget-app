@@ -10,8 +10,14 @@ export const isCurrentAccount = (section) => section.id === 'current' || /curren
 // Yearly figure: calendar icon + amount, instead of a "/yr" suffix.
 export function Yearly({ monthly, className = 'text-slate-500' }) {
   return (
-    <div className={`flex items-center justify-end gap-1 text-xs tabular-nums ${className}`} title="Per year">
-      <CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
+    <div className={`flex items-center justify-end gap-1 text-xs tabular-nums ${className}`}>
+      <span className="relative group/tip inline-flex outline-none" tabIndex={0} aria-label="Yearly total: monthly amount × 12">
+        <CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
+        <span className="pointer-events-none absolute bottom-full right-0 mb-2 w-44 rounded-lg bg-nb-800 border border-nb-600 px-3 py-2 text-xs font-normal text-slate-200 leading-snug shadow-xl opacity-0 group-hover/tip:opacity-100 group-focus/tip:opacity-100 transition-opacity duration-150 z-50 text-left">
+          Yearly total
+          <span className="block text-slate-400">The monthly amount × 12</span>
+        </span>
+      </span>
       <span>{fmt(monthly * 12)}</span>
     </div>
   )
@@ -70,13 +76,13 @@ export default function BudgetSection({ section }) {
 
   return (
     <section
-      className="bg-nb-750 rounded-xl overflow-hidden"
+      className="bg-nb-750 rounded-xl"
       style={{ border: `1px solid ${section.color}40`, boxShadow: `0 0 30px ${section.color}18` }}
     >
       <button
         type="button"
         onClick={() => setCollapsed(c => !c)}
-        className="w-full text-left px-4 sm:px-5 py-3.5 flex items-center gap-3"
+        className="w-full text-left px-4 sm:px-5 py-3.5 flex items-center gap-3 rounded-t-xl"
         style={{ backgroundColor: section.color }}
       >
         <div className="min-w-0 flex-1">
