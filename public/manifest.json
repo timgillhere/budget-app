@@ -1,6 +1,6 @@
 {
-  "name": "Tim's Budget",
-  "short_name": "Budget",
+  "name": "Nudget",
+  "short_name": "Nudget",
   "description": "Personal budget tracker",
   "start_url": "/",
   "display": "standalone",

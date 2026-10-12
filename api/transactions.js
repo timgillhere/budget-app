@@ -4,6 +4,8 @@ import { createStore } from './_sheetStore.js';
 
 // One month of transactions, stored as rows in the sheet's Transactions tab (plus one Imports row).
 export default async function handler(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
   const user = await requireAuth(req, res);
   if (!user) return;
 
@@ -18,9 +20,7 @@ export default async function handler(req, res) {
     if (!client) return res.status(403).json({ error: 'This account has no data store.' });
     const store = createStore(client);
 
-    if (req.method === 'GET') return res.status(200).json(await store.getMonth(month));
-    if (req.method === 'POST') { await store.saveMonth(month, req.body); return res.status(200).json({ ok: true }); }
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(200).json(await store.getMonth(month));
   } catch (err) {
     console.error('[sheets]', err.message);
     return res.status(err.status || 500).json({ error: err.message });

@@ -78,15 +78,15 @@ export default function DataSourcePanel() {
       </div>
 
       <div className="bg-nb-750 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Editing the sheet by hand</h3>
+        <h3 className="text-sm font-semibold text-slate-300 mb-3">Editing the sheet</h3>
         <ul className="text-xs text-slate-400 space-y-2">
           <li>
             Columns are matched by <span className="text-slate-300">header name</span>, so you can reorder them or
-            add your own. Headers that hold a formula (Annual, Monthly total, Progress&hellip;) are never overwritten.
+            add your own. 
           </li>
           <li>
-            The app saves a <span className="text-slate-300">whole document at a time</span>, so after editing the
-            sheet by hand, reload the app before making changes here — otherwise your edit gets overwritten.
+            The app is <span className="text-slate-300">read-only</span> — it never writes to the sheet. Make changes
+            in the sheet and reload the app to see them.
           </li>
           <li>
             Anything the app doesn&rsquo;t recognise is preserved in each tab&rsquo;s{' '}
