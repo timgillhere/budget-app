@@ -80,7 +80,7 @@ export default function BudgetSection({ section }) {
         style={{ backgroundColor: section.color }}
       >
         <div className="min-w-0 flex-1">
-          <div className="text-white font-bold text-lg truncate">{sectionLabel(section)}</div>
+          <div className="text-white font-bold text-lg truncate">{section.name}</div>
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-white font-bold text-lg tabular-nums">{fmt(sectionTotal)}</div>
