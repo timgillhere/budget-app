@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, ReferenceLine } from 'recharts'
-import { calcBudgetSummary, getPensionTotals } from '../utils/budgetCalcs'
+import { getPensionTotals } from '../utils/budgetCalcs'
 
 const fmt = (n) => `£${Math.round(n || 0).toLocaleString('en-GB')}`
 const fmtK = (n) => n >= 1000 ? `£${(n/1000).toFixed(0)}k` : fmt(n)
@@ -17,8 +16,7 @@ function DarkTooltip({ active, payload, label }) {
 }
 
 export default function NetWorthDashboard() {
-  const { data, save } = useBudget()
-  const [snapFlash, setSnapFlash] = useState(false)
+  const { data } = useBudget()
   if (!data) return null
 
   const s = data.settings || {}
@@ -42,20 +40,9 @@ export default function NetWorthDashboard() {
 
   const snapshotChartData = snapshots.map(s => ({ ...s, date: s.date.slice(0, 7) }))
 
-  // Add snapshot
-  const addSnapshot = () => {
-    const today = new Date().toISOString().slice(0, 10)
-    const { surplus } = calcBudgetSummary(data)
-    const newSnap = { date: today, isa, pension: Math.round(pension), propertyEquity: equity, buffer, other: 0, total, surplus: Math.round(surplus) }
-    const existing = snapshots.filter(s => s.date.slice(0, 7) !== today.slice(0, 7))
-    save({ ...data, netWorth: { snapshots: [...existing, newSnap].sort((a, b) => a.date.localeCompare(b.date)) } })
-    setSnapFlash(true)
-    setTimeout(() => setSnapFlash(false), 3000)
-  }
-
   const tiles = [
     { label: 'Property Equity',  value: equity,  sub: `£${propVal.toLocaleString('en-GB')} value − £${mortgage.toLocaleString('en-GB')} mortgage`, colour: 'text-amber-400' },
-    { label: 'Vanguard ISA',     value: isa,     sub: `Update in Settings`, colour: 'text-emerald-400' },
+    { label: 'Vanguard ISA',     value: isa,     sub: 'From your Google Sheet', colour: 'text-emerald-400' },
     { label: pensions.length > 1 ? `Pensions (${pensions.length})` : 'Pension', value: pension, sub: `£${pensionMonthly.toLocaleString('en-GB')}/month contributions`, colour: 'text-cyan-400' },
     { label: 'Buffer',           value: buffer,  sub: `~${Math.round(buffer / ((data.sections.reduce((t, sec) => t + sec.groups.reduce((gs, g) => gs + g.items.reduce((is, i) => is + i.monthly, 0), 0), 0)) / 12 * 12))} months expenses`, colour: 'text-amber-400' },
   ]
@@ -68,11 +55,6 @@ export default function NetWorthDashboard() {
         <p className="text-sm text-slate-400 font-medium mb-1">Total Net Worth</p>
         <p className="text-5xl font-bold text-slate-300">{fmt(total)}</p>
         <p className="text-sm text-slate-500 mt-2">Age {s.currentAge || 38} · Target retirement at {s.retirementAge || 66}</p>
-        <button onClick={addSnapshot}
-          className={`mt-3 text-xs border px-3 py-1.5 rounded-lg transition-all ${snapFlash ? 'text-emerald-400 border-emerald-800/60' : 'text-neuro-400 hover:text-neuro-300 border border-nb-600 hover:border-nb-500'}`}>
-          {snapFlash ? '✓ Snapshot saved!' : 'Snapshot today\'s values'}
-        </button>
-        <p className="text-xs text-slate-500 mt-1.5">Saves ISA, pension, property equity & buffer from Settings — do this monthly to build the chart below</p>
       </div>
 
       {/* Tiles */}
@@ -106,10 +88,10 @@ export default function NetWorthDashboard() {
           <div className="mb-3">
             <h3 className="text-sm font-semibold text-slate-400">Net worth over time</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Total = ISA + Pension + (Property value − Mortgage) + Buffer · Balances are manually updated in Settings
+              Total = ISA + Pension + (Property value − Mortgage) + Buffer · Balances come from your Google Sheet
             </p>
             {snapshots.length < 2 && (
-              <p className="text-xs text-amber-400 mt-0.5">Take a snapshot monthly — the chart needs at least 2 data points to draw a line.</p>
+              <p className="text-xs text-amber-400 mt-0.5">The chart needs at least 2 snapshots in the sheet to draw a line.</p>
             )}
           </div>
           {snapshotChartData.length >= 2 ? (
@@ -168,7 +150,7 @@ export default function NetWorthDashboard() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500 text-center">Balances are manually maintained. Update them in Settings.</p>
+      <p className="text-xs text-slate-500 text-center">Balances come from your Google Sheet.</p>
     </div>
   )
 }

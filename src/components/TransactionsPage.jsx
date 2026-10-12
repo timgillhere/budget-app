@@ -1,11 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  ChevronLeftIcon, ChevronRightIcon, ArrowUpTrayIcon,
-  ClipboardDocumentIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
-  TrashIcon, PlusIcon,
+  ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 import { useTransactions } from '../context/TransactionContext'
 import {
@@ -16,8 +14,6 @@ import {
   CATEGORY_COLOURS,
   CATEGORY_TO_BUDGET_GROUP,
 } from '../data/transactionCategories'
-import { MERCHANT_RULES } from '../data/merchantRules'
-import { mergeTransactions } from '../utils/mergeTransactions'
 import { spentByCategory } from '../utils/budgetCalcs'
 
 // ── Formatting helpers ───────────────────────────────────────────────
@@ -59,228 +55,6 @@ function currentYearMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
-// ── Corrections (teach the AI via manual category fixes) ─────────────
-const CORRECTIONS_KEY = 'nb:corrections'
-
-function loadCorrections() {
-  try { return JSON.parse(localStorage.getItem(CORRECTIONS_KEY) || '[]') } catch { return [] }
-}
-
-function recordCorrection(description, from, to) {
-  const all = loadCorrections()
-  const idx = all.findIndex(c => c.description === description)
-  if (idx >= 0) { all[idx] = { description, from, to } } else { all.push({ description, from, to }) }
-  localStorage.setItem(CORRECTIONS_KEY, JSON.stringify(all))
-}
-
-// ── Merchant rules (custom, stored in the Google Sheet) ───────────────
-function useMerchantRules() {
-  const [rules, setRules] = useState([])
-  const [rulesLoading, setRulesLoading] = useState(true)
-  const [rulesSaving, setRulesSaving] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/budget?resource=merchant-rules')
-      .then(r => r.json())
-      .then(data => setRules(Array.isArray(data) ? data : []))
-      .catch(() => setRules([]))
-      .finally(() => setRulesLoading(false))
-  }, [])
-
-  async function saveRules(newRules) {
-    setRulesSaving(true)
-    try {
-      await fetch('/api/budget?resource=merchant-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRules),
-      })
-      setRules(newRules)
-    } finally {
-      setRulesSaving(false)
-    }
-  }
-
-  return { rules, rulesLoading, rulesSaving, saveRules }
-}
-
-// ── Merchant Rules Manager UI ─────────────────────────────────────────
-function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRules }) {
-  const [open, setOpen] = useState(false)
-  const [showSeeded, setShowSeeded] = useState(false)
-  const [pattern, setPattern] = useState('')
-  const [category, setCategory] = useState(TRANSACTION_CATEGORIES[0])
-
-  function exportForCli() {
-    const blob = new Blob([JSON.stringify(customRules, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'merchant-rules.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function addRule() {
-    const p = pattern.trim()
-    if (!p) return
-    onSaveRules([{ pattern: p, matchType: 'contains', category }, ...customRules])
-    setPattern('')
-  }
-
-  function deleteRule(idx) {
-    onSaveRules(customRules.filter((_, i) => i !== idx))
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-nb-800 rounded-xl border border-nb-600 text-slate-400 text-sm hover:text-slate-300 hover:bg-nb-750 transition-colors mb-4"
-      >
-        <span>
-          Teach the AI your categories
-          {!rulesLoading && (
-            <span className="ml-2 text-xs text-slate-500">
-              {customRules.length > 0 ? `${customRules.length} custom · ` : ''}{MERCHANT_RULES.length} pre-seeded
-            </span>
-          )}
-        </span>
-        <ChevronDownIcon className="w-4 h-4" />
-      </button>
-    )
-  }
-
-  return (
-    <div className="bg-nb-800 rounded-xl border border-nb-600 overflow-hidden mb-4"
-      style={{ boxShadow: '0 0 30px #22d3ee15' }}>
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #22d3eecc, transparent)' }} />
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-slate-200 font-semibold text-sm">Teach the AI your categories</h3>
-            <p className="text-slate-500 text-xs mt-0.5">
-              Map merchant names to categories so the AI always gets them right — no more guessing "AMZN MKTP" or "SQ *COFFEE".
-            </p>
-          </div>
-          <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
-            <ChevronUpIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Add rule form */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={pattern}
-            onChange={e => setPattern(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addRule()}
-            placeholder='Description contains… e.g. "MONZO FLEX REPAYMENT"'
-            className="flex-1 bg-nb-900 border border-nb-500 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-nb-400 min-w-0"
-          />
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="bg-nb-900 border border-nb-500 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-nb-400"
-          >
-            {TRANSACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <button
-            onClick={addRule}
-            disabled={!pattern.trim() || rulesSaving}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add
-          </button>
-        </div>
-
-        {/* Custom rules list */}
-        {customRules.length === 0 ? (
-          <p className="text-slate-600 text-xs mb-4 italic">No custom rules yet. Add one above.</p>
-        ) : (
-          <div className="mb-4 space-y-1">
-            {customRules.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 bg-nb-750 rounded-lg border border-nb-600">
-                <span className="flex-1 font-mono text-xs text-slate-300 truncate">"{r.pattern}"</span>
-                <span className="text-slate-500 text-xs">→</span>
-                <span className="text-xs text-slate-400 truncate max-w-36">{r.category}</span>
-                <button
-                  onClick={() => deleteRule(i)}
-                  className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors"
-                >
-                  <TrashIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pre-seeded rules toggle */}
-        <button
-          onClick={() => setShowSeeded(v => !v)}
-          className="text-slate-500 hover:text-slate-400 text-xs transition-colors mb-1"
-        >
-          {showSeeded ? '▾' : '▸'} {MERCHANT_RULES.length} pre-seeded rules (read-only)
-        </button>
-        {showSeeded && (
-          <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
-            {MERCHANT_RULES.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-60">
-                <span className="flex-1 font-mono text-xs text-slate-400 truncate">"{r.pattern}"</span>
-                <span className="text-slate-600 text-xs">→</span>
-                <span className="text-xs text-slate-500 truncate max-w-36">{r.category}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Footer actions */}
-        {customRules.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-nb-600">
-            <button
-              onClick={exportForCli}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2"
-            >
-              Export rules for CLI (merchant-rules.json)
-            </button>
-            <span className="text-slate-700 text-xs ml-1">— copy to ~/.config/nb-transactions/</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Note: transactions are categorized ONLY on-device (local Ollama via nb-transactions).
-// The former "copy prompt into Claude/ChatGPT" flow was removed so transaction data is
-// never sent to a third-party LLM. Import-JSON + manual entry remain as non-LLM paths.
-
-// ── Validate imported JSON ───────────────────────────────────────────
-function validateImport(json) {
-  if (!json || typeof json !== 'object') return 'Not a valid JSON object.'
-  if (typeof json.month !== 'string' || !/^\d{4}-\d{2}$/.test(json.month)) {
-    return 'Missing or invalid "month" field (expected YYYY-MM format).'
-  }
-  if (!Array.isArray(json.transactions)) return 'Missing "transactions" array.'
-  const required = ['id', 'date', 'description', 'amount', 'category', 'account']
-  for (let i = 0; i < json.transactions.length; i++) {
-    const t = json.transactions[i]
-    for (const k of required) {
-      if (t[k] === undefined) return `Transaction at index ${i} is missing required field "${k}".`
-    }
-    if (typeof t.amount !== 'number') return `Transaction at index ${i}: "amount" must be a number.`
-    if (!TRANSACTION_CATEGORIES.includes(t.category)) {
-      const suggestions = TRANSACTION_CATEGORIES.filter(c =>
-        c.toLowerCase().includes(t.category.toLowerCase().split(' ')[0])
-      )
-      const hint = suggestions.length ? ` Did you mean "${suggestions[0]}"?` : ' Check the canonical category list.'
-      return `Unknown category "${t.category}" at index ${i}.${hint}`
-    }
-  }
-  return null
-}
-
 // ── NeonCard ─────────────────────────────────────────────────────────
 function NeonCard({ accent = '#4f7ef7', children, className = '' }) {
   return (
@@ -303,425 +77,6 @@ function DarkTooltip({ active, payload }) {
       style={{ backgroundColor: '#0d1224', boxShadow: '0 0 20px rgba(0,0,0,0.8)' }}>
       <div className="text-slate-300 font-medium">{name}</div>
       <div className="text-white">{fmt(value)}</div>
-    </div>
-  )
-}
-
-// ── Import modal ─────────────────────────────────────────────────────
-function ImportModal({ activeMonth, onClose, onImport }) {
-  const [raw, setRaw] = useState('')
-  const [parsed, setParsed] = useState(null)
-  const [error, setError] = useState(null)
-  const [existingTxns, setExistingTxns] = useState(null) // null = not yet fetched
-  const [fetchingExisting, setFetchingExisting] = useState(false)
-
-  function handleChange(e) {
-    const val = e.target.value
-    setRaw(val)
-    setExistingTxns(null)
-    if (!val.trim()) { setParsed(null); setError(null); return }
-    try {
-      const json = JSON.parse(val.trim())
-      const err = validateImport(json)
-      if (err) { setParsed(null); setError(err); return }
-      setParsed(json)
-      setError(null)
-    } catch {
-      setParsed(null)
-      setError('Could not parse JSON — make sure you copy only the content inside the code fences.')
-    }
-  }
-
-  // Fetch existing transactions for the parsed month when a valid JSON is pasted
-  useEffect(() => {
-    if (!parsed) { setExistingTxns(null); return }
-    let cancelled = false
-    setFetchingExisting(true)
-    fetch(`/api/transactions?month=${parsed.month}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (cancelled) return
-        setExistingTxns(data?.transactions ?? [])
-      })
-      .catch(() => { if (!cancelled) setExistingTxns([]) })
-      .finally(() => { if (!cancelled) setFetchingExisting(false) })
-    return () => { cancelled = true }
-  }, [parsed])
-
-  const mergeResult = parsed && existingTxns !== null
-    ? mergeTransactions(parsed.transactions, existingTxns)
-    : null
-
-  const hasExisting = existingTxns !== null && existingTxns.length > 0
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="bg-nb-800 rounded-2xl border border-nb-600 w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]"
-        onClick={e => e.stopPropagation()}>
-        <div className="px-6 pt-6 pb-4 border-b border-nb-600 flex items-start justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-white font-semibold text-lg">Import transactions</h2>
-            <p className="text-slate-400 text-sm mt-0.5">{monthLabel(activeMonth)}</p>
-          </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors text-xl leading-none ml-4">✕</button>
-        </div>
-
-        <div className="px-6 py-5 flex-1 overflow-y-auto">
-          <p className="text-slate-400 text-sm mb-3">
-            Paste the contents of the JSON file that <code className="text-slate-300 bg-nb-700 px-1 rounded">nb-transactions</code> saved
-            to <code className="text-slate-300 bg-nb-700 px-1 rounded">~/Downloads/</code> (categorized on-device). Or if you run the
-            automatic sync, transactions appear here without any manual import.
-          </p>
-          <textarea
-            className="w-full h-48 bg-nb-900 border border-nb-500 rounded-lg px-3 py-2.5 text-slate-300 text-xs font-mono resize-none focus:outline-none focus:border-nb-400 placeholder:text-slate-600"
-            placeholder={'{\n  "month": "2026-04",\n  "transactions": [...]\n}'}
-            value={raw}
-            onChange={handleChange}
-            autoFocus
-          />
-
-          {error && (
-            <div className="mt-3 bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-3 text-red-300 text-sm">
-              {error}
-            </div>
-          )}
-
-          {parsed && !error && (
-            <div className="mt-3 bg-emerald-950/40 border border-emerald-700/50 rounded-lg px-4 py-3 text-emerald-300 text-sm">
-              {fetchingExisting ? (
-                <span className="text-slate-400">Checking existing data…</span>
-              ) : mergeResult && hasExisting ? (
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CheckIcon className="w-4 h-4 flex-shrink-0" />
-                    <strong>{monthLabel(parsed.month)}</strong> already has data — smart merge available.
-                  </div>
-                  <div className="text-xs text-emerald-400/80 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                    {mergeResult.stats.matched > 0 && (
-                      <span>{mergeResult.stats.matched} matched <span className="text-emerald-600">(categories preserved)</span></span>
-                    )}
-                    {mergeResult.stats.added > 0 && (
-                      <span>{mergeResult.stats.added} new</span>
-                    )}
-                    {mergeResult.stats.kept > 0 && (
-                      <span>{mergeResult.stats.kept} no longer in export <span className="text-emerald-600">(will be kept)</span></span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <CheckIcon className="w-4 h-4 flex-shrink-0" />
-                  Found <strong>{parsed.transactions.length}</strong> transactions for <strong>{monthLabel(parsed.month)}</strong>. Ready to import.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 pb-6 pt-2 flex gap-3 flex-shrink-0">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-nb-700 border border-nb-500 text-slate-300 text-sm font-medium hover:bg-nb-600 transition-colors">
-            Cancel
-          </button>
-          {parsed && !error && mergeResult && hasExisting ? (
-            <>
-              <button
-                onClick={() => onImport(parsed.month, parsed.transactions)}
-                className="py-2.5 px-4 rounded-lg bg-nb-700 border border-nb-500 text-slate-400 text-sm font-medium hover:bg-nb-600 hover:text-slate-300 transition-colors"
-              >
-                Replace all
-              </button>
-              <button
-                disabled={fetchingExisting}
-                onClick={() => onImport(parsed.month, mergeResult.merged)}
-                className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-white"
-                style={{ background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' }}
-              >
-                Smart import
-              </button>
-            </>
-          ) : (
-            <button
-              disabled={!parsed || !!error || fetchingExisting}
-              onClick={() => onImport(parsed.month, parsed.transactions)}
-              className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-nb-500 text-white hover:bg-nb-400"
-              style={parsed && !error ? { background: 'linear-gradient(135deg, #4f7ef7, #22d3ee)' } : {}}
-            >
-              {parsed ? `Import ${parsed.transactions.length} transactions` : 'Import'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/timgillhere/budget-app/main/scripts/install.sh | bash'
-
-// ── How to use guide ─────────────────────────────────────────────────
-function HowToGuide({ onImport, collapsed, onToggle }) {
-  const [installCopied, setInstallCopied] = useState(false)
-
-  function copyInstall() {
-    navigator.clipboard.writeText(INSTALL_CMD).then(() => {
-      setInstallCopied(true)
-      setTimeout(() => setInstallCopied(false), 2500)
-    })
-  }
-
-  if (collapsed) {
-    return (
-      <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3 bg-nb-800 rounded-xl border border-nb-600 text-slate-400 text-sm hover:text-slate-300 hover:bg-nb-750 transition-colors mb-6">
-        <span>How to import your transactions</span>
-        <ChevronDownIcon className="w-4 h-4" />
-      </button>
-    )
-  }
-
-  return (
-    <div className="bg-nb-800 rounded-xl border border-nb-600 overflow-hidden mb-6"
-      style={{ boxShadow: '0 0 40px #4f7ef722' }}>
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #4f7ef7cc, transparent)' }} />
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-slate-200 font-semibold text-sm">How to import your transactions</h3>
-          {onToggle && (
-            <button onClick={onToggle} className="text-slate-500 hover:text-slate-300 transition-colors">
-              <ChevronUpIcon className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* ── Local AI (only method — transactions are never sent to a third-party LLM) ── */}
-        <div className="space-y-5">
-
-            {/* Privacy callout */}
-            <div className="flex gap-3 px-4 py-3 rounded-lg" style={{ background: '#34d39912', border: '1px solid #34d39930' }}>
-              <span className="text-lg leading-none mt-0.5">🔒</span>
-              <div>
-                <div className="text-emerald-300 text-sm font-medium">Your transactions are categorized on your Mac — never sent to a third-party AI</div>
-                <div className="text-emerald-400/60 text-xs mt-0.5">A local AI model (Ollama) does the categorizing on-device. Your categorized data is then saved to your own private cloud storage, behind your login.</div>
-              </div>
-            </div>
-
-            {/* What it does */}
-            <div>
-              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">What gets installed</div>
-              <div className="space-y-2">
-                {[
-                  { name: 'Ollama', desc: 'Open source AI runtime — runs the language model locally on your Mac. Widely used and auditable.' },
-                  { name: 'qwen2.5:3b', desc: 'A ~2 GB language model by Alibaba, downloaded once and stored on your machine. Never calls home.' },
-                  { name: 'nb-transactions', desc: 'A small command-line script (from this repo) that reads your CSV, runs the AI, and outputs the import JSON.' },
-                ].map(item => (
-                  <div key={item.name} className="flex gap-2.5 text-xs">
-                    <span className="text-slate-500 mt-0.5">▸</span>
-                    <span><span className="text-slate-200 font-medium font-mono">{item.name}</span><span className="text-slate-500"> — {item.desc}</span></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Requirements */}
-            <div>
-              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">Requirements</div>
-              <div className="flex flex-wrap gap-2">
-                {['macOS (Apple Silicon recommended)', 'Homebrew', '~3 GB free disk space', 'Node.js (installed automatically)'].map(r => (
-                  <span key={r} className="px-2.5 py-1 rounded-full text-xs bg-nb-700 border border-nb-600 text-slate-400">{r}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Warnings */}
-            <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #fbbf2430' }}>
-              <div className="px-4 py-2" style={{ background: '#fbbf2410' }}>
-                <span className="text-amber-400 text-xs font-semibold uppercase tracking-wider">Before you run this</span>
-              </div>
-              <div className="px-4 py-3 space-y-2">
-                {[
-                  'This runs a shell script downloaded from the internet. You should review it before running — the source is linked below.',
-                  'Ollama installs as a background service that listens on localhost port 11434. It is not accessible from the internet.',
-                  'The AI model (qwen2.5:3b, ~2 GB) is downloaded from the Ollama model registry on first install. Subsequent runs are fully offline.',
-                  'The script modifies your ~/.zshrc to add ~/.local/bin to your PATH. This is a standard, reversible change.',
-                  'To uninstall: run `brew uninstall ollama`, delete ~/.local/bin/nb-transactions and ~/.config/nb-transactions.',
-                ].map((w, i) => (
-                  <div key={i} className="flex gap-2.5 text-xs">
-                    <span className="text-amber-500/60 flex-shrink-0 mt-0.5">!</span>
-                    <span className="text-slate-400">{w}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Install command */}
-            <div>
-              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">One-time setup — paste into Terminal</div>
-              <div className="flex gap-2 items-stretch">
-                <div className="flex-1 bg-nb-900 border border-nb-600 rounded-lg px-3 py-2.5 font-mono text-xs text-slate-300 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                  {INSTALL_CMD}
-                </div>
-                <button
-                  onClick={copyInstall}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all border ${installCopied ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-nb-700 border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white'}`}
-                >
-                  {installCopied ? <CheckIcon className="w-3.5 h-3.5" /> : <ClipboardDocumentIcon className="w-3.5 h-3.5" />}
-                  {installCopied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <a
-                href="https://github.com/timgillhere/budget-app/blob/main/scripts/install.sh"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors"
-              >
-                Review the script on GitHub before running →
-              </a>
-            </div>
-
-            {/* Monthly use */}
-            <div>
-              <div className="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2.5">Each month after setup</div>
-              <div className="space-y-3">
-                {[
-                  { n: '1', text: <>Start Ollama if it isn't already running: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">ollama serve</code></> },
-                  { n: '2', text: 'Export CSVs from each of your banks (Starling, Monzo, HSBC, Nationwide, Halifax, Barclays, Revolut).' },
-                  { n: '3', text: <>In Terminal, run with your first CSV: <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">nb-transactions ~/Downloads/bank1.csv Starling</code></> },
-                  { n: '4', text: <>When prompted, enter <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">y</code> to add more bank CSVs, or <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">n</code> when done. A combined <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">.json</code> is saved to <code className="text-slate-300 bg-nb-700 px-1.5 py-0.5 rounded font-mono">~/Downloads/</code> — import it below.</> },
-                ].map(step => (
-                  <div key={step.n} className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-nb-600 border border-nb-500 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 mt-0.5">{step.n}</div>
-                    <div className="text-slate-400 text-xs leading-relaxed pt-0.5">{step.text}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4">
-                <button
-                  onClick={onImport}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-nb-700 border border-nb-500 text-slate-300 hover:bg-nb-600 hover:text-white transition-colors"
-                >
-                  <ArrowUpTrayIcon className="w-4 h-4" />
-                  Import JSON
-                </button>
-              </div>
-            </div>
-
-          </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Review banner (transactions flagged by local AI) ─────────────────
-function ReviewBanner({ transactions, activeMonth, onSave }) {
-  const flagged = useMemo(() => transactions.filter(t => t.notes?.startsWith('needs-review:')), [transactions])
-  const [selections, setSelections] = useState(() => {
-    const m = {}
-    flagged.forEach(t => { m[t.id] = '' })
-    return m
-  })
-  const [saving, setSaving] = useState(false)
-
-  if (!flagged.length) return null
-
-  const allSelected = flagged.every(t => selections[t.id])
-
-  function set(id, cat) {
-    setSelections(prev => ({ ...prev, [id]: cat }))
-  }
-
-  async function saveOne(txn) {
-    const cat = selections[txn.id]
-    if (!cat) return
-    recordCorrection(txn.description, txn.category, cat)
-    const updated = transactions.map(t =>
-      t.id === txn.id
-        ? { ...t, category: cat, notes: '' }
-        : t
-    )
-    setSaving(true)
-    await onSave(activeMonth, updated)
-    setSaving(false)
-  }
-
-  async function saveAll() {
-    const updated = transactions.map(t => {
-      const cat = selections[t.id]
-      if (t.notes?.startsWith('needs-review:') && cat) {
-        recordCorrection(t.description, t.category, cat)
-        return { ...t, category: cat, notes: '' }
-      }
-      return t
-    })
-    setSaving(true)
-    await onSave(activeMonth, updated)
-    setSaving(false)
-  }
-
-  return (
-    <div className="rounded-xl overflow-hidden mb-6" style={{ border: '1px solid #fbbf2440', boxShadow: '0 0 40px #fbbf2412' }}>
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #fbbf24cc, transparent)' }} />
-      <div className="p-5" style={{ background: '#fbbf2408' }}>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-lg leading-none">⚠️</span>
-          <div className="flex-1">
-            <h3 className="text-amber-300 font-semibold text-sm">
-              {flagged.length} transaction{flagged.length > 1 ? 's' : ''} need a category
-            </h3>
-            <p className="text-amber-400/60 text-xs mt-0.5">The AI wasn't sure about these. Pick the right category for each one.</p>
-          </div>
-        </div>
-
-        <div className="space-y-2 mb-4">
-          {flagged.map(t => {
-            const suggestion = t.notes.replace('needs-review: ', '')
-            const selected = selections[t.id]
-            return (
-              <div key={t.id} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-nb-800/60 rounded-lg px-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="text-slate-300 text-sm truncate">{t.description}</div>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-slate-500 text-xs font-mono">{t.date.slice(5).replace('-', '/')}</span>
-                    <span className={`text-xs font-medium tabular-nums ${t.amount < 0 ? 'text-slate-400' : 'text-emerald-400'}`}>
-                      {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
-                    </span>
-                    <span className="text-amber-500/60 text-xs">AI suggested: {suggestion}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <select
-                    value={selected}
-                    onChange={e => set(t.id, e.target.value)}
-                    className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500/50 max-w-[180px]"
-                  >
-                    <option value="">Pick a category…</option>
-                    {TRANSACTION_CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => saveOne(t)}
-                    disabled={!selected || saving}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    style={{ background: selected ? '#fbbf2420' : undefined, border: '1px solid #fbbf2440', color: '#fbbf24' }}
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {flagged.length > 1 && (
-          <button
-            onClick={saveAll}
-            disabled={!allSelected || saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ background: 'linear-gradient(135deg, #fbbf2420, #f9731620)', border: '1px solid #fbbf2440', color: '#fbbf24' }}
-          >
-            <CheckIcon className="w-4 h-4" />
-            {saving ? 'Saving…' : `Save all ${flagged.length}`}
-          </button>
-        )}
-      </div>
     </div>
   )
 }
@@ -892,7 +247,7 @@ function ActualVsBudgeted({ transactions, budget }) {
 }
 
 // ── Transaction list ─────────────────────────────────────────────────
-function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
+function TransactionList({ transactions }) {
   // ── filter state ──────────────────────────────────────────────────
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -903,12 +258,6 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
   const [amountB, setAmountB] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [hideTransfers, setHideTransfers] = useState(true)
-
-  // ── selection / delete state ──────────────────────────────────────
-  const [pendingDelete, setPendingDelete] = useState(null)
-  const [selected, setSelected] = useState(new Set())
-  const [bulkCategory, setBulkCategory] = useState('')
-  const selectAllRef = useRef(null)
 
   const categories = useMemo(() => {
     const seen = new Set(transactions.map(t => t.category))
@@ -970,70 +319,14 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
     [filtered]
   )
 
-  // Clear selection when visible set changes significantly
-  const prevFilterKey = useRef('')
-  const filterKey = `${search}|${categoryFilter}|${accountFilter}|${direction}|${amountOp}|${amountA}|${amountB}|${hideTransfers}`
-  if (prevFilterKey.current !== filterKey) {
-    prevFilterKey.current = filterKey
-    if (selected.size > 0) setSelected(new Set())
-  }
-
-  // Keep select-all checkbox indeterminate state in sync
-  const allSelected = sorted.length > 0 && sorted.every(t => selected.has(t.id))
-  const someSelected = !allSelected && sorted.some(t => selected.has(t.id))
-  if (selectAllRef.current) {
-    selectAllRef.current.indeterminate = someSelected
-  }
-
-  function toggleRow(id) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(sorted.map(t => t.id)))
-    }
-  }
-
-  function handleDelete(id) {
-    if (pendingDelete === id) {
-      onDelete(id)
-      setPendingDelete(null)
-    } else {
-      setPendingDelete(id)
-    }
-  }
-
-  async function applyBulk() {
-    if (!bulkCategory || selected.size === 0) return
-    await onBulkUpdate([...selected], { category: bulkCategory })
-    setSelected(new Set())
-    setBulkCategory('')
-  }
-
   function CategorySelect({ t }) {
     const colour = CATEGORY_COLOURS[t.category] || '#94a3b8'
     return (
-      <select
-        value={t.category}
-        onChange={e => onUpdate(t.id, { category: e.target.value })}
-        className="rounded-full text-xs font-medium px-2 py-0.5 border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-white/20 appearance-none"
-        style={{ background: colour + '22', color: colour }}
-      >
-        {TRANSACTION_CATEGORIES.map(c => (
-          <option key={c} value={c} style={{ background: '#1e293b', color: '#e2e8f0' }}>{c}</option>
-        ))}
-      </select>
+      <span className="inline-block rounded-full text-xs font-medium px-2 py-0.5" style={{ background: colour + '22', color: colour }}>
+        {t.category}
+      </span>
     )
   }
-
-  const hasSelection = selected.size > 0
 
   return (
     <NeonCard accent="#22d3ee">
@@ -1202,174 +495,50 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
         </div>
       )}
 
-      {/* Bulk action bar */}
-      {hasSelection && (
-        <div className="flex items-center gap-3 mb-3 px-3 py-2.5 rounded-lg flex-wrap"
-          style={{ background: '#4f7ef712', border: '1px solid #4f7ef740' }}>
-          <span className="text-slate-300 text-xs font-medium flex-shrink-0">
-            {selected.size} selected
-          </span>
-          <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <select
-              value={bulkCategory}
-              onChange={e => setBulkCategory(e.target.value)}
-              className="bg-nb-700 border border-nb-500 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-nb-400 min-w-[180px]"
-            >
-              <option value="">Set category…</option>
-              {TRANSACTION_CATEGORIES.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <button
-              onClick={applyBulk}
-              disabled={!bulkCategory}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ background: bulkCategory ? 'linear-gradient(135deg, #4f7ef7, #22d3ee)' : undefined, color: 'white', border: bulkCategory ? 'none' : '1px solid #334155' }}
-            >
-              <CheckIcon className="w-3.5 h-3.5" />
-              Apply to {selected.size}
-            </button>
-          </div>
-          <button
-            onClick={() => setSelected(new Set())}
-            className="text-slate-500 hover:text-slate-300 text-xs transition-colors flex-shrink-0"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
       {/* Desktop table */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="text-slate-500 uppercase tracking-wide border-b border-nb-600">
-              <th className="pb-2 w-8 pr-2">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  className="rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500"
-                />
-              </th>
               <th className="pb-2 text-left font-medium w-24">Date</th>
               <th className="pb-2 text-left font-medium">Description</th>
               <th className="pb-2 text-left font-medium">Category</th>
               <th className="pb-2 text-right font-medium w-24">Amount</th>
-              <th className="pb-2 w-16"></th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(t => {
-              const isSelected = selected.has(t.id)
-              const delPending = pendingDelete === t.id
-              return (
-                <tr
-                  key={t.id}
-                  className={`border-b border-nb-700/40 transition-colors ${
-                    delPending ? 'bg-red-950/20' : isSelected ? 'bg-blue-950/20' : 'hover:bg-nb-700/20'
-                  }`}
-                >
-                  <td className="py-2 pr-2">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleRow(t.id)}
-                      className="rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500"
-                    />
-                  </td>
-                  <td className="py-2 text-slate-500 font-mono">{t.date.slice(5).replace('-', '/')}</td>
-                  <td className="py-2 text-slate-300 max-w-xs truncate pr-3">{t.description}</td>
-                  <td className="py-2 pr-3">
-                    <CategorySelect t={t} />
-                  </td>
-                  <td className={`py-2 text-right font-medium tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
-                    {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
-                  </td>
-                  <td className="py-2 text-right">
-                    {delPending ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          className="px-2 py-0.5 rounded text-xs font-medium bg-red-900/60 text-red-300 hover:bg-red-800/60 transition-colors"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => setPendingDelete(null)}
-                          className="px-2 py-0.5 rounded text-xs font-medium bg-nb-700 text-slate-400 hover:text-white transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        className="text-slate-600 hover:text-red-400 transition-colors p-1 rounded"
-                        title="Delete transaction"
-                      >
-                        <TrashIcon className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
+            {sorted.map(t => (
+              <tr key={t.id} className="border-b border-nb-700/40 hover:bg-nb-700/20 transition-colors">
+                <td className="py-2 text-slate-500 font-mono">{t.date.slice(5).replace('-', '/')}</td>
+                <td className="py-2 text-slate-300 max-w-xs truncate pr-3">{t.description}</td>
+                <td className="py-2 pr-3"><CategorySelect t={t} /></td>
+                <td className={`py-2 text-right font-medium tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
+                  {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="sm:hidden space-y-2">
-        {sorted.map(t => {
-          const isSelected = selected.has(t.id)
-          const delPending = pendingDelete === t.id
-          return (
-            <div
-              key={t.id}
-              className={`rounded-lg px-3 py-2.5 transition-colors ${
-                delPending ? 'bg-red-950/30' : isSelected ? 'bg-blue-950/20' : 'bg-nb-700/30'
-              }`}
-              style={isSelected ? { border: '1px solid #4f7ef740' } : {}}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleRow(t.id)}
-                  className="mt-1 rounded border-nb-500 bg-nb-700 cursor-pointer accent-blue-500 flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-slate-300 text-sm truncate">{t.description}</div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-slate-500 text-xs">{t.date.slice(5).replace('-', '/')}</span>
-                    <CategorySelect t={t} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className={`text-sm font-semibold tabular-nums ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
-                    {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
-                  </div>
-                  {delPending ? (
-                    <div className="flex gap-1">
-                      <button onClick={() => handleDelete(t.id)} className="text-xs px-2 py-0.5 rounded bg-red-900/60 text-red-300">Delete</button>
-                      <button onClick={() => setPendingDelete(null)} className="text-xs px-2 py-0.5 rounded bg-nb-700 text-slate-400">Cancel</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="text-slate-600 hover:text-red-400 transition-colors p-1"
-                      title="Delete transaction"
-                    >
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+        {sorted.map(t => (
+          <div key={t.id} className="rounded-lg px-3 py-2.5 bg-nb-700/30">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-slate-300 text-sm truncate">{t.description}</div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-slate-500 text-xs">{t.date.slice(5).replace('-', '/')}</span>
+                  <CategorySelect t={t} />
                 </div>
               </div>
+              <div className={`text-sm font-semibold tabular-nums flex-shrink-0 ${t.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}`}>
+                {t.amount < 0 ? '−' : '+'}£{Math.abs(t.amount).toFixed(2)}
+              </div>
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
 
       {sorted.length === 0 && (
@@ -1388,49 +557,9 @@ function TransactionList({ transactions, onUpdate, onBulkUpdate, onDelete }) {
 
 // ── Main page ────────────────────────────────────────────────────────
 export default function TransactionsPage({ budget }) {
-  const { transactions, meta, loading, error, saveStatus, activeMonth, setActiveMonth, saveTransactions } = useTransactions()
+  const { transactions, meta, loading, error, activeMonth, setActiveMonth } = useTransactions()
   const freshness = timeAgo(meta?.importedAt)
-  const { rules: merchantRules, rulesLoading, rulesSaving, saveRules } = useMerchantRules()
-  const [showImport, setShowImport] = useState(false)
-  const [guideCollapsed, setGuideCollapsed] = useState(false)
   const isCurrentMonth = activeMonth === currentYearMonth()
-
-  async function handleImport(month, txns) {
-    await saveTransactions(month, txns)
-    setShowImport(false)
-    setGuideCollapsed(true)
-  }
-
-  async function handleUpdateTransaction(id, patch) {
-    if (patch.category) {
-      const original = transactions.find(t => t.id === id)
-      if (original && original.category !== patch.category) {
-        recordCorrection(original.description, original.category, patch.category)
-      }
-    }
-    const updated = transactions.map(t => t.id === id ? { ...t, ...patch } : t)
-    await saveTransactions(activeMonth, updated)
-  }
-
-  async function handleDeleteTransaction(id) {
-    const updated = transactions.filter(t => t.id !== id)
-    await saveTransactions(activeMonth, updated)
-  }
-
-  async function handleBulkUpdateTransactions(ids, patch) {
-    const idSet = new Set(ids)
-    if (patch.category) {
-      ids.forEach(id => {
-        const original = transactions.find(t => t.id === id)
-        if (original && original.category !== patch.category) {
-          recordCorrection(original.description, original.category, patch.category)
-        }
-      })
-    }
-    const updated = transactions.map(t => idSet.has(t.id) ? { ...t, ...patch } : t)
-    await saveTransactions(activeMonth, updated)
-  }
-
   const hasData = transactions !== null && transactions.length > 0
 
   return (
@@ -1463,46 +592,14 @@ export default function TransactionsPage({ budget }) {
             <ChevronRightIcon className="w-4 h-4" />
           </button>
         </div>
-
-        <button
-          onClick={() => setShowImport(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-nb-800 border border-nb-500 text-slate-300 hover:bg-nb-700 hover:text-white transition-colors text-sm font-medium"
-        >
-          <ArrowUpTrayIcon className="w-4 h-4" />
-          <span className="hidden sm:inline">Import JSON</span>
-          <span className="sm:hidden">Import</span>
-        </button>
       </div>
-
-      {/* Guide card */}
-      <HowToGuide
-        onImport={() => setShowImport(true)}
-        collapsed={hasData && guideCollapsed}
-        onToggle={hasData ? () => setGuideCollapsed(v => !v) : null}
-      />
-
-      {/* Merchant rules manager */}
-      <MerchantRulesManager
-        customRules={merchantRules}
-        rulesLoading={rulesLoading}
-        rulesSaving={rulesSaving}
-        onSaveRules={saveRules}
-      />
 
       {/* Loading */}
       {loading && (
         <div className="text-center py-16 text-slate-500 text-sm">Loading...</div>
       )}
 
-      {/* Save status */}
-      {saveStatus === 'saving' && (
-        <div className="text-center text-slate-500 text-xs mb-4">Saving…</div>
-      )}
-      {saveStatus === 'error' && (
-        <div className="text-center text-red-400 text-xs mb-4">Failed to save. Please try again.</div>
-      )}
-
-      {/* Couldn't load — distinct from "this month is empty", which is what it used to look like */}
+      {/* Couldn't load — distinct from "this month is empty" */}
       {!loading && error && !hasData && (
         <div className="text-center py-16">
           <div className="text-4xl mb-4">⚠️</div>
@@ -1518,33 +615,17 @@ export default function TransactionsPage({ budget }) {
         <div className="text-center py-16">
           <div className="text-4xl mb-4">💳</div>
           <div className="text-slate-400 text-base font-medium mb-1">No transactions for {monthLabel(activeMonth)}</div>
-          <div className="text-slate-600 text-sm">Follow the steps above to import your bank data.</div>
         </div>
       )}
 
       {/* Data views */}
       {!loading && hasData && (
         <>
-          <ReviewBanner transactions={transactions} activeMonth={activeMonth} onSave={saveTransactions} />
           <SummaryTiles transactions={transactions} />
           <CategoryBreakdown transactions={transactions} />
           <ActualVsBudgeted transactions={transactions} budget={budget} />
-          <TransactionList
-            transactions={transactions}
-            onUpdate={handleUpdateTransaction}
-            onBulkUpdate={handleBulkUpdateTransactions}
-            onDelete={handleDeleteTransaction}
-          />
+          <TransactionList transactions={transactions} />
         </>
-      )}
-
-      {/* Modals */}
-      {showImport && (
-        <ImportModal
-          activeMonth={activeMonth}
-          onClose={() => setShowImport(false)}
-          onImport={handleImport}
-        />
       )}
     </div>
   )

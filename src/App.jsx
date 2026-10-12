@@ -17,7 +17,6 @@ import Insights from './components/Insights'
 import NetWorthDashboard from './components/NetWorthDashboard'
 import SettingsPanel from './components/SettingsPanel'
 import AdminPanel from './components/AdminPanel'
-import OnboardingModal from './components/OnboardingModal'
 import SavingsOverview from './components/SavingsOverview'
 import TransactionsPage from './components/TransactionsPage'
 import { TransactionProvider } from './context/TransactionContext'
@@ -37,7 +36,7 @@ const NAV_TABS = [
 ]
 
 // ── Sidebar contents ─────────────────────────────────────────────────
-function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) {
+function SidebarContents({ tab, setTab, isAdmin, logout, onClose }) {
   const now = new Date()
   const shortDate = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '').toUpperCase()
   const tabs = isAdmin ? [...NAV_TABS, { id: 'users', label: 'Users', Icon: UsersIcon }] : NAV_TABS
@@ -50,16 +49,9 @@ function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) 
         <span className="text-slate-200 font-bold text-lg">Nudget</span>
       </div>
 
-      {/* Date + save status */}
-      <div className="px-4 py-3 flex items-center justify-between gap-2 flex-shrink-0 border-b border-white/[0.06]">
+      {/* Date */}
+      <div className="px-4 py-3 flex-shrink-0 border-b border-white/[0.06]">
         <span className="text-xs font-bold text-slate-300 tracking-widest">{shortDate}</span>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
-          saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
-          saveStatus === 'saving' ? 'bg-amber-900/50 text-amber-400 border-amber-800/60' :
-                                    'bg-red-900/50 text-red-400 border-red-800/60'
-        }`}>
-          {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? '… Saving' : '! Error'}
-        </span>
       </div>
 
       {/* Nav */}
@@ -84,9 +76,7 @@ function SidebarContents({ tab, setTab, isAdmin, logout, saveStatus, onClose }) 
       <div className="px-3 py-3 border-t border-white/[0.06] flex-shrink-0">
         <button
           onClick={() => logout()}
-          disabled={saveStatus === 'saving'}
-          title={saveStatus === 'saving' ? 'Saving your data — please wait…' : undefined}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-200 hover:bg-nb-650 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-500"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-200 hover:bg-nb-650 transition-all"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
           <span>Logout</span>
@@ -141,15 +131,10 @@ function BudgetTab() {
 
 // ── Main app shell ───────────────────────────────────────────────────
 function AppShell({ isAdmin, logout, name }) {
-  const { data, loading, error, saveStatus } = useBudget()
+  const { data, loading, error } = useBudget()
   const [tab, setTab] = useState('budget')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(null)
   const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    if (data && showOnboarding === null) setShowOnboarding(!data?.settings?.onboardingComplete)
-  }, [data, showOnboarding])
 
   useEffect(() => {
     const onScroll = () => {
@@ -177,7 +162,7 @@ function AppShell({ isAdmin, logout, name }) {
 
   // The budget couldn't be read, but the session is fine. Everything below assumes `data` exists,
   // so this is a stop — and it says why, rather than showing an empty budget that looks like a
-  // brand-new account and quietly starts the onboarding wizard.
+  // brand-new account and quietly treats it as new.
   if (error && !data) return (
     <div className="flex items-center justify-center h-screen bg-nb-900 px-6">
       <div className="max-w-sm text-center">
@@ -215,7 +200,7 @@ function AppShell({ isAdmin, logout, name }) {
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-52 bg-nb-800 border-r border-white/[0.06] z-40 overflow-y-auto">
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          logout={logout} saveStatus={saveStatus}
+          logout={logout}
           onClose={() => {}}
         />
       </aside>
@@ -227,7 +212,7 @@ function AppShell({ isAdmin, logout, name }) {
       <aside className={`fixed inset-y-0 left-0 z-50 w-52 bg-nb-800 border-r border-white/[0.06] flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <SidebarContents
           tab={tab} setTab={handleTabChange} isAdmin={isAdmin}
-          logout={logout} saveStatus={saveStatus}
+          logout={logout}
           onClose={() => setSidebarOpen(false)}
         />
       </aside>
@@ -249,13 +234,6 @@ function AppShell({ isAdmin, logout, name }) {
             <span className="text-slate-300 font-bold text-sm truncate">
               Nudget
             </span>
-            <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${
-              saveStatus === 'saved'  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/60' :
-              saveStatus === 'saving' ? 'bg-amber-900/50 text-amber-400 border-amber-800/60' :
-                                        'bg-red-900/50 text-red-400 border-red-800/60'
-            }`}>
-              {saveStatus === 'saved' ? '✓' : saveStatus === 'saving' ? '…' : '!'}
-            </span>
           </header>
 
           {/* Summary bar — budget, charts, savings tabs */}
@@ -271,14 +249,9 @@ function AppShell({ isAdmin, logout, name }) {
         {tab === 'holidays' && <HolidayPlanner />}
         {tab === 'insights' && <Insights />}
         {tab === 'networth' && <NetWorthDashboard />}
-        {tab === 'settings' && <SettingsPanel onStartOnboarding={() => setShowOnboarding(true)} />}
+        {tab === 'settings' && <SettingsPanel />}
         {tab === 'users'    && isAdmin && <AdminPanel />}
       </div>
-
-      {showOnboarding && (
-        <OnboardingModal userName={name} onClose={() => setShowOnboarding(false)} />
-      )}
-
     </div>
   )
 }

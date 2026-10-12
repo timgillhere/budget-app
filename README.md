@@ -84,7 +84,7 @@ is no longer used by the app (only by the migration script).
 
 1. In the same Google Cloud project as your OAuth client: create a **service account**, enable the
    **Google Sheets API**, and download the service account's JSON key.
-2. Share the spreadsheet with the service account's `client_email` as **Editor**.
+2. Share the spreadsheet with the service account's `client_email` (**Viewer** is enough for the app — it only reads; the setup scripts under `scripts/` need **Editor**).
 3. Set `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` and `SHEETS_USER_ID` (above), locally in
    `.env.local` too.
 4. `node --env-file=.env.local scripts/sheet-sync.mjs init` — creates missing tabs and columns. Safe to

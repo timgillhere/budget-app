@@ -312,7 +312,7 @@ export default function SavingsOverview() {
             ))}
             {pensions.length === 0 && pensionContribution === 0 && (
               <div className="bg-nb-750 rounded-xl border border-nb-600 p-5 flex items-center justify-center">
-                <p className="text-xs text-slate-500 text-center">No pensions added yet.<br />Add them in Settings.</p>
+                <p className="text-xs text-slate-500 text-center">No pensions in your sheet yet.</p>
               </div>
             )}
           </div>

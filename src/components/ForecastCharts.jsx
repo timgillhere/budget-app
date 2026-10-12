@@ -336,7 +336,7 @@ export default function ForecastCharts() {
           confidence={conf}
           assumptions={[
             `Current: £${settings.isaBalance?.toLocaleString('en-GB')}`,
-            `Monthly contribution: £${settings.isaMonthlyContribution || 0} (update in Settings)`,
+            `Monthly contribution: £${settings.isaMonthlyContribution || 0} (from your sheet)`,
             `Growth: ${settings.investmentGrowthRatePct}% real annually`,
             conf.band ? 'Band = ±30% on growth rate' : null
           ].filter(Boolean)}

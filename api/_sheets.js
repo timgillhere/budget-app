@@ -4,6 +4,7 @@
 import crypto from 'crypto';
 
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const SCOPE_READONLY = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 export function parseCredentials(raw) {
@@ -30,19 +31,25 @@ function signAssertion(claims, privateKey) {
 }
 
 export class SheetsClient {
-  constructor({ spreadsheetId, credentials, fetchImpl }) {
+  // readOnly: the token is only granted the read-only scope, and every write method refuses to run.
+  constructor({ spreadsheetId, credentials, fetchImpl, readOnly = false }) {
     if (!spreadsheetId) throw new Error('GOOGLE_SHEET_ID is not set.');
     this.id = spreadsheetId;
     this.creds = credentials;
     this.fetch = fetchImpl || globalThis.fetch;
+    this.readOnly = readOnly;
     this._tok = null;
+  }
+
+  assertWritable() {
+    if (this.readOnly) throw Object.assign(new Error('This connection is read-only.'), { status: 403 });
   }
 
   async token() {
     const now = Math.floor(Date.now() / 1000);
     if (this._tok && this._tok.exp - 60 > now) return this._tok.value;
     const assertion = signAssertion(
-      { iss: this.creds.client_email, scope: SCOPE, aud: this.creds.token_uri || 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 },
+      { iss: this.creds.client_email, scope: this.readOnly ? SCOPE_READONLY : SCOPE, aud: this.creds.token_uri || 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 },
       this.creds.private_key
     );
     const r = await this.fetch(this.creds.token_uri || 'https://oauth2.googleapis.com/token', {
@@ -73,7 +80,7 @@ export class SheetsClient {
       const detail = j.error?.message || 'request failed';
       const e = new Error(
         r.status === 403
-          ? `This service account can't open the spreadsheet. Share it with ${this.creds.client_email} as Editor. (${detail})`
+          ? `This service account can't open the spreadsheet. Share it with ${this.creds.client_email} (Viewer is enough for the app). (${detail})`
           : r.status === 404
             ? `No spreadsheet with id ${this.id} — check GOOGLE_SHEET_ID. (${detail})`
             : `Sheets API ${r.status}: ${detail}`
@@ -91,10 +98,12 @@ export class SheetsClient {
     return (j.valueRanges || []).map(v => v.values || []);
   }
   async batchUpdate(data, input = 'RAW') {
+    this.assertWritable();
     if (!data.length) return;
     await this.req('POST', '/values:batchUpdate', { valueInputOption: input, data });
   }
   async batchClear(ranges) {
+    this.assertWritable();
     if (!ranges.length) return;
     await this.req('POST', '/values:batchClear', { ranges });
   }
@@ -105,6 +114,7 @@ export class SheetsClient {
     return (j.sheets || []).map(s => s.properties);
   }
   async structure(requests) {
+    this.assertWritable();
     if (!requests.length) return;
     await this.req('POST', ':batchUpdate', { requests });
   }
@@ -126,7 +136,8 @@ export function sheetForUser(user, env = process.env) {
 // Convenience for the API routes: the client for this user's sheet, or null if they don't have one.
 export function clientForUser(user, env = process.env) {
   const cfg = sheetForUser(user, env);
-  return cfg && new SheetsClient(cfg);
+  // The web app only ever reads: edits are made in the sheet itself.
+  return cfg && new SheetsClient({ ...cfg, readOnly: true });
 }
 
 export const sheetUrl = id => `https://docs.google.com/spreadsheets/d/${id}/edit`;
