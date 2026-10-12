@@ -3,7 +3,10 @@
 // then merge it into the sheet's Transactions tab. Nothing is sent to a hosted LLM.
 //   node --env-file=.env.local scripts/import-statement.mjs statement.pdf --account "Current account" [--dry-run] [--yes]
 // Options: --model <tag> (default qwen3:4b-instruct)   --ollama <url> (default http://localhost:11434)
-// Needs GOOGLE_SHEET_ID and GOOGLE_SERVICE_ACCOUNT_JSON (write access), and `ollama serve` running.
+// Needs GOOGLE_SHEET_ID and GOOGLE_SERVICE_ACCOUNT_JSON (write access), and Ollama running:
+//   1. In a separate terminal, run `ollama serve` and leave it open (skip if the Ollama app is already running).
+//   2. `ollama pull qwen3:4b-instruct` (first time only).
+//   3. In this terminal, run the command above — start with --dry-run to preview without writing.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
