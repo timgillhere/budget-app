@@ -156,12 +156,6 @@ export const TABS = {
       { h: 'Extra', extra: true, type: 'json' },
     ],
   },
-  'Sync status': {
-    cols: [
-      { h: 'Key', type: 'str', virtual: true },
-      { h: 'Value', type: 'str', virtual: true },
-    ],
-  },
   Transactions: {
     cols: [
       { h: 'Month', type: 'str', virtual: true },
@@ -531,24 +525,7 @@ export function rowToImport(r) {
   return rowToObj('Imports', r)
 }
 
-// ── Merchant rules / sync status ─────────────────────────────────────────────
+// ── Merchant rules ───────────────────────────────────────────────────────────
 export const rulesToRows = rules => rules.map(r => objToRow('Merchant rules', r))
 export const rowsToRules = rows => rows.filter(r => !rowIsEmpty('Merchant rules', r)).map(r => rowToObj('Merchant rules', r))
-export function syncStatusToRows(obj) {
-  if (obj === null || obj === undefined) return []
-  const enc = v => {
-    if (typeof v !== 'string') return JSON.stringify(v)
-    try { JSON.parse(v); return JSON.stringify(v) } catch { return v } // quote strings that would otherwise parse as JSON
-  }
-  return Object.entries(obj).map(([k, v]) => ({ Key: k, Value: enc(v) }))
-}
-export function rowsToSyncStatus(rows) {
-  const live = rows.filter(r => !isBlank(r.Key))
-  if (!live.length) return null
-  const o = {}
-  for (const r of live) {
-    const raw = r.Value
-    if (typeof raw === 'string') { try { o[r.Key] = JSON.parse(raw) } catch { o[r.Key] = raw } } else o[r.Key] = isBlank(raw) ? null : raw
-  }
-  return o
-}
+

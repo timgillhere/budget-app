@@ -1,6 +1,7 @@
-// Minimal Google Sheets REST client authenticated as a service account (no googleapis dependency —
-// uses the existing `jsonwebtoken` dep for the RS256 assertion). Only what the store needs.
-import jwt from 'jsonwebtoken';
+// Minimal Google Sheets REST client authenticated as a service account. No googleapis dependency,
+// and no JWT library either — the RS256 assertion is signed with node's crypto, same as _auth.js
+// and _google.js do. Only what the store needs.
+import crypto from 'crypto';
 
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -17,6 +18,17 @@ export function parseCredentials(raw) {
 
 export const quoteTab = name => `'${name.replace(/'/g, "''")}'`;
 
+// Signed service-account assertion (RFC 7523): base64url(header).base64url(claims).base64url(sig).
+const b64url = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
+
+function signAssertion(claims, privateKey) {
+  const body = `${b64url({ alg: 'RS256', typ: 'JWT' })}.${b64url(claims)}`;
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(body);
+  signer.end();
+  return `${body}.${signer.sign(privateKey).toString('base64url')}`;
+}
+
 export class SheetsClient {
   constructor({ spreadsheetId, credentials, fetchImpl }) {
     if (!spreadsheetId) throw new Error('GOOGLE_SHEET_ID is not set.');
@@ -29,10 +41,9 @@ export class SheetsClient {
   async token() {
     const now = Math.floor(Date.now() / 1000);
     if (this._tok && this._tok.exp - 60 > now) return this._tok.value;
-    const assertion = jwt.sign(
+    const assertion = signAssertion(
       { iss: this.creds.client_email, scope: SCOPE, aud: this.creds.token_uri || 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 },
-      this.creds.private_key,
-      { algorithm: 'RS256' }
+      this.creds.private_key
     );
     const r = await this.fetch(this.creds.token_uri || 'https://oauth2.googleapis.com/token', {
       method: 'POST',

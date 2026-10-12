@@ -172,16 +172,13 @@ await test('transactions: per-month replace, other months untouched, metadata ke
   await assert.rejects(store.saveMonth('2026-04', { transactions: 'nope' }), e => e.status === 400);
 });
 
-await test('merchant rules + sync status', async () => {
+await test('merchant rules', async () => {
   const sheet = fakeSheet(); const store = createStore(sheet);
-  assert.deepEqual(await store.getMerchantRules(), []); assert.equal(await store.getSyncStatus(), null);
+  assert.deepEqual(await store.getMerchantRules(), [], 'empty sheet reads as []');
   const rules = [{ pattern: 'TESCO', matchType: 'contains', category: 'Groceries' }, { pattern: 'X', matchType: 'startsWith', category: 'Other', note: 'n' }];
   await store.saveMerchantRules(rules); assert.deepEqual(await store.getMerchantRules(), rules);
   await store.saveMerchantRules(rules.slice(0, 1)); assert.deepEqual(await store.getMerchantRules(), rules.slice(0, 1));
   await assert.rejects(store.saveMerchantRules({}), e => e.status === 400);
-  const st = { updatedAt: '2026-10-01T00:00:00Z', error: null, starling: { ok: true, count: 12 }, label: '123' };
-  await store.saveSyncStatus(st); assert.deepEqual(await store.getSyncStatus(), st);
-  await store.saveSyncStatus(null); assert.equal(await store.getSyncStatus(), null);
 });
 
 await test('invalid budgets are rejected before touching the sheet', async () => {
@@ -308,8 +305,7 @@ await test('bulk month write (the migration path): many months in one read + one
 });
 
 await test('REST client: signs an RS256 assertion, caches the token, builds correct requests', async () => {
-  const { generateKeyPairSync } = await import('node:crypto');
-  const jwt = (await import('jsonwebtoken')).default;
+  const { generateKeyPairSync, createVerify } = await import('node:crypto');
   const { SheetsClient, parseCredentials, sheetForUser } = await import('../api/_sheets.js');
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
   const creds = parseCredentials(JSON.stringify({ client_email: 'svc@x.iam.gserviceaccount.com', private_key: privateKey.replace(/\n/g, '\\n') }));
@@ -317,8 +313,17 @@ await test('REST client: signs an RS256 assertion, caches the token, builds corr
   const fetchImpl = async (url, opts) => {
     seen.push({ url: String(url), opts });
     if (String(url).includes('oauth2')) {
-      const claims = jwt.verify(new URLSearchParams(opts.body).get('assertion'), publicKey, { algorithms: ['RS256'] });
+      const assertion = new URLSearchParams(opts.body).get('assertion');
+      const [head, payload, sig] = assertion.split('.');
+      const v = createVerify('RSA-SHA256');
+      v.update(`${head}.${payload}`);
+      v.end();
+      assert.ok(v.verify(publicKey, Buffer.from(sig, 'base64url')), 'assertion carries a valid RS256 signature');
+      assert.equal(JSON.parse(Buffer.from(head, 'base64url').toString('utf8')).alg, 'RS256');
+      const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
       assert.equal(claims.iss, 'svc@x.iam.gserviceaccount.com');
+      assert.equal(claims.scope, 'https://www.googleapis.com/auth/spreadsheets');
+      assert.ok(claims.exp > claims.iat, 'assertion expires after it is issued');
       return { ok: true, json: async () => ({ access_token: 'tok', expires_in: 3600 }) };
     }
     return { ok: true, status: 200, json: async () => ({ valueRanges: [{ values: [['a']] }, {}] }) };

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useBudget } from '../context/BudgetContext'
 import AccountSettings from './AccountSettings'
+import DataSourcePanel from './DataSourcePanel'
 
 // Derive age from ISO date string (YYYY-MM-DD)
 function ageFromDob(dob) {
@@ -352,6 +353,12 @@ export default function SettingsPanel({ onStartOnboarding }) {
       </div>
 
       {/* Security section */}
+      {/* Data source section */}
+      <div className="border-t border-nb-700/40 pt-5">
+        <h2 className="text-lg font-bold text-slate-300 mb-4">Where Your Data Lives</h2>
+        <DataSourcePanel />
+      </div>
+
       <div className="border-t border-nb-700/40 pt-5">
         <h2 className="text-lg font-bold text-slate-300 mb-4">Account Security</h2>
         <AccountSettings />

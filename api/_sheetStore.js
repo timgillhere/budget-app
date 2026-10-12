@@ -5,7 +5,7 @@ import {
   TABS, BUDGET_TABS, colLetter, headerCellValue,
   budgetToTables, tablesToBudget, isBudgetEmpty, validateBudget,
   txnsToRows, rowsToTxns, importToRow, rowToImport, monthOf,
-  rulesToRows, rowsToRules, syncStatusToRows, rowsToSyncStatus,
+  rulesToRows, rowsToRules,
 } from './_sheetSchema.js';
 import { quoteTab } from './_sheets.js';
 
@@ -102,16 +102,6 @@ export function createStore(client) {
       if (!Array.isArray(rules)) throw httpError(400, 'Request body must be an array of rules.');
       await writeTabs({ 'Merchant rules': rulesToRows(rules) });
     }, 'merchant rules'),
-
-    getSyncStatus: () => guard(async () => {
-      const { 'Sync status': t } = await readTabs(['Sync status']);
-      return rowsToSyncStatus(t.rows);
-    }, 'sync status'),
-
-    saveSyncStatus: (obj) => guard(async () => {
-      if (obj !== null && (typeof obj !== 'object' || Array.isArray(obj))) throw httpError(400, 'Sync status must be an object or null.');
-      await writeTabs({ 'Sync status': syncStatusToRows(obj) });
-    }, 'sync status'),
 
     getMonth: (month) => guard(async () => {
       const tabs = await readTabs(['Transactions', 'Imports']);

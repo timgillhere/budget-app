@@ -1,15 +1,14 @@
-import { list, put } from '@vercel/blob';
 import { requireAuth } from './_auth.js';
+import { clientForUser, sheetUrl } from './_sheets.js';
+import { createStore } from './_sheetStore.js';
 
-// Multiplexes several resources onto one function to stay within Vercel Hobby's 12-function limit:
-//   /api/budget                          → user's budget JSON
+// Multiplexes the data resources onto one function:
+//   /api/budget                          → user's budget document
 //   /api/budget?resource=merchant-rules  → user's custom merchant rules
-
-// Blob-backed resources: file name + the value returned when the blob is absent.
-const BLOB_RESOURCES = {
-  'merchant-rules': { file: 'merchant-rules.json', empty: [] },
-  budget:           { file: 'budget.json',         empty: null },
-};
+//   /api/budget?resource=data-source     → where the data lives + health (GET only)
+//
+// All of it lives in the user's Google Sheet. Postgres still holds users and sessions.
+const RESOURCES = new Set(['budget', 'merchant-rules', 'data-source']);
 
 export default async function handler(req, res) {
   const resource = req.query.resource;
@@ -17,50 +16,39 @@ export default async function handler(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  // An unrecognised resource must never fall through to the budget blob — a POST would
+  // An unrecognised resource must never fall through to the budget document — a POST would
   // overwrite the user's budget with whatever that other resource's payload happened to be.
-  const spec = resource == null ? BLOB_RESOURCES.budget : BLOB_RESOURCES[resource];
-  if (!spec) {
+  const name = resource == null ? 'budget' : resource;
+  if (!RESOURCES.has(name)) {
     return res.status(400).json({ error: `Unknown resource "${resource}".` });
   }
-  const blobKey = `users/${user.userId}/${spec.file}`;
 
-  if (req.method === 'GET') {
-    try {
-      const blobs = await list({ prefix: blobKey });
-      const blob = blobs.blobs.find(b => b.pathname === blobKey);
-      if (!blob) {
-        return res.status(200).json(spec.empty);
-      }
-      const response = await fetch(blob.url, {
-        headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-      });
-      const data = await response.json();
-      if (resource === 'merchant-rules') {
-        return res.status(200).json(Array.isArray(data) ? data : []);
-      }
-      return res.status(200).json(data);
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
+  try {
+    // Resolved per user, so a second account can never read or write the owner's sheet.
+    const client = clientForUser(user);
+    if (!client) return res.status(403).json({ error: 'This account has no data store.' });
+    const store = createStore(client);
+
+    if (name === 'data-source') {
+      if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+      const { ok, problems } = await store.check();
+      return res.status(200).json({ kind: 'google-sheet', ok, problems, spreadsheetId: client.id, url: sheetUrl(client.id) });
     }
-  }
 
-  if (req.method === 'POST') {
-    try {
-      if (resource === 'merchant-rules' && !Array.isArray(req.body)) {
-        return res.status(400).json({ error: 'Request body must be an array of rules.' });
-      }
-      await put(blobKey, JSON.stringify(req.body, null, 2), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      });
+    if (req.method === 'GET') {
+      if (name === 'merchant-rules') return res.status(200).json(await store.getMerchantRules());
+      return res.status(200).json(await store.getBudget());
+    }
+
+    if (req.method === 'POST') {
+      if (name === 'merchant-rules') await store.saveMerchantRules(req.body);
+      else await store.saveBudget(req.body);
       return res.status(200).json({ ok: true });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
     }
-  }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[sheets]', err.message);
+    return res.status(err.status || 500).json({ error: err.message });
+  }
 }

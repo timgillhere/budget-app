@@ -12,8 +12,11 @@
  *   --take-blob    overwrite the sheet's budget tabs from Blob
  *   --keep-sheet   leave the sheet's budget alone (transactions etc. still migrate)
  *
- * Transactions, merchant rules and sync status have no equivalent in the sheet yet, so they are
- * copied across without asking. Re-running is safe: each month replaces only its own rows.
+ * Transactions and merchant rules have no equivalent in the sheet yet, so they are copied across
+ * without asking. Re-running is safe: each month replaces only its own rows.
+ *
+ * sync-status.json is deliberately skipped: bank sync was removed from the app, so nothing produces
+ * or reads it any more.
  *
  * Needs BLOB_READ_WRITE_TOKEN, GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_JSON and (for the user id)
  * SHEETS_USER_ID, or pass --user=<id>.
@@ -173,14 +176,12 @@ if (!docs.length) say('  No transaction months in Blob.');
 else say(`  ${plural(docs.length, 'month')}, ${plural(docs.reduce((n, d) => n + d.transactions.length, 0), 'row')} total.`);
 say('');
 
-// ── 3. Merchant rules + sync status ─────────────────────────────────────────
+// ── 3. Merchant rules ───────────────────────────────────────────────────────
 say('── Other documents ──');
 const rulesBlob = index.get(`${prefix}merchant-rules.json`);
-const statusBlob = index.get(`${prefix}sync-status.json`);
 const rules = rulesBlob ? await readBlob(rulesBlob) : null;
-const status = statusBlob ? await readBlob(statusBlob) : null;
 say(rules ? `  merchant-rules.json → ${plural(Array.isArray(rules) ? rules.length : 0, 'rule')}` : '  No merchant-rules.json.');
-say(status ? `  sync-status.json → ${plural(Object.keys(status).length, 'key')}` : '  No sync-status.json.');
+if (index.has(`${prefix}sync-status.json`)) say('  sync-status.json → skipped (bank sync was removed from the app).');
 say('');
 
 // ── Write ───────────────────────────────────────────────────────────────────
@@ -211,6 +212,5 @@ if (docs.length) {
 }
 
 if (rules) { await store.saveMerchantRules(Array.isArray(rules) ? rules : []); say('✓ Merchant rules written.'); }
-if (status) { await store.saveSyncStatus(status); say('✓ Sync status written.'); }
 
 say('\nDone. Reload the app and check the Transactions page.');
