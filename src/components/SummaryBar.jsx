@@ -128,14 +128,14 @@ export default function SummaryBar({ budget, compact = false }) {
       )}
 
       {/* ── Desktop ── */}
-      <div className={`hidden sm:block bg-nb-800 border-t border-nb-600 px-6 transition-all duration-300 ${compact ? 'py-1.5' : 'py-3'}`}>
-        <div className="max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-7 gap-4">
-          <Tile label="Monthly Income" value={compact ? fmtK(totalIncome) : fmt(totalIncome)} valueClass="text-emerald-400 neon-green" compact={compact} tooltip={incomeTooltip} />
-          <Tile label="Total Expenses" value={compact ? fmtK(totalExpenses) : fmt(totalExpenses)} valueClass="text-slate-200 neon-white" compact={compact} tooltip={expensesTooltip} />
+      <div className="hidden sm:flex items-center h-[88px] bg-nb-800 border-b border-slate-600 px-6">
+        <div className="w-full max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-7 divide-x divide-slate-600">
+          <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-emerald-400 neon-green" compact={false} tooltip={incomeTooltip} />
+          <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-slate-200 neon-white" compact={false} tooltip={expensesTooltip} />
           <SurplusTile
             surplus={surplus}
             surplusColor={surplusColor}
-            compact={compact}
+            compact={false}
             tooltip={surplusTooltip}
             fmtK={fmtK}
             fmt={fmt}
@@ -143,32 +143,32 @@ export default function SummaryBar({ budget, compact = false }) {
           />
           <Tile
             label="Savings Rate"
-            value={`${savingsRate.toFixed(compact ? 0 : 1)}%`}
+            value={`${savingsRate.toFixed(1)}%`}
             valueClass={(savingsRate >= savingsRateTarget ? 'text-emerald-400 neon-green' : 'text-red-400 neon-red')}
-            compact={compact}
+            compact={false}
             tooltip={savingsRateTooltip}
           />
           <Tile
             label="Monthly Savings"
-            value={compact ? fmtK(monthlySavings) : fmt(monthlySavings)}
+            value={fmt(monthlySavings)}
             valueClass={savingsColor + (monthlySavings >= 500 ? ' neon-green' : monthlySavings >= 200 ? ' neon-amber' : ' neon-red')}
-            subtitle={compact ? undefined : 'incl. pension'}
-            compact={compact}
+            subtitle={'incl. pension'}
+            compact={false}
             tooltip={monthlySavingsTooltip}
           />
           <Tile
             label="Net Worth"
             value={fmtK(netWorth)}
             valueClass="text-cyan-400 neon-cyan"
-            compact={compact}
+            compact={false}
             tooltip={netWorthTooltip}
           />
           <Tile
             label="Buffer"
             value={bufferMonths === '—' ? '—' : `${bufferMonths}mo`}
             valueClass={bufferColor + (bufferMonthsNum >= 3 ? ' neon-green' : bufferMonthsNum >= 1 ? ' neon-amber' : ' neon-red')}
-            subtitle={compact ? undefined : `£${(s.bufferBalance||0).toLocaleString('en-GB')}`}
-            compact={compact}
+            subtitle={`£${(s.bufferBalance||0).toLocaleString('en-GB')}`}
+            compact={false}
             tooltip={bufferTooltip}
           />
         </div>
@@ -202,7 +202,7 @@ function SummaryTooltip({ lines }) {
 
 function Tile({ label, value, valueClass, subtitle, compact, tooltip }) {
   return (
-    <div className="text-center relative group/tip">
+    <div className="text-center relative group/tip px-2">
       <div className={`text-slate-500 uppercase tracking-wide font-medium transition-all duration-300 ${compact ? 'text-[9px]' : 'text-xs mb-1'}`}>{label}</div>
       <div className={`font-bold transition-all duration-300 ${compact ? 'text-sm' : 'text-lg'} ${valueClass}`}>{value}</div>
       {subtitle && <div className="text-xs text-slate-600 mt-0.5">{subtitle}</div>}
@@ -217,7 +217,7 @@ function SurplusTile({ surplus, surplusColor, compact, tooltip, fmtK, fmt, onCli
   return (
     <button
       onClick={onClick}
-      className="group/surp text-center relative group/tip w-full self-start focus:outline-none"
+      className="group/surp text-center relative group/tip w-full px-2 focus:outline-none"
     >
       <div className={`text-slate-500 uppercase tracking-wide font-medium transition-all duration-300 flex items-center justify-center gap-1 whitespace-nowrap ${compact ? 'text-[9px]' : 'text-xs mb-1'}`}>
         Monthly Surplus
