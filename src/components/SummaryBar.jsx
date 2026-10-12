@@ -129,7 +129,7 @@ export default function SummaryBar({ budget, compact = false }) {
 
       {/* ── Desktop ── */}
       <div className="hidden sm:flex items-center h-[88px] bg-nb-800 border-b border-white/[0.06] px-6">
-        <div className="w-full max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-7">
+        <div className="w-full max-w-5xl mx-auto grid grid-cols-7 gap-1">
           <Tile label="Monthly Income" value={fmt(totalIncome)} valueClass="text-emerald-400 neon-green" compact={false} tooltip={incomeTooltip} />
           <Tile label="Total Expenses" value={fmt(totalExpenses)} valueClass="text-slate-200 neon-white" compact={false} tooltip={expensesTooltip} />
           <SurplusTile
@@ -152,7 +152,6 @@ export default function SummaryBar({ budget, compact = false }) {
             label="Monthly Savings"
             value={fmt(monthlySavings)}
             valueClass={savingsColor + (monthlySavings >= 500 ? ' neon-green' : monthlySavings >= 200 ? ' neon-amber' : ' neon-red')}
-            subtitle={'incl. pension'}
             compact={false}
             tooltip={monthlySavingsTooltip}
           />
@@ -167,7 +166,6 @@ export default function SummaryBar({ budget, compact = false }) {
             label="Buffer"
             value={bufferMonths === '—' ? '—' : `${bufferMonths}mo`}
             valueClass={bufferColor + (bufferMonthsNum >= 3 ? ' neon-green' : bufferMonthsNum >= 1 ? ' neon-amber' : ' neon-red')}
-            subtitle={`£${(s.bufferBalance||0).toLocaleString('en-GB')}`}
             compact={false}
             tooltip={bufferTooltip}
           />
@@ -202,11 +200,10 @@ function SummaryTooltip({ lines }) {
 
 function Tile({ label, value, valueClass, subtitle, compact, tooltip }) {
   return (
-    <div className="text-center relative group/tip px-2">
-      <div className={`text-slate-500 uppercase tracking-wide font-medium transition-all duration-300 ${compact ? 'text-[9px]' : 'text-xs mb-1'}`}>{label}</div>
-      <div className={`font-bold transition-all duration-300 ${compact ? 'text-sm' : 'text-lg'} ${valueClass}`}>{value}</div>
-      {subtitle && <div className="text-xs text-slate-600 mt-0.5">{subtitle}</div>}
-      {tooltip && !compact && <SummaryTooltip lines={tooltip} />}
+    <div className="text-center relative group/tip px-1">
+      <div className="text-slate-500 uppercase tracking-wide font-medium whitespace-nowrap text-[10px] lg:text-xs mb-1">{label}</div>
+      <div className={`font-bold whitespace-nowrap text-base lg:text-lg ${valueClass}`}>{value}</div>
+            {tooltip && !compact && <SummaryTooltip lines={tooltip} />}
     </div>
   )
 }
@@ -217,9 +214,9 @@ function SurplusTile({ surplus, surplusColor, compact, tooltip, fmtK, fmt, onCli
   return (
     <button
       onClick={onClick}
-      className="group/surp text-center relative group/tip w-full px-2 focus:outline-none"
+      className="group/surp text-center relative group/tip w-full px-1 focus:outline-none"
     >
-      <div className={`text-slate-500 uppercase tracking-wide font-medium transition-all duration-300 flex items-center justify-center gap-1 whitespace-nowrap ${compact ? 'text-[9px]' : 'text-xs mb-1'}`}>
+      <div className="text-slate-500 uppercase tracking-wide font-medium flex items-center justify-center gap-1 whitespace-nowrap text-[10px] lg:text-xs mb-1">
         Monthly Surplus
         {!compact && (
           <svg className="w-2.5 h-2.5 opacity-30 group-hover/surp:opacity-70 transition-opacity flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -227,7 +224,7 @@ function SurplusTile({ surplus, surplusColor, compact, tooltip, fmtK, fmt, onCli
           </svg>
         )}
       </div>
-      <div className={`font-bold transition-all duration-300 group-hover/surp:opacity-80 ${compact ? 'text-sm' : 'text-lg'} ${valueClass}`}>{value}</div>
+      <div className={`font-bold whitespace-nowrap group-hover/surp:opacity-80 text-base lg:text-lg ${valueClass}`}>{value}</div>
       {tooltip && !compact && <SummaryTooltip lines={tooltip} />}
     </button>
   )
