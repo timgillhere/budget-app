@@ -48,6 +48,8 @@ fi
 OLLAMA_STARTED_BY_INSTALLER=false
 if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
   log "Starting Ollama service..."
+  # Let the web app (Statement PDF import) call Ollama from the browser. Only listed origins are allowed.
+  export OLLAMA_ORIGINS="${OLLAMA_ORIGINS:-https://budget-app-henna-seven.vercel.app,http://localhost:5173,http://localhost:5174}"
   ollama serve &>/dev/null &
   OLLAMA_STARTED_BY_INSTALLER=true
   log "Waiting for Ollama to be ready..."
@@ -63,10 +65,22 @@ if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
 fi
 ok "Ollama is running"
 
-# ── 5. Pull the AI model (qwen2.5:3b, ~2 GB — first time only) ──────────────
-# qwen2.5:3b follows instructions and strict-JSON output better than llama3.2:3b
-# at the same size/speed, which means fewer parse-failure retries.
-MODEL="qwen2.5:3b"
+# ── 4b. Browser access for the web app's Statement PDF import ────────────────
+# macOS: the Ollama menu-bar app reads OLLAMA_ORIGINS from launchd, not from your shell.
+if [[ "$(uname)" == "Darwin" ]]; then
+  OLLAMA_ORIGINS_VALUE="https://budget-app-henna-seven.vercel.app,http://localhost:5173,http://localhost:5174"
+  if [ "$(launchctl getenv OLLAMA_ORIGINS 2>/dev/null)" != "$OLLAMA_ORIGINS_VALUE" ]; then
+    launchctl setenv OLLAMA_ORIGINS "$OLLAMA_ORIGINS_VALUE"
+    warn "Allowed the budget web app to talk to Ollama. Quit and reopen Ollama (or run: brew services restart ollama) for this to take effect."
+  else
+    ok "Ollama already allows the budget web app"
+  fi
+fi
+
+# ── 5. Pull the AI model (qwen3:4b-instruct, ~2.5 GB — first time only) ──────
+# qwen3:4b-instruct (non-thinking) is stronger than qwen2.5:3b at schema-constrained JSON at a similar size.
+# The web app's Statement PDF import uses the same model (src/utils/ollamaClient.js).
+MODEL="qwen3:4b-instruct"
 if ollama list 2>/dev/null | grep -q "$MODEL"; then
   ok "Model $MODEL already installed — skipping download"
 else
@@ -98,16 +112,16 @@ mkdir -p "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
   cat > "$CONFIG_FILE" << 'CONFIGEOF'
 {
-  "model": "qwen2.5:3b",
+  "model": "qwen3:4b-instruct",
   "accounts": ["Starling", "Monzo"],
   "ollamaUrl": "http://localhost:11434"
 }
 CONFIGEOF
   log "Config created at $CONFIG_FILE"
-elif grep -q '"llama3.2:3b"' "$CONFIG_FILE"; then
-  # Migrate configs still on the old default so they don't reference an unpulled model.
-  sed -i.bak 's/"llama3.2:3b"/"qwen2.5:3b"/' "$CONFIG_FILE" && rm -f "$CONFIG_FILE.bak"
-  log "Updated model in $CONFIG_FILE: llama3.2:3b → qwen2.5:3b"
+elif grep -qE '"(llama3.2:3b|qwen2.5:3b)"' "$CONFIG_FILE"; then
+  # Migrate configs still on an old default so they use the model this script pulls.
+  sed -i.bak -E 's/"(llama3.2:3b|qwen2.5:3b)"/"qwen3:4b-instruct"/' "$CONFIG_FILE" && rm -f "$CONFIG_FILE.bak"
+  log "Updated model in $CONFIG_FILE → qwen3:4b-instruct"
 else
   log "Config already exists — keeping your settings"
 fi
@@ -545,7 +559,7 @@ async function callOllama(userMessage, config, chunkLabel, systemPrompt) {
   log('Sending ' + chunkLabel + ' to Ollama (this may take 30-60s)...')
 
   const payload = JSON.stringify({
-    model: config.model || 'qwen2.5:3b',
+    model: config.model || 'qwen3:4b-instruct',
     stream: false,
     // num_ctx 4096 is ample for a single CSV chunk and roughly halves the KV cache
     // vs 8192 — the biggest speed/memory win on a low-RAM MacBook Air.
@@ -567,7 +581,7 @@ async function callOllama(userMessage, config, chunkLabel, systemPrompt) {
   }
 
   if (res.status === 404 || (res.status !== 200 && res.body.includes('not found'))) {
-    die('Model "' + (config.model || 'qwen2.5:3b') + '" not found.\nRun: ollama pull ' + (config.model || 'qwen2.5:3b'))
+    die('Model "' + (config.model || 'qwen3:4b-instruct') + '" not found.\nRun: ollama pull ' + (config.model || 'qwen3:4b-instruct'))
   }
   if (res.status !== 200) die('Ollama returned HTTP ' + res.status + ': ' + res.body.slice(0, 200))
 

@@ -19,6 +19,9 @@ import {
 import { MERCHANT_RULES } from '../data/merchantRules'
 import { mergeTransactions } from '../utils/mergeTransactions'
 import { spentByCategory } from '../utils/budgetCalcs'
+import { readPdfItems, extractRows } from '../utils/statementParser'
+import { categoriseStatement, reconcile } from '../utils/statementImport'
+import { checkOllama, getOllamaConfig } from '../utils/ollamaClient'
 
 // ── Formatting helpers ───────────────────────────────────────────────
 const fmt = (n) => `£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -252,9 +255,9 @@ function MerchantRulesManager({ customRules, rulesLoading, rulesSaving, onSaveRu
   )
 }
 
-// Note: transactions are categorized ONLY on-device (local Ollama via nb-transactions).
-// The former "copy prompt into Claude/ChatGPT" flow was removed so transaction data is
-// never sent to a third-party LLM. Import-JSON + manual entry remain as non-LLM paths.
+// Note: transactions are categorized ONLY on-device (local Ollama — in the browser via the
+// Statement PDF import, or via the nb-transactions CLI). The former "copy prompt into
+// Claude/ChatGPT" flow was removed so transaction data is never sent to a third-party LLM.
 
 // ── Validate imported JSON ───────────────────────────────────────────
 function validateImport(json) {
@@ -307,8 +310,162 @@ function DarkTooltip({ active, payload }) {
   )
 }
 
+// ── Statement PDF pane (read in-browser, categorised by local Ollama) ─
+const OLLAMA_CHIP = {
+  checking: ['text-slate-400 border-nb-500', 'Checking Ollama…'],
+  ok: ['text-emerald-300 border-emerald-700/50', null],
+  unreachable: ['text-red-300 border-red-800/50', null],
+  'no-model': ['text-amber-300 border-amber-700/50', null],
+}
+
+function StatementPdfPane({ customRules, onParsed }) {
+  const [ollama, setOllama] = useState({ status: 'checking' })
+  const [account, setAccount] = useState(() => { try { return localStorage.getItem('nb:lastAccount') || 'Current account' } catch { return 'Current account' } })
+  const [stage, setStage] = useState('idle') // idle | reading | categorising | review
+  const [progress, setProgress] = useState([0, 0])
+  const [error, setError] = useState(null)
+  const [result, setResult] = useState(null) // { parsed, transactions, stats, rec }
+  const abortRef = useRef(null)
+  const fileRef = useRef(null)
+
+  function refreshOllama() {
+    setOllama({ status: 'checking' })
+    checkOllama().then(setOllama).catch(() => {})
+  }
+  useEffect(refreshOllama, [])
+
+  async function handleFile(file) {
+    if (!file) return
+    setError(null); setResult(null); onParsed(null)
+    try { localStorage.setItem('nb:lastAccount', account) } catch { /* ignore */ }
+    const ctl = new AbortController()
+    abortRef.current = ctl
+    try {
+      setStage('reading')
+      const parsed = extractRows(await readPdfItems(file))
+      if (parsed.months.length > 1) {
+        throw new Error(`This statement covers ${parsed.months.map(monthLabel).join(' and ')}. Upload one month at a time.`)
+      }
+      setStage('categorising')
+      setProgress([0, parsed.rows.length])
+      const { transactions, stats } = await categoriseStatement(parsed, {
+        account: account.trim() || 'Current account',
+        customRules,
+        corrections: loadCorrections(),
+        signal: ctl.signal,
+        onProgress: (done, total) => setProgress([done, total]),
+      })
+      const rec = reconcile(parsed.openingBalance, parsed.rows, parsed.closingBalance)
+      setResult({ parsed, transactions, stats, rec })
+      onParsed({ month: parsed.month, transactions })
+      setStage('review')
+    } catch (e) {
+      if (e.name !== 'AbortError') { setError(e.message || 'Something went wrong reading that PDF.'); if (e.code) refreshOllama() }
+      setStage('idle')
+    }
+  }
+
+  function changeCategory(id, category) {
+    const transactions = result.transactions.map(t => {
+      if (t.id !== id) return t
+      if (t.category !== category) recordCorrection(t.description, t.category, category)
+      return { ...t, category, notes: '' }
+    })
+    setResult({ ...result, transactions })
+    onParsed({ month: result.parsed.month, transactions })
+  }
+
+  const [chipClass, chipText] = OLLAMA_CHIP[ollama.status]
+  const busy = stage === 'reading' || stage === 'categorising'
+  const rows = result ? [...result.transactions].sort((a, b) => Number(b.notes.startsWith('needs-review:')) - Number(a.notes.startsWith('needs-review:'))) : []
+
+  return (
+    <div>
+      <p className="text-slate-400 text-sm mb-3">
+        Upload your bank statement PDF for the month. It is read <strong className="text-slate-300">inside this browser tab</strong> and
+        categorised by the AI model running on <strong className="text-slate-300">your own computer</strong> (Ollama). The PDF is never uploaded anywhere;
+        only the finished, categorised list is saved to your sheet when you confirm.
+      </p>
+
+      <div className={`flex items-center justify-between gap-3 border rounded-lg px-3 py-2 text-xs mb-3 ${chipClass}`}>
+        <span>{chipText || ollama.message}{ollama.status === 'ok' ? '' : ''}</span>
+        <button onClick={refreshOllama} className="underline text-slate-400 hover:text-slate-200 flex-shrink-0">Re-check</button>
+      </div>
+
+      <label className="block text-slate-400 text-xs mb-1">Account name</label>
+      <input
+        value={account} onChange={e => setAccount(e.target.value)} disabled={busy}
+        className="w-full mb-3 bg-nb-900 border border-nb-500 rounded-lg px-3 py-2 text-slate-300 text-sm focus:outline-none focus:border-nb-400"
+      />
+
+      <div
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); if (!busy) handleFile(e.dataTransfer.files?.[0]) }}
+        onClick={() => !busy && fileRef.current?.click()}
+        className={`border border-dashed border-nb-500 rounded-lg px-4 py-8 text-center text-sm ${busy ? 'text-slate-500' : 'text-slate-400 cursor-pointer hover:border-nb-400'}`}
+      >
+        {stage === 'reading' && 'Reading PDF…'}
+        {stage === 'categorising' && (
+          <div>
+            Categorising {progress[0]}/{progress[1]} on-device…
+            <button onClick={e => { e.stopPropagation(); abortRef.current?.abort() }} className="ml-3 underline text-slate-300">Cancel</button>
+          </div>
+        )}
+        {!busy && (result ? 'Drop another PDF to replace this one' : 'Drop the statement PDF here, or click to choose')}
+        <input ref={fileRef} type="file" accept="application/pdf" className="hidden"
+          onChange={e => { handleFile(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+
+      {error && (
+        <div className="mt-3 bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-3 text-red-300 text-sm">{error}</div>
+      )}
+
+      {result && (
+        <div className="mt-3">
+          {result.rec.ok === true && (
+            <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-lg px-4 py-2 text-emerald-300 text-xs mb-2">
+              Balances match: {fmt(result.parsed.openingBalance)} → {fmt(result.parsed.closingBalance)} across {result.transactions.length} transactions.
+            </div>
+          )}
+          {result.rec.ok === false && (
+            <div className="bg-amber-950/40 border border-amber-700/50 rounded-lg px-4 py-2 text-amber-300 text-xs mb-2">
+              {fmt(result.rec.diff)} unaccounted for{result.rec.diff < 0 ? ' (extra money out)' : ' (extra money in)'} — a row may be missing or misread
+              {result.rec.firstMismatch && <> (first noticed on {result.rec.firstMismatch.date.split('-').reverse().join('/')})</>}.
+            </div>
+          )}
+          {result.rec.ok === null && (
+            <div className="bg-nb-900 border border-nb-600 rounded-lg px-4 py-2 text-slate-400 text-xs mb-2">Couldn’t find opening/closing balances, so totals weren’t checked.</div>
+          )}
+          <p className="text-slate-500 text-xs mb-2">
+            {result.stats.byCorrection + result.stats.byRule} matched by your rules and past corrections, {result.stats.byModel} by the local model
+            {result.stats.flagged > 0 && <> · <span className="text-amber-400">{result.stats.flagged} to double-check</span> (shown first)</>}.
+            Changing a category teaches future imports.
+          </p>
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-nb-600 divide-y divide-nb-700">
+            {rows.map(t => {
+              const flagged = t.notes.startsWith('needs-review:')
+              return (
+                <div key={t.id} className={`flex items-center gap-2 px-3 py-1.5 text-xs ${flagged ? 'bg-amber-950/20' : ''}`}>
+                  <span className="text-slate-500 font-mono w-10 flex-shrink-0">{t.date.slice(8)}/{t.date.slice(5, 7)}</span>
+                  <span className="text-slate-300 flex-1 min-w-0 truncate" title={t.description}>{t.description}</span>
+                  <span className={`tabular-nums w-20 text-right flex-shrink-0 ${t.amount < 0 ? 'text-slate-400' : 'text-emerald-400'}`}>{fmtSigned(t.amount)}</span>
+                  <select value={t.category} onChange={e => changeCategory(t.id, e.target.value)}
+                    className="bg-nb-700 border border-nb-500 text-slate-300 rounded px-1.5 py-1 max-w-[170px] flex-shrink-0">
+                    {TRANSACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Import modal ─────────────────────────────────────────────────────
-function ImportModal({ activeMonth, onClose, onImport }) {
+function ImportModal({ activeMonth, customRules, onClose, onImport }) {
+  const [mode, setMode] = useState('pdf') // 'pdf' | 'json'
   const [raw, setRaw] = useState('')
   const [parsed, setParsed] = useState(null)
   const [error, setError] = useState(null)
@@ -367,6 +524,16 @@ function ImportModal({ activeMonth, onClose, onImport }) {
         </div>
 
         <div className="px-6 py-5 flex-1 overflow-y-auto">
+          <div className="flex gap-2 mb-4 text-sm">
+            {[['pdf', 'Statement PDF'], ['json', 'Paste JSON (CLI)']].map(([k, label]) => (
+              <button key={k} onClick={() => { setMode(k); setParsed(null); setError(null); setRaw('') }}
+                className={`px-3 py-1.5 rounded-lg border ${mode === k ? 'bg-nb-600 border-nb-400 text-white' : 'bg-nb-700 border-nb-500 text-slate-400 hover:text-slate-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === 'pdf' && <StatementPdfPane customRules={customRules} onParsed={p => { setExistingTxns(null); setParsed(p) }} />}
+          {mode === 'json' && <>
           <p className="text-slate-400 text-sm mb-3">
             Paste the contents of the JSON file that <code className="text-slate-300 bg-nb-700 px-1 rounded">nb-transactions</code> saved
             to <code className="text-slate-300 bg-nb-700 px-1 rounded">~/Downloads/</code> (categorized on-device). Or if you run the
@@ -379,8 +546,9 @@ function ImportModal({ activeMonth, onClose, onImport }) {
             onChange={handleChange}
             autoFocus
           />
+          </>}
 
-          {error && (
+          {mode === 'json' && error && (
             <div className="mt-3 bg-red-950/40 border border-red-800/50 rounded-lg px-4 py-3 text-red-300 text-sm">
               {error}
             </div>
@@ -499,7 +667,7 @@ function HowToGuide({ onImport, collapsed, onToggle }) {
               <span className="text-lg leading-none mt-0.5">🔒</span>
               <div>
                 <div className="text-emerald-300 text-sm font-medium">Your transactions are categorized on your Mac — never sent to a third-party AI</div>
-                <div className="text-emerald-400/60 text-xs mt-0.5">A local AI model (Ollama) does the categorizing on-device. Your categorized data is then saved to your own private cloud storage, behind your login.</div>
+                <div className="text-emerald-400/60 text-xs mt-0.5">A local AI model (Ollama) does the categorizing on-device — either from the Import → Statement PDF upload (the PDF is read in this browser tab and sent only to Ollama on localhost; use Chrome or Firefox) or via the command-line tool. Your categorized data is then saved to your own private cloud storage, behind your login.</div>
               </div>
             </div>
 
@@ -509,7 +677,7 @@ function HowToGuide({ onImport, collapsed, onToggle }) {
               <div className="space-y-2">
                 {[
                   { name: 'Ollama', desc: 'Open source AI runtime — runs the language model locally on your Mac. Widely used and auditable.' },
-                  { name: 'qwen2.5:3b', desc: 'A ~2 GB language model by Alibaba, downloaded once and stored on your machine. Never calls home.' },
+                  { name: 'qwen3:4b-instruct', desc: 'A ~2.5 GB language model by Alibaba, downloaded once and stored on your machine. Never calls home.' },
                   { name: 'nb-transactions', desc: 'A small command-line script (from this repo) that reads your CSV, runs the AI, and outputs the import JSON.' },
                 ].map(item => (
                   <div key={item.name} className="flex gap-2.5 text-xs">
@@ -539,7 +707,7 @@ function HowToGuide({ onImport, collapsed, onToggle }) {
                 {[
                   'This runs a shell script downloaded from the internet. You should review it before running — the source is linked below.',
                   'Ollama installs as a background service that listens on localhost port 11434. It is not accessible from the internet.',
-                  'The AI model (qwen2.5:3b, ~2 GB) is downloaded from the Ollama model registry on first install. Subsequent runs are fully offline.',
+                  'The AI model (qwen3:4b-instruct, ~2.5 GB) is downloaded from the Ollama model registry on first install. Subsequent runs are fully offline.',
                   'The script modifies your ~/.zshrc to add ~/.local/bin to your PATH. This is a standard, reversible change.',
                   'To uninstall: run `brew uninstall ollama`, delete ~/.local/bin/nb-transactions and ~/.config/nb-transactions.',
                 ].map((w, i) => (
@@ -1542,6 +1710,7 @@ export default function TransactionsPage({ budget }) {
       {showImport && (
         <ImportModal
           activeMonth={activeMonth}
+          customRules={merchantRules}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
         />
