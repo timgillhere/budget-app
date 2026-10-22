@@ -9,7 +9,8 @@
     "test:sheets": "node scripts/test-sheet-store.mjs",
     "sheet": "node scripts/sheet-sync.mjs",
     "test:import": "node scripts/test-statement-import.mjs",
-    "import-statement": "node --env-file=.env.local scripts/import-statement.mjs"
+    "import-statement": "node --env-file=.env.local scripts/import-statement.mjs",
+    "import-summary": "node --env-file=.env.local scripts/import-summary.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
